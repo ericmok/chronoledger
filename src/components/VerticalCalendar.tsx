@@ -268,7 +268,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                   virtualRow.index === 0 && !weekBlock.containsToday ? 'border-t' : ''
                 } ${
                   weekBlock.containsToday
-                    ? 'border-l-[4px] border-l-[#D23B38] -ml-[3px] border-r-[2px] border-r-[#D23B38]/50 shadow-xs'
+                    ? 'border-l-[4px] border-l-[#D23B38] -ml-[3px]'
                     : ''
                 }`}
               >

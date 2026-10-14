@@ -459,22 +459,19 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
             return (
               <div
                 key={rIdx}
-                className={`grid grid-cols-7 relative transition-colors ${
-                  isCurrentWeekRow ? 'z-20' : ''
-                }`}
+                className="grid grid-cols-7 relative transition-colors"
                 style={{ height: `${CELL_SIZE}px` }}
               >
-                {/* Colored thick borders framing top and bottom of current week of the month */}
+                {/* Solid color rectangle highlighting the current week (no extra box borders / noise) */}
                 {isCurrentWeekRow && (
-                  <>
-                    {/* Top colored thick border */}
-                    <div className="absolute inset-x-0 top-0 h-[3px] bg-[#D23B38] pointer-events-none z-30 shadow-xs" />
-                    {/* Bottom colored thick border */}
-                    <div className="absolute inset-x-0 bottom-0 h-[3px] bg-[#D23B38] pointer-events-none z-30 shadow-xs" />
-                    {/* Left & Right border caps */}
-                    <div className="absolute left-0 inset-y-0 w-[2.5px] bg-[#D23B38] pointer-events-none z-30" />
-                    <div className="absolute right-0 inset-y-0 w-[2.5px] bg-[#D23B38] pointer-events-none z-30" />
-                  </>
+                  <div
+                    className="absolute inset-0 bg-[#FCE7D2] pointer-events-none"
+                    style={{
+                      width: `${7 * CELL_SIZE}px`,
+                      height: `${CELL_SIZE}px`,
+                    }}
+                    title="Current Week"
+                  />
                 )}
 
                 {week.map((cell) => {
@@ -485,10 +482,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                       key={cell.dateKey}
                       onClick={() => onSelectDate(cell.dateKey)}
                       className={`relative w-[34px] h-[34px] flex flex-col items-center justify-center text-[11px] font-mono transition-transform hover:z-10 group ${
-                        cell.isToday
+                        isCurrentWeekRow
+                          ? 'bg-transparent'
+                          : cell.isToday
                           ? 'bg-[#FAF3EA]'
-                          : isCurrentWeekRow
-                          ? 'bg-[#FDF0E2]/90'
                           : isEvenMonth
                           ? 'bg-[#FAF8F5]'
                           : 'bg-[#F2ECE1]/65'
