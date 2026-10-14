@@ -505,7 +505,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                                 e.preventDefault();
                                 e.stopPropagation();
                                 const trimmed = editingWeekNoteText.trim();
-                                if (trimmed && onUpdateWeekNote) {
+                                if (onUpdateWeekNote) {
                                   onUpdateWeekNote(wn.id, trimmed);
                                 }
                                 setEditingWeekNoteId(null);
@@ -549,7 +549,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                             onDoubleClick={(e) => {
                               e.stopPropagation();
                               setEditingWeekNoteId(wn.id);
-                              setEditingWeekNoteText(wn.content);
+                              setEditingWeekNoteText(wn.content || wn.originalContent || '');
                             }}
                             className={`group/wnote relative flex items-start gap-1.5 p-1.5 rounded-md text-xs transition-colors cursor-pointer ${
                               wn.isStruck ? 'text-[#8E8F95]' : 'text-[#2B2C30] bg-[#FAF8F5] hover:bg-white shadow-2xs'
@@ -574,7 +574,9 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                             <div className="flex-1 min-w-0">
                               <span className="break-words leading-tight">
                                 {wn.isStruck ? (
-                                  <span className="line-through text-[#8E8F95]">{wn.content}</span>
+                                  <span className="line-through text-[#8E8F95]">
+                                    {wn.content || wn.originalContent || '(empty note)'}
+                                  </span>
                                 ) : hasEdits ? (
                                   <span>
                                     {diffChunks.map((chunk, cIdx) => {
@@ -604,13 +606,24 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                                     })}
                                   </span>
                                 ) : (
-                                  wn.content
+                                  wn.content || '(empty note)'
                                 )}
                               </span>
 
                               {hasEdits && !wn.isStruck && (
-                                <span className="ml-1.5 text-[8px] font-mono text-[#1E7B48] bg-[#E8F5E9] px-1 py-0.2 rounded border border-[#C8E6C9]">
-                                  edited
+                                <span
+                                  className={`ml-1.5 text-[8px] font-mono px-1 py-0.2 rounded border ${
+                                    wn.content === ''
+                                      ? 'text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]'
+                                      : 'text-[#1E7B48] bg-[#E8F5E9] border-[#C8E6C9]'
+                                  }`}
+                                  title={
+                                    wn.content === ''
+                                      ? 'All text deleted (crossed out)'
+                                      : `Original: "${wn.originalContent}"`
+                                  }
+                                >
+                                  {wn.content === '' ? 'deleted' : 'edited'}
                                 </span>
                               )}
 

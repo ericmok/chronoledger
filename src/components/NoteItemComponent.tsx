@@ -36,7 +36,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setEditText(note.content);
+    setEditText(note.content || note.originalContent || '');
     setIsEditing(true);
   };
 
@@ -44,7 +44,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
     e.preventDefault();
     e.stopPropagation();
     const trimmed = editText.trim();
-    if (trimmed && onUpdateNote) {
+    if (onUpdateNote) {
       onUpdateNote(note.id, trimmed);
     }
     setIsEditing(false);
@@ -135,7 +135,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
           {note.isStruck ? (
             // Full note strike overrides inner diffs with graphite pencil strike
             <span className="line-through decoration-[#A19D94] decoration-2">
-              {note.content}
+              {note.content || note.originalContent || '(empty note)'}
             </span>
           ) : hasEdits ? (
             // Render word-level diff: deleted words struck in red ink, added words in green ink
@@ -171,7 +171,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
               })}
             </span>
           ) : (
-            <span>{note.content}</span>
+            <span>{note.content || '(empty note)'}</span>
           )}
 
           {/* Struck Badge */}
@@ -181,13 +181,21 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
             </span>
           )}
 
-          {/* Edited Badge */}
+          {/* Edited / Deleted Badge */}
           {hasEdits && !note.isStruck && (
             <span
-              className="ml-2 text-[9px] font-mono uppercase tracking-wider text-[#1E7B48] bg-[#E8F5E9] px-1 py-0.2 rounded border border-[#C8E6C9]"
-              title={`Original: "${note.originalContent}"`}
+              className={`ml-2 text-[9px] font-mono uppercase tracking-wider px-1 py-0.2 rounded border ${
+                note.content === ''
+                  ? 'text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]'
+                  : 'text-[#1E7B48] bg-[#E8F5E9] border-[#C8E6C9]'
+              }`}
+              title={
+                note.content === ''
+                  ? 'All text deleted (crossed out)'
+                  : `Original: "${note.originalContent}"`
+              }
             >
-              edited
+              {note.content === '' ? 'deleted' : 'edited'}
             </span>
           )}
         </div>

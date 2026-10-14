@@ -386,7 +386,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                             e.preventDefault();
                             e.stopPropagation();
                             const trimmed = editingMonthNoteText.trim();
-                            if (trimmed && onUpdateMonthNote) {
+                            if (onUpdateMonthNote) {
                               onUpdateMonthNote(mn.id, trimmed);
                             }
                             setEditingMonthNoteId(null);
@@ -430,7 +430,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           setEditingMonthNoteId(mn.id);
-                          setEditingMonthNoteText(mn.content);
+                          setEditingMonthNoteText(mn.content || mn.originalContent || '');
                         }}
                         className={`group/mnote relative flex items-start gap-1.5 p-1 rounded text-xs transition-colors cursor-pointer ${
                           mn.isStruck ? 'text-[#8E8F95]' : 'text-[#2B2C30] bg-[#FAF8F5]/80 hover:bg-white shadow-2xs'
@@ -456,7 +456,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                         <div className="flex-1 min-w-0">
                           <span className="break-words leading-tight">
                             {mn.isStruck ? (
-                              <span className="line-through text-[#8E8F95]">{mn.content}</span>
+                              <span className="line-through text-[#8E8F95]">
+                                {mn.content || mn.originalContent || '(empty note)'}
+                              </span>
                             ) : hasEdits ? (
                               <span>
                                 {diffChunks.map((chunk, cIdx) => {
@@ -486,13 +488,24 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                                 })}
                               </span>
                             ) : (
-                              mn.content
+                              mn.content || '(empty note)'
                             )}
                           </span>
 
                           {hasEdits && !mn.isStruck && (
-                            <span className="ml-1 text-[8px] font-mono text-[#1E7B48] bg-[#E8F5E9] px-0.5 rounded border border-[#C8E6C9]">
-                              edited
+                            <span
+                              className={`ml-1 text-[8px] font-mono px-0.5 rounded border ${
+                                mn.content === ''
+                                  ? 'text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]'
+                                  : 'text-[#1E7B48] bg-[#E8F5E9] border-[#C8E6C9]'
+                              }`}
+                              title={
+                                mn.content === ''
+                                  ? 'All text deleted (crossed out)'
+                                  : `Original: "${mn.originalContent}"`
+                              }
+                            >
+                              {mn.content === '' ? 'deleted' : 'edited'}
                             </span>
                           )}
 
