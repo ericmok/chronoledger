@@ -5,7 +5,7 @@ import type { DateItem, NoteItem, WeekNote, DrawingElement, CalendarSettings } f
 import { NoteItemComponent } from './NoteItemComponent';
 import { DrawingOverlay } from './DrawingOverlay';
 import { Plus, Strikethrough, Trash2, Link2 } from 'lucide-react';
-import { analyzeDateSpan, groupDatesIntoWeeks } from '../utils/dateUtils';
+import { analyzeDateSpan, groupDatesIntoWeeks, formatDateKey } from '../utils/dateUtils';
 
 
 interface VerticalCalendarProps {
@@ -49,6 +49,9 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   const [quickInputText, setQuickInputText] = useState('');
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
   const [quickWeekText, setQuickWeekText] = useState('');
+
+  const todayKey = useMemo(() => formatDateKey(new Date()), []);
+  const currentMonthKey = useMemo(() => todayKey.slice(0, 7), [todayKey]);
 
   // Map notes to their dates
   const notesByDate = useMemo(() => {
@@ -223,17 +226,26 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
               key={weekBlock.weekKey}
               ref={virtualizer.measureElement}
               data-index={virtualRow.index}
-              className="absolute left-0 top-0 w-full flex flex-col pb-4"
+              className="absolute left-0 top-0 w-full flex flex-col"
               style={{
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <div className="flex items-stretch rounded-xl border border-[#E5DFD5]/60 bg-[#FAF8F5]/80 hover:border-[#DDD6C8] transition-colors overflow-hidden">
+              <div
+                className={`flex items-stretch border-x border-[#E5DFD5] bg-[#FAF8F5] transition-colors ${
+                  virtualRow.index === 0 ? 'border-t' : ''
+                } ${
+                  weekBlock.containsToday
+                    ? 'border-l-[4px] border-l-[#D23B38] -ml-[3px]'
+                    : ''
+                }`}
+              >
                 {/* TIER 1: Daily Timeline (7 Days) */}
-                <div className="flex-1 flex flex-col divide-y divide-[#EAE3D6]/50 min-w-0">
-                  {weekBlock.days.map((dateItem) => {
+                <div className="flex-1 flex flex-col divide-y divide-[#EAE3D6]/60 min-w-0">
+                  {weekBlock.days.map((dateItem, dayIdx) => {
                     const dayNotes = notesByDate.get(dateItem.dateString) || [];
                     const isQuickAdding = quickInputDate === dateItem.dateString;
+                    const isMonthFocus = dateItem.dateString.slice(0, 7) === currentMonthKey;
 
                     const contiguousSpansStartingHere = dayNotes.filter((n) => {
                       const span = analyzeDateSpan(n.parentDates);
@@ -244,42 +256,78 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       <div
                         key={dateItem.dateString}
                         className={`flex items-start min-h-[46px] group/row py-1 transition-colors ${
-                          dateItem.isToday ? 'bg-[#F2EDE4]/60' : 'hover:bg-[#F2EDE4]/30'
+                          dateItem.isToday
+                            ? 'bg-[#FAF3EA] border-l-[4px] border-l-[#D23B38] -ml-[4px] shadow-xs relative z-10'
+                            : 'hover:bg-[#F2EDE4]/30'
                         }`}
                       >
                         {/* Month Indicator */}
                         <div className="w-14 sm:w-18 shrink-0 text-right pr-3 pt-1">
                           {dateItem.isFirstDayOfMonth ? (
-                            <span className="font-serif text-sm sm:text-base font-bold text-[#2B2C30] tracking-tight">
-                              {dateItem.monthName}
-                            </span>
+                            <div className="flex flex-col items-end">
+                              <span
+                                className={`font-serif text-sm sm:text-base font-bold tracking-tight ${
+                                  isMonthFocus ? 'text-[#D23B38] font-black' : 'text-[#2B2C30]'
+                                }`}
+                              >
+                                {dateItem.monthName}
+                              </span>
+                              {isMonthFocus && (
+                                <span className="text-[8px] font-mono text-[#D23B38] uppercase font-bold tracking-widest bg-[#D23B38]/10 px-1 rounded mt-0.5">
+                                  Current
+                                </span>
+                              )}
+                            </div>
                           ) : dateItem.dayOfMonth === 15 ? (
-                            <span className="font-serif text-xs text-[#8E8F95] uppercase tracking-widest opacity-60">
-                              {dateItem.monthName}
-                            </span>
+                            <div className="flex flex-col items-end">
+                              <span
+                                className={`font-serif text-xs uppercase tracking-widest ${
+                                  isMonthFocus ? 'text-[#D23B38] font-bold opacity-90' : 'text-[#8E8F95] opacity-60'
+                                }`}
+                              >
+                                {dateItem.monthName}
+                              </span>
+                            </div>
+                          ) : dayIdx === 0 ? (
+                            <div className="flex flex-col items-end">
+                              <span
+                                className={`font-serif text-[11px] uppercase tracking-wider ${
+                                  isMonthFocus ? 'text-[#D23B38] font-bold opacity-80' : 'text-[#A19D94] opacity-45'
+                                }`}
+                              >
+                                {dateItem.monthName}
+                              </span>
+                            </div>
                           ) : null}
                         </div>
 
                         {/* Date & Day of Week (Sketch: "29 S", "30 M") */}
-                        <div className="w-16 sm:w-20 shrink-0 flex items-center justify-start gap-1.5 pt-1 font-mono text-sm sm:text-base">
+                        <div className="w-16 sm:w-22 shrink-0 flex items-center justify-start gap-1.5 pt-1 font-mono text-sm sm:text-base">
                           <span
-                            className={`inline-block w-6 text-right font-medium ${
+                            className={`inline-flex items-center justify-center min-w-6 px-1 h-6 rounded-md text-xs sm:text-sm font-medium ${
                               dateItem.isToday
-                                ? 'text-[#FAF8F5] bg-[#2B2C30] rounded-sm px-0.5 font-bold shadow-xs'
+                                ? 'text-[#FAF8F5] bg-[#2B2C30] font-bold shadow-xs'
                                 : 'text-[#2B2C30]'
                             }`}
                           >
                             {dateItem.dayOfMonth}
                           </span>
                           <span
-                            className={`font-semibold ${
-                              dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
+                            className={`font-semibold text-xs sm:text-sm ${
+                              dateItem.isToday
+                                ? 'text-[#D23B38] font-bold'
+                                : dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
                                 ? 'text-[#D23B38]'
                                 : 'text-[#63666A]'
                             }`}
                           >
                             {dateItem.dayOfWeekLetter}
                           </span>
+                          {dateItem.isToday && (
+                            <span className="text-[8px] font-mono font-black uppercase tracking-wider bg-[#D23B38] text-white px-1 py-0.5 rounded shadow-2xs">
+                              TODAY
+                            </span>
+                          )}
                         </div>
 
                         {/* Spanning Rail */}
@@ -327,7 +375,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                               />
                               <button
                                 type="submit"
-                                className="px-2 py-0.5 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded"
+                                className="px-2 py-0.5 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded font-medium"
                               >
                                 Add
                               </button>
@@ -351,21 +399,34 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                 </div>
 
                 {/* TIER 2: Week Notes (Spans the vertical height of the week!) */}
-                <div className="w-64 sm:w-72 shrink-0 border-l border-[#E5DFD5] bg-[#F7F4EC]/40 p-3 flex flex-col justify-between group/weekpanel">
+                <div
+                  className={`w-64 sm:w-72 shrink-0 border-l border-[#E5DFD5] p-3 flex flex-col justify-between group/weekpanel transition-colors ${
+                    weekBlock.containsToday
+                      ? 'bg-[#F2ECE1]/90 ring-1 ring-inset ring-[#D23B38]/20'
+                      : 'bg-[#F7F4EC]/40'
+                  }`}
+                >
                   {/* Week Header */}
                   <div>
-                    <div className="flex items-center justify-between border-b border-[#E5DFD5]/70 pb-1.5 mb-2">
+                    <div
+                      className={`flex items-center justify-between border-b pb-1.5 mb-2 ${
+                        weekBlock.containsToday ? 'border-[#D9CDBC]' : 'border-[#E5DFD5]/70'
+                      }`}
+                    >
                       <div>
-                        <span className="font-serif text-xs font-bold text-[#2B2C30] block">
+                        <span className="font-serif text-xs font-bold text-[#2B2C30] flex items-center gap-1.5">
                           Week {weekBlock.weekNumber}
+                          {weekBlock.containsToday && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#D23B38] animate-pulse" />
+                          )}
                         </span>
                         <span className="text-[10px] font-mono text-[#8E8F95]">
                           {weekBlock.startDate.monthName} {weekBlock.startDate.dayOfMonth} – {weekBlock.endDate.monthName} {weekBlock.endDate.dayOfMonth}
                         </span>
                       </div>
                       {weekBlock.containsToday && (
-                        <span className="text-[9px] font-mono bg-[#2B2C30] text-[#FAF8F5] px-1 py-0.5 rounded font-bold uppercase">
-                          Current
+                        <span className="text-[9px] font-mono bg-[#D23B38] text-white px-2 py-0.5 rounded font-bold uppercase tracking-wider shadow-2xs">
+                          Active Week
                         </span>
                       )}
                     </div>
@@ -453,10 +514,12 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                 </div>
               </div>
 
-              {/* Dashed Week Separator Line (Matching User Sketch: "--------------------") */}
-              <div className="flex items-center my-2 px-3">
-                <div className="w-full border-t border-dashed border-[#A19D94]/70" />
-              </div>
+              {/* Integrated Dashed Week Separator Line (Zero margin, continuous paper roll) */}
+              <div
+                className={`w-full border-b border-dashed ${
+                  weekBlock.containsToday ? 'border-[#D23B38]/70' : 'border-[#A19D94]/70'
+                }`}
+              />
             </div>
           );
         })}

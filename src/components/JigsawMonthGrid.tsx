@@ -335,11 +335,16 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           {monthMetas.map((meta) => {
             const currentMonthNotes = monthNotesByMonth.get(meta.monthKey) || [];
             const isAdding = quickInputMonth === meta.monthKey;
+            const isCurrentMonth = meta.monthKey === todayKey.slice(0, 7);
 
             return (
               <div
                 key={meta.monthKey}
-                className="absolute left-0 w-full border-b border-[#E5DFD5]/80 flex flex-col justify-between p-2 group/month hover:bg-[#F2EDE4]/30 transition-colors"
+                className={`absolute left-0 w-full border-b border-[#E5DFD5]/80 flex flex-col justify-between p-2 group/month transition-colors ${
+                  isCurrentMonth
+                    ? 'bg-[#FAF5ED]/95 border-l-[3.5px] border-l-[#D23B38] -ml-[3.5px]'
+                    : 'hover:bg-[#F2EDE4]/30'
+                }`}
                 style={{
                   top: `${meta.topPx}px`,
                   height: `${meta.heightPx}px`,
@@ -347,8 +352,15 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
               >
                 {/* Month Goals Header */}
                 <div className="flex items-center justify-between pb-1 mb-1 border-b border-[#EAE3D6]/70">
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#2B2C30] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#E0D9CC]">
-                    {meta.name} Goals
+                  <span
+                    className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border flex items-center gap-1.5 ${
+                      isCurrentMonth
+                        ? 'bg-[#D23B38] text-white border-[#D23B38] shadow-2xs'
+                        : 'text-[#2B2C30] bg-[#FAF8F5] border-[#E0D9CC]'
+                    }`}
+                  >
+                    <span>{meta.name} Goals</span>
+                    {isCurrentMonth && <span className="text-[8px] uppercase bg-white/20 px-1 rounded">Focus</span>}
                   </span>
                 </div>
 
@@ -441,51 +453,65 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         {/* 2. Right Column: 7-Day Square Continuous Grid with GAPLESS SVG Jigsaw Border */}
         <div className="w-[238px] shrink-0 relative pr-2" style={{ height: `${totalWeeksHeight}px` }}>
           {/* Continuous Grid Weeks */}
-          {weeks.map((week, rIdx) => (
-            <div key={rIdx} className="grid grid-cols-7" style={{ height: `${CELL_SIZE}px` }}>
-              {week.map((cell) => {
-                const isEvenMonth = cell.monthIndex % 2 === 0;
+          {weeks.map((week, rIdx) => {
+            const isCurrentWeekRow = week.some((c) => c.isToday);
 
-                return (
-                  <button
-                    key={cell.dateKey}
-                    onClick={() => onSelectDate(cell.dateKey)}
-                    className={`relative w-[34px] h-[34px] flex flex-col items-center justify-center text-[11px] font-mono transition-transform hover:z-10 group ${
-                      isEvenMonth ? 'bg-[#FAF8F5]' : 'bg-[#F2ECE1]/65'
-                    }`}
-                    style={{
-                      // Subtle interior paper rules
-                      boxShadow: 'inset 0 0 0 0.5px rgba(229, 223, 213, 0.45)',
-                    }}
-                    title={`${cell.monthKey} - ${cell.dayNumber}`}
-                  >
-                    {/* Day Number */}
-                    <span
-                      className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-transform group-hover:scale-110 ${
+            return (
+              <div
+                key={rIdx}
+                className={`grid grid-cols-7 relative transition-colors ${
+                  isCurrentWeekRow ? 'bg-[#FAF3EA]/80 ring-1 ring-inset ring-[#D23B38]/30' : ''
+                }`}
+                style={{ height: `${CELL_SIZE}px` }}
+              >
+                {week.map((cell) => {
+                  const isEvenMonth = cell.monthIndex % 2 === 0;
+
+                  return (
+                    <button
+                      key={cell.dateKey}
+                      onClick={() => onSelectDate(cell.dateKey)}
+                      className={`relative w-[34px] h-[34px] flex flex-col items-center justify-center text-[11px] font-mono transition-transform hover:z-10 group ${
                         cell.isToday
-                          ? 'bg-[#2B2C30] text-[#FAF8F5] font-bold shadow-xs'
-                          : cell.isOutsideTargetRange
-                          ? 'text-[#B8B4AA] opacity-40'
-                          : 'text-[#2B2C30]'
+                          ? 'bg-[#FAF3EA]'
+                          : isEvenMonth
+                          ? 'bg-[#FAF8F5]'
+                          : 'bg-[#F2ECE1]/65'
                       }`}
+                      style={{
+                        // Subtle interior paper rules
+                        boxShadow: 'inset 0 0 0 0.5px rgba(229, 223, 213, 0.45)',
+                      }}
+                      title={`${cell.monthKey} - ${cell.dayNumber}${cell.isToday ? ' (Today)' : ''}`}
                     >
-                      {cell.dayNumber}
-                    </span>
+                      {/* Day Number */}
+                      <span
+                        className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-transform group-hover:scale-110 ${
+                          cell.isToday
+                            ? 'bg-[#D23B38] text-white font-black shadow-xs ring-2 ring-[#D23B38]/30'
+                            : cell.isOutsideTargetRange
+                            ? 'text-[#B8B4AA] opacity-40'
+                            : 'text-[#2B2C30]'
+                        }`}
+                      >
+                        {cell.dayNumber}
+                      </span>
 
-                    {/* Circled mark indicator */}
-                    {cell.isCircled && (
-                      <span className="absolute inset-1 rounded-full border-2 border-[#D23B38] pointer-events-none opacity-85" />
-                    )}
+                      {/* Circled mark indicator */}
+                      {cell.isCircled && (
+                        <span className="absolute inset-1 rounded-full border-2 border-[#D23B38] pointer-events-none opacity-85" />
+                      )}
 
-                    {/* Has Notes Pip */}
-                    {cell.hasNotes && (
-                      <span className="w-1 h-1 rounded-full bg-[#E29578] mt-[-2px]" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+                      {/* Has Notes Pip */}
+                      {cell.hasNotes && (
+                        <span className="w-1 h-1 rounded-full bg-[#E29578] mt-[-2px]" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
 
           {/* GAPLESS CONTINUOUS SVG JIGSAW BOUNDARIES */}
           <svg
@@ -519,7 +545,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
               <div
                 key={`vmonth-${meta.monthKey}`}
                 className={`absolute left-0 w-full flex items-center justify-center border-b border-[#E5DFD5]/80 select-none overflow-hidden py-1 transition-colors ${
-                  isCurrentMonth ? 'bg-[#EAE3D6]/40' : ''
+                  isCurrentMonth ? 'bg-[#F4ECE1] border-l-2 border-l-[#D23B38]' : ''
                 }`}
                 style={{
                   top: `${meta.topPx}px`,
@@ -528,16 +554,26 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                 title={`${meta.fullName} ${meta.year}`}
               >
                 <div
-                  className="font-serif text-[11px] font-bold tracking-widest uppercase flex items-center gap-1 opacity-85 hover:opacity-100 transition-opacity select-none text-[#2B2C30]"
+                  className="font-serif text-[11px] font-bold tracking-widest uppercase flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity select-none text-[#2B2C30]"
                   style={{
                     writingMode: 'vertical-rl',
                     transform: 'rotate(180deg)',
                   }}
                 >
-                  <span className={isCurrentMonth ? 'text-[#D23B38] font-black' : ''}>
+                  <span
+                    className={
+                      isCurrentMonth
+                        ? 'bg-[#D23B38] text-white px-1.5 py-0.5 rounded-xs font-black shadow-2xs'
+                        : ''
+                    }
+                  >
                     {meta.name}
                   </span>
-                  <span className="text-[9px] font-mono font-medium text-[#7E7F85]">
+                  <span
+                    className={`text-[9px] font-mono font-bold ${
+                      isCurrentMonth ? 'text-[#D23B38]' : 'text-[#7E7F85]'
+                    }`}
+                  >
                     '{String(meta.year).slice(2)}
                   </span>
                 </div>
