@@ -233,26 +233,29 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
         )}
       </div>
 
-      {/* Edit Note Button */}
-      <button
-        onClick={handleStartEdit}
-        className="opacity-40 group-hover:opacity-100 hover:!opacity-100 p-1 text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-all"
-        title="Edit note (or double-click text)"
-      >
-        <Pencil className="w-3.5 h-3.5" />
-      </button>
+      {/* Note Actions: Edit & Delete */}
+      <div className="flex items-center gap-0.5 shrink-0 ml-1">
+        {/* Edit Note Button */}
+        <button
+          onClick={handleStartEdit}
+          className="opacity-40 group-hover:opacity-100 hover:!opacity-100 p-1 text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-all"
+          title="Edit note (or double-click text)"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
 
-      {/* Delete / Remove Note (Hover) */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemoveNote(note.id);
-        }}
-        className="opacity-0 group-hover:opacity-100 p-1 text-[#BBB6AC] hover:text-[#D23B38] rounded transition-all"
-        title="Remove permanently"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+        {/* Delete / Remove Note */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemoveNote(note.id);
+          }}
+          className="opacity-40 group-hover:opacity-100 hover:!opacity-100 p-1 text-[#8E8F95] hover:text-[#D23B38] hover:bg-[#FDEDEC] rounded transition-all"
+          title="Delete note"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 };

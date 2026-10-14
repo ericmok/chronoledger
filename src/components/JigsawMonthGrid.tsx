@@ -562,30 +562,33 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                           )}
                         </div>
 
-                        {/* Edit Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingMonthNoteId(mn.id);
-                            setEditingMonthNoteText(mn.content || mn.originalContent || '');
-                          }}
-                          className="opacity-40 group-hover/mnote:opacity-100 hover:!opacity-100 p-0.5 text-[#71727A] hover:text-[#2B2C30] rounded transition-opacity"
-                          title="Edit note (or double-click text)"
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
+                        {/* Note Actions: Edit & Delete */}
+                        <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                          {/* Edit Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingMonthNoteId(mn.id);
+                              setEditingMonthNoteText(mn.content || mn.originalContent || '');
+                            }}
+                            className="opacity-40 group-hover/mnote:opacity-100 hover:!opacity-100 p-1 text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/60 rounded transition-all"
+                            title="Edit note (or double-click text)"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
 
-                        {/* Delete note */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveMonthNote(mn.id);
-                          }}
-                          className="opacity-0 group-hover/mnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#D23B38] rounded"
-                          title="Delete note"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                          {/* Delete note */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemoveMonthNote(mn.id);
+                            }}
+                            className="opacity-40 group-hover/mnote:opacity-100 hover:!opacity-100 p-1 text-[#8E8F95] hover:text-[#D23B38] hover:bg-[#FDEDEC] rounded transition-all"
+                            title="Delete note"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

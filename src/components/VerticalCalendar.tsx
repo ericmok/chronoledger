@@ -606,7 +606,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                               className={`mt-0.5 p-0.5 rounded transition-opacity ${
                                 wn.isStruck
                                   ? 'text-[#A19D94]'
-                                  : 'text-[#BBB6AC] opacity-30 group-wnote:opacity-100 hover:!opacity-100 hover:text-[#2B2C30]'
+                                  : 'text-[#BBB6AC] opacity-30 group-hover/wnote:opacity-100 hover:!opacity-100 hover:text-[#2B2C30]'
                               }`}
                               title={wn.isStruck ? 'Restore note' : 'Cross out note'}
                             >
@@ -677,29 +677,33 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                               )}
                             </div>
 
-                            {/* Edit Button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingWeekNoteId(wn.id);
-                                setEditingWeekNoteText(wn.content || wn.originalContent || '');
-                              }}
-                              className="opacity-40 group-wnote:opacity-100 hover:!opacity-100 p-0.5 text-[#71727A] hover:text-[#2B2C30] rounded transition-opacity"
-                              title="Edit note (or double-click text)"
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </button>
+                            {/* Note Actions: Edit & Delete */}
+                            <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                              {/* Edit Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingWeekNoteId(wn.id);
+                                  setEditingWeekNoteText(wn.content || wn.originalContent || '');
+                                }}
+                                className="opacity-40 group-hover/wnote:opacity-100 hover:!opacity-100 p-1 text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/60 rounded transition-all"
+                                title="Edit note (or double-click text)"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
 
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRemoveWeekNote(wn.id);
-                              }}
-                              className="opacity-0 group-wnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#D23B38] rounded transition-opacity"
-                              title="Delete note"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                              {/* Delete Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveWeekNote(wn.id);
+                                }}
+                                className="opacity-40 group-hover/wnote:opacity-100 hover:!opacity-100 p-1 text-[#8E8F95] hover:text-[#D23B38] hover:bg-[#FDEDEC] rounded transition-all"
+                                title="Delete note"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
