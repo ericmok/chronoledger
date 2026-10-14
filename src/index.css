@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --font-hand: 'Caveat', cursive, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-serif: 'Newsreader', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  
+  --color-paper: #FAF8F5;
+  --color-paper-card: #FFFFFF;
+  --color-paper-line: #E5DFD5;
+  --color-pencil: #2B2C30;
+  --color-pencil-light: #7E7F85;
+  --color-pencil-strike: #A19D94;
+  --color-ink-red: #D23B38;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #FAF8F5;
+  color: #2B2C30;
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* Analog paper subtle grain or texture */
+.paper-texture {
+  background-color: #FAF8F5;
+  background-image: radial-gradient(#E8E3D8 0.75px, transparent 0.75px);
+  background-size: 16px 16px;
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D8D2C5;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #B8B09F;
+}
