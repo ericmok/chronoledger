@@ -20,8 +20,6 @@ interface HeaderProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   onOpenAddNote: () => void;
-  onClearDrawings: () => void;
-  hasDrawings: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,16 +29,14 @@ export const Header: React.FC<HeaderProps> = ({
   isSidebarOpen,
   onToggleSidebar,
   onOpenAddNote,
-  onClearDrawings,
-  hasDrawings,
 }) => {
 
-  const tools: { id: DrawingTool; label: string; icon: React.ReactNode; shortcut: string }[] = [
-    { id: 'select', label: 'Select / Notes', icon: <MousePointer className="w-4 h-4" />, shortcut: 'V' },
-    { id: 'pencil', label: 'Freehand Pencil', icon: <PenTool className="w-4 h-4" />, shortcut: 'P' },
-    { id: 'circle', label: 'Circle Date', icon: <CircleIcon className="w-4 h-4" />, shortcut: 'C' },
-    { id: 'arrow', label: 'Connect Arrow', icon: <ArrowIcon className="w-4 h-4" />, shortcut: 'A' },
-    { id: 'eraser', label: 'Eraser', icon: <Eraser className="w-4 h-4" />, shortcut: 'E' },
+  const tools: { id: DrawingTool; label: string; icon: React.ReactNode; shortcut: string; hint: string }[] = [
+    { id: 'select', label: 'Select / Notes', icon: <MousePointer className="w-4 h-4" />, shortcut: 'V', hint: 'Browse and edit typed notes' },
+    { id: 'pencil', label: 'Pencil', icon: <PenTool className="w-4 h-4" />, shortcut: 'P', hint: 'Pencil: Sketch freely in margins and notes' },
+    { id: 'circle', label: 'Circle Date', icon: <CircleIcon className="w-4 h-4" />, shortcut: 'C', hint: 'Circle Date: Drag over date numbers to ring them' },
+    { id: 'arrow', label: 'Timeline Arrow', icon: <ArrowIcon className="w-4 h-4" />, shortcut: 'A', hint: 'Timeline Arrow: Drag between two dates to link them' },
+    { id: 'eraser', label: 'Eraser', icon: <Eraser className="w-4 h-4" />, shortcut: 'E', hint: 'Eraser: Paint over pencil strokes to erase them' },
   ];
 
   const inkColors = [
@@ -87,7 +83,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'bg-[#FAF8F5] text-[#2B2C30] shadow-xs border border-[#D5CDC0]'
                 : 'text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50'
             }`}
-            title={`${t.label} (${t.shortcut})`}
+            title={`${t.label} (${t.shortcut}) — ${t.hint}`}
           >
             {t.icon}
             <span className="hidden md:inline">{t.label}</span>
@@ -109,16 +105,6 @@ export const Header: React.FC<HeaderProps> = ({
               />
             ))}
           </div>
-        )}
-
-        {hasDrawings && (
-          <button
-            onClick={onClearDrawings}
-            className="text-[10px] text-[#8E8F95] hover:text-[#D23B38] px-1.5 py-0.5 rounded transition-colors ml-1"
-            title="Clear all hand drawings"
-          >
-            Clear ink
-          </button>
         )}
       </div>
 

@@ -305,6 +305,12 @@ export function useCalendarState() {
     setDrawings((prev) => prev.filter((d) => d.id !== drawingId));
   };
 
+  const removeDrawings = (drawingIds: string[]) => {
+    if (drawingIds.length === 0) return;
+    const idSet = new Set(drawingIds);
+    setDrawings((prev) => prev.filter((d) => !idSet.has(d.id)));
+  };
+
   const clearAllDrawings = () => {
     setDrawings([]);
   };
@@ -330,6 +336,7 @@ export function useCalendarState() {
     removeMonthNote,
     addDrawing,
     removeDrawing,
+    removeDrawings,
     clearAllDrawings,
     updateSettings,
   };

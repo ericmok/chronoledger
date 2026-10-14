@@ -24,7 +24,7 @@ export function App() {
     removeMonthNote,
     addDrawing,
     removeDrawing,
-    clearAllDrawings,
+    removeDrawings,
     updateSettings,
   } = useCalendarState();
 
@@ -91,8 +91,6 @@ export function App() {
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         onOpenAddNote={() => setIsAddNoteOpen(true)}
-        onClearDrawings={clearAllDrawings}
-        hasDrawings={drawings.length > 0}
       />
 
       {/* Main Container: Infinite Vertical Roll (Left) + Continuous Jigsaw Month Radar (Right) */}
@@ -113,6 +111,8 @@ export function App() {
             onRemoveWeekNote={removeWeekNote}
             onAddDrawing={addDrawing}
             onRemoveDrawing={removeDrawing}
+            onRemoveDrawings={removeDrawings}
+            onCloseTool={() => updateSettings({ activeTool: 'select' })}
             onJumpToDateRequested={(d) => scrollToDate(d)}
             scrollTargetDate={scrollTargetDate}
             scrollRef={scrollRef}

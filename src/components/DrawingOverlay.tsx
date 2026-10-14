@@ -2,8 +2,13 @@ import { useState } from 'react';
 import type React from 'react';
 import rough from 'roughjs';
 import type { DrawingElement, DrawingTool } from '../types/calendar';
-import { pointsToPath, getCurvedArrowPath } from '../utils/drawingUtils';
-
+import {
+  pointsToPath,
+  getCurvedArrowPath,
+  isFreehandHit,
+  isCircleHit,
+  isArrowHit,
+} from '../utils/drawingUtils';
 
 interface DrawingOverlayProps {
   tool: DrawingTool;
@@ -11,12 +16,14 @@ interface DrawingOverlayProps {
   drawings: DrawingElement[];
   onAddDrawing: (drawing: Omit<DrawingElement, 'id' | 'createdAt'>) => void;
   onRemoveDrawing: (id: string) => void;
+  onRemoveDrawings?: (ids: string[]) => void;
   containerHeight: number;
   getDateAtY: (y: number) => { dateString: string; dateY: number; rowHeight: number } | null;
   getYForDate: (dateString: string) => number | null;
 }
 
 const generator = rough.generator();
+const ERASER_RADIUS = 18;
 
 export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
   tool,
@@ -24,19 +31,69 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
   drawings,
   onAddDrawing,
   onRemoveDrawing,
+  onRemoveDrawings,
   containerHeight,
   getDateAtY,
   getYForDate,
 }) => {
   const [currentPoints, setCurrentPoints] = useState<[number, number][]>([]);
+  const [eraserTrail, setEraserTrail] = useState<[number, number][]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; dateString: string } | null>(null);
   const [currentPointer, setCurrentPointer] = useState<{ x: number; y: number } | null>(null);
+  const [lastPointer, setLastPointer] = useState<{ x: number; y: number } | null>(null);
 
   const isInteractive = tool !== 'select';
 
+  // Helper to erase any drawing elements intersecting with (px, py)
+  const eraseDrawingsNear = (px: number, py: number) => {
+    const hitIds: string[] = [];
+
+    for (const d of drawings) {
+      const anchorY = getYForDate(d.anchorStartDate);
+      if (anchorY === null) continue;
+
+      if (d.type === 'freehand') {
+        if (isFreehandHit(d.points, anchorY, px, py, ERASER_RADIUS)) {
+          hitIds.push(d.id);
+        }
+      } else if (d.type === 'circle') {
+        const cx = d.startOffset.x;
+        const cy = anchorY + d.startOffset.y;
+        const radius = d.points[0]?.[0] || 22;
+        if (isCircleHit(cx, cy, radius, px, py, ERASER_RADIUS)) {
+          hitIds.push(d.id);
+        }
+      } else if (d.type === 'arrow' && d.anchorEndDate) {
+        const endAnchorY = getYForDate(d.anchorEndDate);
+        if (endAnchorY === null) continue;
+        const startX = d.startOffset.x;
+        const startY = anchorY + d.startOffset.y;
+        const endX = d.endOffset ? d.endOffset.x : startX;
+        const endY = endAnchorY + (d.endOffset ? d.endOffset.y : 0);
+        if (isArrowHit(startX, startY, endX, endY, px, py, ERASER_RADIUS)) {
+          hitIds.push(d.id);
+        }
+      }
+    }
+
+    if (hitIds.length > 0) {
+      if (onRemoveDrawings) {
+        onRemoveDrawings(hitIds);
+      } else {
+        hitIds.forEach((id) => onRemoveDrawing(id));
+      }
+    }
+  };
+
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!isInteractive) return;
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore in environments without pointer capture
+    }
 
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -49,23 +106,54 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
     setDragStart({ x, y, dateString });
     setCurrentPoints([[x, y]]);
     setCurrentPointer({ x, y });
+    setLastPointer({ x, y });
+
+    if (tool === 'eraser') {
+      setEraserTrail([[x, y]]);
+      eraseDrawingsNear(x, y);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!isDrawing) return;
-
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
     setCurrentPointer({ x, y });
 
+    if (!isDrawing) return;
+
     if (tool === 'pencil') {
       setCurrentPoints((prev) => [...prev, [x, y]]);
+    } else if (tool === 'eraser') {
+      setEraserTrail((prev) => [...prev, [x, y]]);
+
+      // Interpolate between lastPointer and currentPointer so fast brush strokes don't skip
+      if (lastPointer) {
+        const dist = Math.hypot(x - lastPointer.x, y - lastPointer.y);
+        const steps = Math.max(Math.ceil(dist / 6), 1);
+        for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          const interpX = lastPointer.x + t * (x - lastPointer.x);
+          const interpY = lastPointer.y + t * (y - lastPointer.y);
+          eraseDrawingsNear(interpX, interpY);
+        }
+      } else {
+        eraseDrawingsNear(x, y);
+      }
+      setLastPointer({ x, y });
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {
+      // ignore
+    }
+
     if (!isDrawing) return;
     setIsDrawing(false);
 
@@ -124,8 +212,9 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
     }
 
     setCurrentPoints([]);
+    setEraserTrail([]);
     setDragStart(null);
-    setCurrentPointer(null);
+    setLastPointer(null);
   };
 
   // Render individual drawings anchored to dates
@@ -269,6 +358,31 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
             strokeDasharray="4 2"
             fill="none"
           />
+        </g>
+      )}
+
+      {/* Painting Eraser Trail */}
+      {isDrawing && tool === 'eraser' && eraserTrail.length > 1 && (
+        <path
+          d={pointsToPath(eraserTrail, ERASER_RADIUS * 1.8)}
+          fill="rgba(210, 59, 56, 0.18)"
+          className="pointer-events-none"
+        />
+      )}
+
+      {/* Painting Eraser Brush Head Cursor */}
+      {tool === 'eraser' && currentPointer && (
+        <g className="pointer-events-none">
+          <circle
+            cx={currentPointer.x}
+            cy={currentPointer.y}
+            r={ERASER_RADIUS}
+            fill={isDrawing ? 'rgba(210, 59, 56, 0.28)' : 'rgba(210, 59, 56, 0.12)'}
+            stroke="#D23B38"
+            strokeWidth="1.5"
+            strokeDasharray={isDrawing ? undefined : '3 2'}
+          />
+          <circle cx={currentPointer.x} cy={currentPointer.y} r={1.5} fill="#D23B38" />
         </g>
       )}
     </svg>

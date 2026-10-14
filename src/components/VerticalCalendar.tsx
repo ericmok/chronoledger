@@ -22,6 +22,8 @@ interface VerticalCalendarProps {
   onRemoveWeekNote: (id: string) => void;
   onAddDrawing: (drawing: Omit<DrawingElement, 'id' | 'createdAt'>) => void;
   onRemoveDrawing: (id: string) => void;
+  onRemoveDrawings?: (ids: string[]) => void;
+  onCloseTool?: () => void;
   onJumpToDateRequested?: (dateKey: string) => void;
   scrollTargetDate?: { dateString: string; key: number } | null;
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -41,6 +43,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   onRemoveWeekNote,
   onAddDrawing,
   onRemoveDrawing,
+  onRemoveDrawings,
+  onCloseTool,
   onJumpToDateRequested,
   scrollTargetDate,
   scrollRef,
@@ -202,10 +206,33 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
           drawings={drawings}
           onAddDrawing={onAddDrawing}
           onRemoveDrawing={onRemoveDrawing}
+          onRemoveDrawings={onRemoveDrawings}
           containerHeight={virtualizer.getTotalSize()}
           getDateAtY={getDateAtY}
           getYForDate={getYForDate}
         />
+
+        {/* Active Drawing Tool Helper Pill */}
+        {settings.activeTool !== 'select' && (
+          <div className="sticky top-2 z-30 mx-auto max-w-fit mb-3 flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-[#2B2C30] text-[#FAF8F5] text-xs font-mono shadow-md backdrop-blur-xs animate-in fade-in duration-150">
+            <span className="w-2 h-2 rounded-full bg-[#E29578] animate-pulse shrink-0" />
+            <span className="text-xs">
+              {settings.activeTool === 'eraser' && 'Painting Eraser: Click and drag/paint across pencil strokes to wipe them away'}
+              {settings.activeTool === 'arrow' && 'Timeline Arrow: Click and drag from one date to another to link them with a curved arrow'}
+              {settings.activeTool === 'circle' && 'Circle Date: Click and drag over any date number to hand-draw a ring'}
+              {settings.activeTool === 'pencil' && 'Pencil Mode: Sketch freely in margins and notes'}
+            </span>
+            {onCloseTool && (
+              <button
+                onClick={onCloseTool}
+                className="ml-1 px-1.5 py-0.5 rounded bg-[#404147] hover:bg-[#52535A] text-[#FAF8F5] text-[10px] uppercase font-bold transition-colors"
+                title="Exit drawing mode (V)"
+              >
+                Done (V)
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Column Headers for 3-Tier Layout */}
         <div className="flex items-center text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] pb-2 border-b border-[#E5DFD5] mb-2 px-2">
