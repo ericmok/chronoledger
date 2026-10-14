@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef } from 'react';
 import type React from 'react';
-import { ChevronLeft, ChevronRight, Compass, Plus, Strikethrough, Trash2, Link2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Compass, Plus, Strikethrough, Trash2, Link2, Pencil, Check, X } from 'lucide-react';
 
 import type { NoteItem, MonthNote, DrawingElement, WeekStartDay } from '../types/calendar';
 import { formatDateKey, MONTH_NAMES, FULL_MONTH_NAMES } from '../utils/dateUtils';
+import { computeWordDiff } from '../utils/diffUtils';
 
 interface JigsawMonthGridProps {
   onSelectDate: (dateKey: string) => void;
@@ -15,6 +16,7 @@ interface JigsawMonthGridProps {
   onAddMonthNote: (content: string, parentMonths: string[], colorTag?: string) => void;
   onToggleStrikeMonthNote: (id: string) => void;
   onRemoveMonthNote: (id: string) => void;
+  onUpdateMonthNote?: (id: string, newContent: string) => void;
 }
 
 interface JigsawCell {
@@ -55,11 +57,14 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onAddMonthNote,
   onToggleStrikeMonthNote,
   onRemoveMonthNote,
+  onUpdateMonthNote,
 }) => {
   // Current anchor date (defaults to current month)
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [quickInputMonth, setQuickInputMonth] = useState<string | null>(null);
   const [quickInputText, setQuickInputText] = useState('');
+  const [editingMonthNoteId, setEditingMonthNoteId] = useState<string | null>(null);
+  const [editingMonthNoteText, setEditingMonthNoteText] = useState('');
   const [isMultiMonthModalOpen, setIsMultiMonthModalOpen] = useState(false);
 
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
@@ -369,16 +374,75 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                 <div className="flex-1 overflow-y-auto space-y-1 py-1 pr-1">
                   {currentMonthNotes.map((mn) => {
                     const isMulti = mn.parentMonths.length > 1;
+                    const isEditingThis = editingMonthNoteId === mn.id;
+                    const hasEdits = Boolean(mn.originalContent && mn.originalContent !== mn.content);
+                    const diffChunks = hasEdits && mn.originalContent ? computeWordDiff(mn.originalContent, mn.content) : [];
+
+                    if (isEditingThis) {
+                      return (
+                        <form
+                          key={mn.id}
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const trimmed = editingMonthNoteText.trim();
+                            if (trimmed && onUpdateMonthNote) {
+                              onUpdateMonthNote(mn.id, trimmed);
+                            }
+                            setEditingMonthNoteId(null);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1.5 w-full my-0.5 p-1 bg-white border border-[#2B2C30] rounded-md shadow-2xs"
+                        >
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingMonthNoteText}
+                            onChange={(e) => setEditingMonthNoteText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') setEditingMonthNoteId(null);
+                            }}
+                            className="flex-1 px-2 py-1 text-xs bg-transparent border-0 text-[#2B2C30] focus:outline-hidden"
+                            placeholder="Edit month note..."
+                          />
+                          <button
+                            type="submit"
+                            className="p-1 bg-[#2B2C30] text-white rounded shrink-0"
+                            title="Save (Enter)"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingMonthNoteId(null)}
+                            className="p-1 text-[#8E8F95] hover:text-[#2B2C30] shrink-0"
+                            title="Cancel (Esc)"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </form>
+                      );
+                    }
+
                     return (
                       <div
                         key={mn.id}
-                        className={`group/mnote relative flex items-start gap-1.5 p-1 rounded text-xs transition-colors ${
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingMonthNoteId(mn.id);
+                          setEditingMonthNoteText(mn.content);
+                        }}
+                        className={`group/mnote relative flex items-start gap-1.5 p-1 rounded text-xs transition-colors cursor-pointer ${
                           mn.isStruck ? 'text-[#8E8F95]' : 'text-[#2B2C30] bg-[#FAF8F5]/80 hover:bg-white shadow-2xs'
                         }`}
+                        title="Double-click to edit month note"
                       >
                         {/* Strikethrough Action */}
                         <button
-                          onClick={() => onToggleStrikeMonthNote(mn.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleStrikeMonthNote(mn.id);
+                          }}
                           className={`mt-0.5 p-0.5 rounded transition-colors ${
                             mn.isStruck
                               ? 'text-[#A19D94]'
@@ -390,9 +454,48 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                         </button>
 
                         <div className="flex-1 min-w-0">
-                          <span className={`break-words leading-tight ${mn.isStruck ? 'line-through text-[#8E8F95]' : ''}`}>
-                            {mn.content}
+                          <span className="break-words leading-tight">
+                            {mn.isStruck ? (
+                              <span className="line-through text-[#8E8F95]">{mn.content}</span>
+                            ) : hasEdits ? (
+                              <span>
+                                {diffChunks.map((chunk, cIdx) => {
+                                  if (chunk.type === 'deleted') {
+                                    return (
+                                      <span
+                                        key={cIdx}
+                                        className="line-through decoration-[#D23B38] text-[#D23B38] opacity-60 font-serif mr-1"
+                                        title="Deleted word"
+                                      >
+                                        {chunk.value}
+                                      </span>
+                                    );
+                                  }
+                                  if (chunk.type === 'added') {
+                                    return (
+                                      <span
+                                        key={cIdx}
+                                        className="text-[#1E7B48] font-medium bg-[#E8F5E9]/60 px-0.5 rounded-xs mr-0.5"
+                                        title="Added word"
+                                      >
+                                        {chunk.value}
+                                      </span>
+                                    );
+                                  }
+                                  return <span key={cIdx}>{chunk.value}</span>;
+                                })}
+                              </span>
+                            ) : (
+                              mn.content
+                            )}
                           </span>
+
+                          {hasEdits && !mn.isStruck && (
+                            <span className="ml-1 text-[8px] font-mono text-[#1E7B48] bg-[#E8F5E9] px-0.5 rounded border border-[#C8E6C9]">
+                              edited
+                            </span>
+                          )}
+
                           {/* Multi-month span badge */}
                           {isMulti && (
                             <div className="flex items-center gap-1 mt-0.5 text-[9px] font-mono text-[#D23B38]">
@@ -404,9 +507,25 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                           )}
                         </div>
 
+                        {/* Edit Button (Hover) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingMonthNoteId(mn.id);
+                            setEditingMonthNoteText(mn.content);
+                          }}
+                          className="opacity-0 group-hover/mnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#2B2C30] rounded"
+                          title="Edit note (Double-click)"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+
                         {/* Delete note */}
                         <button
-                          onClick={() => onRemoveMonthNote(mn.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveMonthNote(mn.id);
+                          }}
                           className="opacity-0 group-hover/mnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#D23B38] rounded"
                           title="Delete note"
                         >
@@ -417,9 +536,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                   })}
                 </div>
 
-                {/* Quick Add Note on Month */}
+                {/* Quick Add Note on Month with comfortable padding */}
                 {isAdding ? (
-                  <form onSubmit={(e) => handleQuickMonthNoteSubmit(e, meta.monthKey)} className="flex items-center gap-1 mt-1">
+                  <form onSubmit={(e) => handleQuickMonthNoteSubmit(e, meta.monthKey)} className="flex items-center gap-1 mt-1 p-0.5 bg-white border border-[#DDD6C8] rounded-md shadow-2xs">
                     <input
                       autoFocus
                       type="text"
@@ -427,10 +546,17 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                       onChange={(e) => setQuickInputText(e.target.value)}
                       placeholder="Month focus/goal... (Enter)"
                       onKeyDown={(e) => e.key === 'Escape' && setQuickInputMonth(null)}
-                      className="flex-1 px-1.5 py-0.5 text-xs bg-white border border-[#DDD6C8] rounded focus:outline-hidden"
+                      className="flex-1 px-2.5 py-1.5 text-xs bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden"
                     />
-                    <button type="submit" className="px-1.5 py-0.5 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded">
+                    <button type="submit" className="px-2 py-1 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded shrink-0">
                       Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickInputMonth(null)}
+                      className="p-1 text-xs text-[#8E8F95] hover:text-[#2B2C30] shrink-0"
+                    >
+                      <X className="w-3 h-3" />
                     </button>
                   </form>
                 ) : (

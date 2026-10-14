@@ -41,11 +41,13 @@ function getInitialNotes(): NoteItem[] {
   return [
     {
       id: 'demo-1',
-      content: 'Review quarterly architecture plan',
+      originalContent: 'Review quarterly architecture plan',
+      content: 'Review quarterly architecture and security plan with team',
       parentDates: [todayStr],
       isStruck: false,
       colorTag: '#E29578',
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
       id: 'demo-2',
@@ -242,6 +244,24 @@ export function useCalendarState() {
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   };
 
+  const updateNote = (noteId: string, newContent: string) => {
+    setNotes((prev) =>
+      prev.map((n) => {
+        if (n.id === noteId) {
+          const trimmed = newContent.trim();
+          if (trimmed === n.content) return n;
+          return {
+            ...n,
+            originalContent: n.originalContent ?? n.content,
+            content: trimmed,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return n;
+      })
+    );
+  };
+
   // Week notes
   const addWeekNote = (content: string, parentWeeks: string[], colorTag?: string) => {
     const newNote: WeekNote = {
@@ -266,6 +286,24 @@ export function useCalendarState() {
     setWeekNotes((prev) => prev.filter((n) => n.id !== noteId));
   };
 
+  const updateWeekNote = (noteId: string, newContent: string) => {
+    setWeekNotes((prev) =>
+      prev.map((n) => {
+        if (n.id === noteId) {
+          const trimmed = newContent.trim();
+          if (trimmed === n.content) return n;
+          return {
+            ...n,
+            originalContent: n.originalContent ?? n.content,
+            content: trimmed,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return n;
+      })
+    );
+  };
+
   // Month notes
   const addMonthNote = (content: string, parentMonths: string[], colorTag?: string) => {
     const newNote: MonthNote = {
@@ -288,6 +326,24 @@ export function useCalendarState() {
 
   const removeMonthNote = (noteId: string) => {
     setMonthNotes((prev) => prev.filter((n) => n.id !== noteId));
+  };
+
+  const updateMonthNote = (noteId: string, newContent: string) => {
+    setMonthNotes((prev) =>
+      prev.map((n) => {
+        if (n.id === noteId) {
+          const trimmed = newContent.trim();
+          if (trimmed === n.content) return n;
+          return {
+            ...n,
+            originalContent: n.originalContent ?? n.content,
+            content: trimmed,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return n;
+      })
+    );
   };
 
   // Drawings
@@ -328,12 +384,15 @@ export function useCalendarState() {
     addNote,
     toggleStrikeNote,
     removeNote,
+    updateNote,
     addWeekNote,
     toggleStrikeWeekNote,
     removeWeekNote,
+    updateWeekNote,
     addMonthNote,
     toggleStrikeMonthNote,
     removeMonthNote,
+    updateMonthNote,
     addDrawing,
     removeDrawing,
     removeDrawings,

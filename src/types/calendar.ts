@@ -17,6 +17,8 @@ export interface DateItem {
 export interface NoteItem {
   id: string;
   content: string;
+  originalContent?: string; // Baseline content before edits for computing diffs
+  updatedAt?: string;
   parentDates: string[]; // List of ISO "YYYY-MM-DD" dates
   isStruck: boolean;
   strikeStyle?: 'single' | 'double' | 'scribble';
@@ -27,6 +29,8 @@ export interface NoteItem {
 export interface MonthNote {
   id: string;
   content: string;
+  originalContent?: string;
+  updatedAt?: string;
   parentMonths: string[]; // List of "YYYY-MM" strings, e.g. ["2026-10"] or multi-month spans ["2026-10", "2026-11", "2026-12"]
   isStruck: boolean;
   colorTag?: string;
@@ -36,6 +40,8 @@ export interface MonthNote {
 export interface WeekNote {
   id: string;
   content: string;
+  originalContent?: string;
+  updatedAt?: string;
   parentWeeks: string[]; // List of "YYYY-Www" strings, e.g. ["2026-W42"] or multi-week spans ["2026-W42", "2026-W43"]
   isStruck: boolean;
   colorTag?: string;

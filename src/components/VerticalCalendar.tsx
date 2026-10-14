@@ -4,9 +4,9 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import type { DateItem, NoteItem, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
 import { NoteItemComponent } from './NoteItemComponent';
 import { DrawingOverlay } from './DrawingOverlay';
-import { Plus, Strikethrough, Trash2, Link2 } from 'lucide-react';
+import { Plus, Strikethrough, Trash2, Link2, Pencil, Check, X } from 'lucide-react';
 import { analyzeDateSpan, groupDatesIntoWeeks, formatDateKey } from '../utils/dateUtils';
-
+import { computeWordDiff } from '../utils/diffUtils';
 
 interface VerticalCalendarProps {
   dates: DateItem[];
@@ -16,10 +16,12 @@ interface VerticalCalendarProps {
   settings: CalendarSettings;
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
+  onUpdateNote?: (noteId: string, newContent: string) => void;
   onAddQuickNote: (dateString: string, content: string) => void;
   onAddWeekNote: (content: string, parentWeeks: string[], colorTag?: string) => void;
   onToggleStrikeWeekNote: (id: string) => void;
   onRemoveWeekNote: (id: string) => void;
+  onUpdateWeekNote?: (id: string, newContent: string) => void;
   onAddDrawing: (drawing: Omit<DrawingElement, 'id' | 'createdAt'>) => void;
   onRemoveDrawing: (id: string) => void;
   onRemoveDrawings?: (ids: string[]) => void;
@@ -37,10 +39,12 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   settings,
   onToggleStrike,
   onRemoveNote,
+  onUpdateNote,
   onAddQuickNote,
   onAddWeekNote,
   onToggleStrikeWeekNote,
   onRemoveWeekNote,
+  onUpdateWeekNote,
   onAddDrawing,
   onRemoveDrawing,
   onRemoveDrawings,
@@ -53,6 +57,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   const [quickInputText, setQuickInputText] = useState('');
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
   const [quickWeekText, setQuickWeekText] = useState('');
+  const [editingWeekNoteId, setEditingWeekNoteId] = useState<string | null>(null);
+  const [editingWeekNoteText, setEditingWeekNoteText] = useState('');
 
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
   const currentMonthKey = useMemo(() => todayKey.slice(0, 7), [todayKey]);
@@ -287,11 +293,20 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                     return (
                       <div
                         key={dateItem.dateString}
-                        className={`flex items-start min-h-[46px] group/row py-1 transition-colors ${
+                        onDoubleClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button') || target.closest('input') || target.closest('form')) {
+                            return;
+                          }
+                          setQuickInputDate(dateItem.dateString);
+                          setQuickInputText('');
+                        }}
+                        className={`flex items-start min-h-[48px] group/row py-1 transition-colors ${
                           dateItem.isToday
                             ? 'bg-[#FAF3EA] border-l-[4px] border-l-[#D23B38] -ml-[4px] shadow-xs relative z-10'
                             : 'hover:bg-[#F2EDE4]/30'
                         }`}
+                        title="Double-click day to write note"
                       >
                         {/* Month Indicator */}
                         <div className="w-14 sm:w-18 shrink-0 text-right pr-3 pt-1">
@@ -383,6 +398,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                                 currentDate={dateItem.dateString}
                                 onToggleStrike={onToggleStrike}
                                 onRemoveNote={onRemoveNote}
+                                onUpdateNote={onUpdateNote}
                                 onJumpToDate={(targetDate) => {
                                   if (onJumpToDateRequested) onJumpToDateRequested(targetDate);
                                 }}
@@ -390,26 +406,35 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                             ))}
                           </div>
 
-                          {/* Quick note input */}
+                          {/* Quick note input with increased, comfortable padding */}
                           {isQuickAdding ? (
                             <form
                               onSubmit={(e) => handleQuickNoteSubmit(e, dateItem.dateString)}
-                              className="mt-1 flex items-center gap-1.5"
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-1.5 flex items-center gap-2 p-1.5 bg-white border border-[#DDD6C8] rounded-xl shadow-xs animate-in fade-in duration-100"
                             >
                               <input
                                 autoFocus
                                 type="text"
                                 value={quickInputText}
                                 onChange={(e) => setQuickInputText(e.target.value)}
-                                placeholder="Write a note... (Enter)"
+                                placeholder="Write a note for this day... (Enter to save, Esc to cancel)"
                                 onKeyDown={(e) => e.key === 'Escape' && setQuickInputDate(null)}
-                                className="flex-1 px-2 py-0.5 text-xs bg-white border border-[#DDD6C8] rounded focus:outline-hidden"
+                                className="flex-1 px-3.5 py-2 text-sm bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden font-sans"
                               />
                               <button
                                 type="submit"
-                                className="px-2 py-0.5 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded font-medium"
+                                className="px-3.5 py-1.5 text-xs bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] rounded-lg font-medium shadow-2xs transition-colors shrink-0"
                               >
                                 Add
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setQuickInputDate(null)}
+                                className="px-2.5 py-1.5 text-xs text-[#8E8F95] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50 rounded-lg transition-colors shrink-0"
+                                title="Cancel (Esc)"
+                              >
+                                Esc
                               </button>
                             </form>
                           ) : (
@@ -419,6 +444,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                                 setQuickInputText('');
                               }}
                               className="opacity-0 group-row:opacity-100 mt-0.5 text-[11px] font-mono text-[#A19D94] hover:text-[#2B2C30] flex items-center gap-1 transition-opacity py-0.5 px-1 rounded"
+                              title="Write note (or double-click day)"
                             >
                               <Plus className="w-3 h-3" />
                               <span>write note</span>
@@ -467,15 +493,74 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                     <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
                       {currentWeekNotes.map((wn) => {
                         const isMulti = wn.parentWeeks.length > 1;
+                        const isEditingThis = editingWeekNoteId === wn.id;
+                        const hasEdits = Boolean(wn.originalContent && wn.originalContent !== wn.content);
+                        const diffChunks = hasEdits && wn.originalContent ? computeWordDiff(wn.originalContent, wn.content) : [];
+
+                        if (isEditingThis) {
+                          return (
+                            <form
+                              key={wn.id}
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const trimmed = editingWeekNoteText.trim();
+                                if (trimmed && onUpdateWeekNote) {
+                                  onUpdateWeekNote(wn.id, trimmed);
+                                }
+                                setEditingWeekNoteId(null);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1.5 w-full my-0.5 p-1 bg-white border border-[#2B2C30] rounded-lg shadow-2xs"
+                            >
+                              <input
+                                autoFocus
+                                type="text"
+                                value={editingWeekNoteText}
+                                onChange={(e) => setEditingWeekNoteText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') setEditingWeekNoteId(null);
+                                }}
+                                className="flex-1 px-2.5 py-1 text-xs bg-transparent border-0 text-[#2B2C30] focus:outline-hidden"
+                                placeholder="Edit week note..."
+                              />
+                              <button
+                                type="submit"
+                                className="px-2 py-1 text-xs bg-[#2B2C30] text-white rounded font-medium flex items-center gap-1"
+                                title="Save (Enter)"
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingWeekNoteId(null)}
+                                className="p-1 text-[#8E8F95] hover:text-[#2B2C30]"
+                                title="Cancel (Esc)"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </form>
+                          );
+                        }
+
                         return (
                           <div
                             key={wn.id}
-                            className={`group/wnote relative flex items-start gap-1.5 p-1.5 rounded-md text-xs transition-colors ${
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setEditingWeekNoteId(wn.id);
+                              setEditingWeekNoteText(wn.content);
+                            }}
+                            className={`group/wnote relative flex items-start gap-1.5 p-1.5 rounded-md text-xs transition-colors cursor-pointer ${
                               wn.isStruck ? 'text-[#8E8F95]' : 'text-[#2B2C30] bg-[#FAF8F5] hover:bg-white shadow-2xs'
                             }`}
+                            title="Double-click to edit week note"
                           >
                             <button
-                              onClick={() => onToggleStrikeWeekNote(wn.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleStrikeWeekNote(wn.id);
+                              }}
                               className={`mt-0.5 p-0.5 rounded transition-colors ${
                                 wn.isStruck
                                   ? 'text-[#A19D94]'
@@ -487,9 +572,48 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                             </button>
 
                             <div className="flex-1 min-w-0">
-                              <span className={`break-words leading-tight ${wn.isStruck ? 'line-through text-[#8E8F95]' : ''}`}>
-                                {wn.content}
+                              <span className="break-words leading-tight">
+                                {wn.isStruck ? (
+                                  <span className="line-through text-[#8E8F95]">{wn.content}</span>
+                                ) : hasEdits ? (
+                                  <span>
+                                    {diffChunks.map((chunk, cIdx) => {
+                                      if (chunk.type === 'deleted') {
+                                        return (
+                                          <span
+                                            key={cIdx}
+                                            className="line-through decoration-[#D23B38] text-[#D23B38] opacity-60 font-serif mr-1"
+                                            title="Deleted word"
+                                          >
+                                            {chunk.value}
+                                          </span>
+                                        );
+                                      }
+                                      if (chunk.type === 'added') {
+                                        return (
+                                          <span
+                                            key={cIdx}
+                                            className="text-[#1E7B48] font-medium bg-[#E8F5E9]/60 px-0.5 rounded-xs mr-0.5"
+                                            title="Added word"
+                                          >
+                                            {chunk.value}
+                                          </span>
+                                        );
+                                      }
+                                      return <span key={cIdx}>{chunk.value}</span>;
+                                    })}
+                                  </span>
+                                ) : (
+                                  wn.content
+                                )}
                               </span>
+
+                              {hasEdits && !wn.isStruck && (
+                                <span className="ml-1.5 text-[8px] font-mono text-[#1E7B48] bg-[#E8F5E9] px-1 py-0.2 rounded border border-[#C8E6C9]">
+                                  edited
+                                </span>
+                              )}
+
                               {isMulti && (
                                 <div className="flex items-center gap-1 mt-0.5 text-[9px] font-mono text-[#83C5BE]">
                                   <Link2 className="w-2.5 h-2.5" />
@@ -498,8 +622,24 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                               )}
                             </div>
 
+                            {/* Edit Button (Hover) */}
                             <button
-                              onClick={() => onRemoveWeekNote(wn.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingWeekNoteId(wn.id);
+                                setEditingWeekNoteText(wn.content);
+                              }}
+                              className="opacity-0 group-wnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#2B2C30] rounded"
+                              title="Edit note (Double-click)"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemoveWeekNote(wn.id);
+                              }}
                               className="opacity-0 group-wnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#D23B38] rounded"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -510,12 +650,12 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                     </div>
                   </div>
 
-                  {/* Add Week Note Input */}
+                  {/* Add Week Note Input with comfortable padding */}
                   <div className="pt-2 border-t border-[#E5DFD5]/60 mt-2">
                     {isAddingWeekNote ? (
                       <form
                         onSubmit={(e) => handleQuickWeekNoteSubmit(e, weekBlock.weekKey)}
-                        className="flex items-center gap-1"
+                        className="flex items-center gap-1.5 p-1 bg-white border border-[#DDD6C8] rounded-lg shadow-xs"
                       >
                         <input
                           autoFocus
@@ -524,10 +664,17 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                           onChange={(e) => setQuickWeekText(e.target.value)}
                           placeholder="Week goal/focus... (Enter)"
                           onKeyDown={(e) => e.key === 'Escape' && setQuickInputWeek(null)}
-                          className="flex-1 px-1.5 py-0.5 text-xs bg-white border border-[#DDD6C8] rounded focus:outline-hidden"
+                          className="flex-1 px-3 py-1.5 text-xs bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden"
                         />
-                        <button type="submit" className="px-1.5 py-0.5 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded">
+                        <button type="submit" className="px-2.5 py-1.5 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded-md font-medium shrink-0">
                           Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQuickInputWeek(null)}
+                          className="px-1.5 py-1.5 text-xs text-[#8E8F95] hover:text-[#2B2C30] shrink-0"
+                        >
+                          Esc
                         </button>
                       </form>
                     ) : (

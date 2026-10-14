@@ -16,12 +16,15 @@ export function App() {
     addNote,
     toggleStrikeNote,
     removeNote,
+    updateNote,
     addWeekNote,
     toggleStrikeWeekNote,
     removeWeekNote,
+    updateWeekNote,
     addMonthNote,
     toggleStrikeMonthNote,
     removeMonthNote,
+    updateMonthNote,
     addDrawing,
     removeDrawing,
     removeDrawings,
@@ -105,10 +108,12 @@ export function App() {
             settings={settings}
             onToggleStrike={toggleStrikeNote}
             onRemoveNote={removeNote}
+            onUpdateNote={updateNote}
             onAddQuickNote={(date, text) => addNote(text, [date])}
             onAddWeekNote={addWeekNote}
             onToggleStrikeWeekNote={toggleStrikeWeekNote}
             onRemoveWeekNote={removeWeekNote}
+            onUpdateWeekNote={updateWeekNote}
             onAddDrawing={addDrawing}
             onRemoveDrawing={removeDrawing}
             onRemoveDrawings={removeDrawings}
@@ -132,6 +137,7 @@ export function App() {
             onAddMonthNote={addMonthNote}
             onToggleStrikeMonthNote={toggleStrikeMonthNote}
             onRemoveMonthNote={removeMonthNote}
+            onUpdateMonthNote={updateMonthNote}
           />
         )}
       </div>
