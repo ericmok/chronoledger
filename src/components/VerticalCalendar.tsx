@@ -458,10 +458,17 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
 
                 {/* TIER 2: Week Notes (Spans the vertical height of the week!) */}
                 <div
-                  className={`w-64 sm:w-72 shrink-0 border-l border-[#E5DFD5] p-3 flex flex-col justify-between group/weekpanel transition-colors ${
+                  onDoubleClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button, form, input, .group\\/wnote')) return;
+                    setQuickInputWeek(weekBlock.weekKey);
+                    setQuickWeekText('');
+                  }}
+                  title="Week focus panel — double-click to add note"
+                  className={`w-64 sm:w-72 shrink-0 border-l border-[#E5DFD5] p-3 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
                     weekBlock.containsToday
                       ? 'bg-[#F2ECE1]/90 ring-1 ring-inset ring-[#D23B38]/20'
-                      : 'bg-[#F7F4EC]/40'
+                      : 'bg-[#F7F4EC]/40 hover:bg-[#F2EDE4]/30'
                   }`}
                 >
                   {/* Week Header */}
@@ -482,15 +489,50 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                           {weekBlock.startDate.monthName} {weekBlock.startDate.dayOfMonth} – {weekBlock.endDate.monthName} {weekBlock.endDate.dayOfMonth}
                         </span>
                       </div>
-                      {weekBlock.containsToday && (
-                        <span className="text-[9px] font-mono bg-[#D23B38] text-white px-2 py-0.5 rounded font-bold uppercase tracking-wider shadow-2xs">
-                          Active Week
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {weekBlock.containsToday && (
+                          <span className="text-[9px] font-mono bg-[#D23B38] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-2xs">
+                            Active
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setQuickInputWeek(weekBlock.weekKey);
+                            setQuickWeekText('');
+                          }}
+                          className="flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded border border-[#DDD6C8] bg-white text-[#2B2C30] hover:bg-[#F2ECE1] hover:border-[#2B2C30] transition-colors shadow-2xs cursor-pointer"
+                          title="Add weekly note / objective (or double-click panel)"
+                        >
+                          <Plus className="w-3 h-3 text-[#D23B38]" />
+                          <span>+ Note</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* Week Notes List */}
                     <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
+                      {currentWeekNotes.length === 0 && !isAddingWeekNote && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setQuickInputWeek(weekBlock.weekKey);
+                            setQuickWeekText('');
+                          }}
+                          className="w-full my-1 py-3 px-2 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded-lg flex flex-col items-center justify-center text-center bg-white/50 hover:bg-white/90 transition-all cursor-pointer group/placeholder"
+                          title="Click or double-click to add weekly note"
+                        >
+                          <div className="flex items-center gap-1 text-xs font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
+                            <Plus className="w-3.5 h-3.5 text-[#D23B38]" />
+                            <span>Add week focus / objective</span>
+                          </div>
+                          <span className="text-[9px] font-mono text-[#A19D94] mt-0.5">
+                            or double-click panel
+                          </span>
+                        </button>
+                      )}
                       {currentWeekNotes.map((wn) => {
                         const isMulti = wn.parentWeeks.length > 1;
                         const isEditingThis = editingWeekNoteId === wn.id;
@@ -561,12 +603,12 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                                 e.stopPropagation();
                                 onToggleStrikeWeekNote(wn.id);
                               }}
-                              className={`mt-0.5 p-0.5 rounded transition-colors ${
+                              className={`mt-0.5 p-0.5 rounded transition-opacity ${
                                 wn.isStruck
                                   ? 'text-[#A19D94]'
-                                  : 'text-[#BBB6AC] opacity-0 group-wnote:opacity-100 hover:text-[#2B2C30]'
+                                  : 'text-[#BBB6AC] opacity-30 group-wnote:opacity-100 hover:!opacity-100 hover:text-[#2B2C30]'
                               }`}
-                              title={wn.isStruck ? 'Restore' : 'Strike through'}
+                              title={wn.isStruck ? 'Restore note' : 'Cross out note'}
                             >
                               <Strikethrough className="w-3 h-3" />
                             </button>
@@ -635,15 +677,15 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                               )}
                             </div>
 
-                            {/* Edit Button (Hover) */}
+                            {/* Edit Button */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setEditingWeekNoteId(wn.id);
-                                setEditingWeekNoteText(wn.content);
+                                setEditingWeekNoteText(wn.content || wn.originalContent || '');
                               }}
-                              className="opacity-0 group-wnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#2B2C30] rounded"
-                              title="Edit note (Double-click)"
+                              className="opacity-40 group-wnote:opacity-100 hover:!opacity-100 p-0.5 text-[#71727A] hover:text-[#2B2C30] rounded transition-opacity"
+                              title="Edit note (or double-click text)"
                             >
                               <Pencil className="w-3 h-3" />
                             </button>
@@ -653,7 +695,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                                 e.stopPropagation();
                                 onRemoveWeekNote(wn.id);
                               }}
-                              className="opacity-0 group-wnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#D23B38] rounded"
+                              className="opacity-0 group-wnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#D23B38] rounded transition-opacity"
+                              title="Delete note"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -675,7 +718,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                           type="text"
                           value={quickWeekText}
                           onChange={(e) => setQuickWeekText(e.target.value)}
-                          placeholder="Week goal/focus... (Enter)"
+                          placeholder="Week goal/focus... (Enter to save)"
                           onKeyDown={(e) => e.key === 'Escape' && setQuickInputWeek(null)}
                           className="flex-1 px-3 py-1.5 text-xs bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden"
                         />
@@ -690,18 +733,19 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                           Esc
                         </button>
                       </form>
-                    ) : (
+                    ) : currentWeekNotes.length > 0 ? (
                       <button
                         onClick={() => {
                           setQuickInputWeek(weekBlock.weekKey);
                           setQuickWeekText('');
                         }}
-                        className="opacity-0 group-weekpanel:opacity-100 text-[10px] font-mono text-[#8E8F95] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1 rounded hover:bg-[#EAE3D6]/60 transition-all"
+                        className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1.5 rounded-md border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/40 bg-white/50 hover:bg-white transition-all shadow-2xs"
+                        title="Add another weekly goal"
                       >
-                        <Plus className="w-3 h-3" />
-                        <span>add weekly goal</span>
+                        <Plus className="w-3 h-3 text-[#D23B38]" />
+                        <span>Add weekly goal</span>
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>

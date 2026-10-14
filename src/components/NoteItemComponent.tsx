@@ -122,7 +122,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
         className={`mt-0.5 p-1 rounded transition-colors ${
           note.isStruck
             ? 'text-[#A19D94] hover:text-[#2B2C30]'
-            : 'text-[#BBB6AC] opacity-0 group-hover:opacity-100 hover:text-[#2B2C30] hover:bg-[#EAE3D6]'
+            : 'text-[#BBB6AC] opacity-30 group-hover:opacity-100 hover:!opacity-100 hover:text-[#2B2C30] hover:bg-[#EAE3D6]'
         }`}
         title={note.isStruck ? 'Restore / Unstrike' : 'Cross out / Strike through'}
       >
@@ -233,11 +233,11 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
         )}
       </div>
 
-      {/* Edit Note Button (Hover) */}
+      {/* Edit Note Button */}
       <button
         onClick={handleStartEdit}
-        className="opacity-0 group-hover:opacity-100 p-1 text-[#BBB6AC] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-all"
-        title="Edit note (Double-click)"
+        className="opacity-40 group-hover:opacity-100 hover:!opacity-100 p-1 text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-all"
+        title="Edit note (or double-click text)"
       >
         <Pencil className="w-3.5 h-3.5" />
       </button>

@@ -345,7 +345,14 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
             return (
               <div
                 key={meta.monthKey}
-                className={`absolute left-0 w-full border-b border-[#E5DFD5]/80 flex flex-col justify-between p-2 group/month transition-colors ${
+                onDoubleClick={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button, form, input, .group\\/mnote')) return;
+                  setQuickInputMonth(meta.monthKey);
+                  setQuickInputText('');
+                }}
+                title={`${meta.fullName} goals — double-click to add`}
+                className={`absolute left-0 w-full border-b border-[#E5DFD5]/80 flex flex-col justify-between p-2 group/month transition-colors cursor-pointer ${
                   isCurrentMonth
                     ? 'bg-[#FAF5ED]/95 border-l-[3.5px] border-l-[#D23B38] -ml-[3.5px]'
                     : 'hover:bg-[#F2EDE4]/30'
@@ -367,11 +374,46 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                     <span>{meta.name} Goals</span>
                     {isCurrentMonth && <span className="text-[8px] uppercase bg-white/20 px-1 rounded">Focus</span>}
                   </span>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setQuickInputMonth(meta.monthKey);
+                      setQuickInputText('');
+                    }}
+                    className="flex items-center gap-0.5 text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border border-[#DDD6C8] bg-white text-[#2B2C30] hover:bg-[#F2ECE1] hover:border-[#2B2C30] transition-colors shadow-2xs cursor-pointer shrink-0"
+                    title={`Add ${meta.name} goal (or double-click card)`}
+                  >
+                    <Plus className="w-2.5 h-2.5 text-[#D23B38]" />
+                    <span>+ Goal</span>
+                  </button>
                 </div>
 
 
                 {/* Notes List for this month */}
-                <div className="flex-1 overflow-y-auto space-y-1 py-1 pr-1">
+                <div className="flex-1 overflow-y-auto space-y-1 py-1 pr-1 flex flex-col justify-start">
+                  {currentMonthNotes.length === 0 && !isAdding && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQuickInputMonth(meta.monthKey);
+                        setQuickInputText('');
+                      }}
+                      className="w-full my-auto py-2.5 px-1 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded flex flex-col items-center justify-center text-center bg-white/40 hover:bg-white/80 transition-all cursor-pointer group/placeholder"
+                      title={`Add ${meta.name} goal or double-click`}
+                    >
+                      <div className="flex items-center gap-1 text-[11px] font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
+                        <Plus className="w-3 h-3 text-[#D23B38]" />
+                        <span>Add {meta.name} goal</span>
+                      </div>
+                      <span className="text-[8px] font-mono text-[#A19D94] mt-0.5">
+                        or double-click card
+                      </span>
+                    </button>
+                  )}
+
                   {currentMonthNotes.map((mn) => {
                     const isMulti = mn.parentMonths.length > 1;
                     const isEditingThis = editingMonthNoteId === mn.id;
@@ -443,12 +485,12 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                             e.stopPropagation();
                             onToggleStrikeMonthNote(mn.id);
                           }}
-                          className={`mt-0.5 p-0.5 rounded transition-colors ${
+                          className={`mt-0.5 p-0.5 rounded transition-opacity ${
                             mn.isStruck
                               ? 'text-[#A19D94]'
-                              : 'text-[#BBB6AC] opacity-0 group-hover/mnote:opacity-100 hover:text-[#2B2C30]'
+                              : 'text-[#BBB6AC] opacity-30 group-hover/mnote:opacity-100 hover:!opacity-100 hover:text-[#2B2C30]'
                           }`}
-                          title={mn.isStruck ? 'Restore note' : 'Cross out'}
+                          title={mn.isStruck ? 'Restore note' : 'Cross out note'}
                         >
                           <Strikethrough className="w-3 h-3" />
                         </button>
@@ -520,15 +562,15 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                           )}
                         </div>
 
-                        {/* Edit Button (Hover) */}
+                        {/* Edit Button */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingMonthNoteId(mn.id);
-                            setEditingMonthNoteText(mn.content);
+                            setEditingMonthNoteText(mn.content || mn.originalContent || '');
                           }}
-                          className="opacity-0 group-hover/mnote:opacity-100 p-0.5 text-[#BBB6AC] hover:text-[#2B2C30] rounded"
-                          title="Edit note (Double-click)"
+                          className="opacity-40 group-hover/mnote:opacity-100 hover:!opacity-100 p-0.5 text-[#71727A] hover:text-[#2B2C30] rounded transition-opacity"
+                          title="Edit note (or double-click text)"
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
@@ -557,7 +599,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                       type="text"
                       value={quickInputText}
                       onChange={(e) => setQuickInputText(e.target.value)}
-                      placeholder="Month focus/goal... (Enter)"
+                      placeholder={`${meta.name} focus/goal... (Enter)`}
                       onKeyDown={(e) => e.key === 'Escape' && setQuickInputMonth(null)}
                       className="flex-1 px-2.5 py-1.5 text-xs bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden"
                     />
@@ -572,18 +614,19 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                       <X className="w-3 h-3" />
                     </button>
                   </form>
-                ) : (
+                ) : currentMonthNotes.length > 0 ? (
                   <button
                     onClick={() => {
                       setQuickInputMonth(meta.monthKey);
                       setQuickInputText('');
                     }}
-                    className="opacity-0 group-month:opacity-100 text-[10px] font-mono text-[#8E8F95] hover:text-[#2B2C30] flex items-center justify-center gap-1 py-0.5 rounded transition-opacity"
+                    className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1 rounded border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/40 bg-white/50 hover:bg-white transition-all shadow-2xs mt-1"
+                    title={`Add another ${meta.name} goal`}
                   >
-                    <Plus className="w-3 h-3" />
-                    <span>note</span>
+                    <Plus className="w-2.5 h-2.5 text-[#D23B38]" />
+                    <span>Add goal</span>
                   </button>
-                )}
+                ) : null}
               </div>
             );
           })}
