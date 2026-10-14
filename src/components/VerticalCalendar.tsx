@@ -258,12 +258,17 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
+              {/* Top Colored Thick Border for Current Week */}
+              {weekBlock.containsToday && (
+                <div className="w-full h-[3.5px] bg-[#D23B38] shadow-xs z-30 shrink-0" />
+              )}
+
               <div
                 className={`flex items-stretch border-x border-[#E5DFD5] bg-[#FAF8F5] transition-colors ${
-                  virtualRow.index === 0 ? 'border-t' : ''
+                  virtualRow.index === 0 && !weekBlock.containsToday ? 'border-t' : ''
                 } ${
                   weekBlock.containsToday
-                    ? 'border-l-[4px] border-l-[#D23B38] -ml-[3px]'
+                    ? 'border-l-[4px] border-l-[#D23B38] -ml-[3px] border-r-[2px] border-r-[#D23B38]/50 shadow-xs'
                     : ''
                 }`}
               >
@@ -541,12 +546,13 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                 </div>
               </div>
 
-              {/* Integrated Dashed Week Separator Line (Zero margin, continuous paper roll) */}
-              <div
-                className={`w-full border-b border-dashed ${
-                  weekBlock.containsToday ? 'border-[#D23B38]/70' : 'border-[#A19D94]/70'
-                }`}
-              />
+              {/* Bottom Colored Thick Border for Current Week */}
+              {weekBlock.containsToday ? (
+                <div className="w-full h-[3.5px] bg-[#D23B38] shadow-xs z-30 shrink-0" />
+              ) : (
+                /* Integrated Dashed Week Separator Line (Zero margin, continuous paper roll) */
+                <div className="w-full border-b border-dashed border-[#A19D94]/70" />
+              )}
             </div>
           );
         })}

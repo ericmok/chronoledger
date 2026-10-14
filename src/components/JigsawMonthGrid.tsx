@@ -460,10 +460,23 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
               <div
                 key={rIdx}
                 className={`grid grid-cols-7 relative transition-colors ${
-                  isCurrentWeekRow ? 'bg-[#FAF3EA]/80 ring-1 ring-inset ring-[#D23B38]/30' : ''
+                  isCurrentWeekRow ? 'z-20' : ''
                 }`}
                 style={{ height: `${CELL_SIZE}px` }}
               >
+                {/* Colored thick borders framing top and bottom of current week of the month */}
+                {isCurrentWeekRow && (
+                  <>
+                    {/* Top colored thick border */}
+                    <div className="absolute inset-x-0 top-0 h-[3px] bg-[#D23B38] pointer-events-none z-30 shadow-xs" />
+                    {/* Bottom colored thick border */}
+                    <div className="absolute inset-x-0 bottom-0 h-[3px] bg-[#D23B38] pointer-events-none z-30 shadow-xs" />
+                    {/* Left & Right border caps */}
+                    <div className="absolute left-0 inset-y-0 w-[2.5px] bg-[#D23B38] pointer-events-none z-30" />
+                    <div className="absolute right-0 inset-y-0 w-[2.5px] bg-[#D23B38] pointer-events-none z-30" />
+                  </>
+                )}
+
                 {week.map((cell) => {
                   const isEvenMonth = cell.monthIndex % 2 === 0;
 
@@ -474,6 +487,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                       className={`relative w-[34px] h-[34px] flex flex-col items-center justify-center text-[11px] font-mono transition-transform hover:z-10 group ${
                         cell.isToday
                           ? 'bg-[#FAF3EA]'
+                          : isCurrentWeekRow
+                          ? 'bg-[#FDF0E2]/90'
                           : isEvenMonth
                           ? 'bg-[#FAF8F5]'
                           : 'bg-[#F2ECE1]/65'
@@ -482,13 +497,15 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                         // Subtle interior paper rules
                         boxShadow: 'inset 0 0 0 0.5px rgba(229, 223, 213, 0.45)',
                       }}
-                      title={`${cell.monthKey} - ${cell.dayNumber}${cell.isToday ? ' (Today)' : ''}`}
+                      title={`${cell.monthKey} - ${cell.dayNumber}${cell.isToday ? ' (Today)' : isCurrentWeekRow ? ' (Current Week)' : ''}`}
                     >
                       {/* Day Number */}
                       <span
                         className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-transform group-hover:scale-110 ${
                           cell.isToday
                             ? 'bg-[#D23B38] text-white font-black shadow-xs ring-2 ring-[#D23B38]/30'
+                            : isCurrentWeekRow
+                            ? 'text-[#2B2C30] font-bold'
                             : cell.isOutsideTargetRange
                             ? 'text-[#B8B4AA] opacity-40'
                             : 'text-[#2B2C30]'
