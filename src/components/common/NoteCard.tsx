@@ -215,12 +215,13 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
       )}
 
-      {/* Interaction Controls: Drag Handle & Strike Action (Shown on hover or when interacting) */}
+      {/* Reserved Left Slot: Holds Color Bullet at rest, Drag Handle on hover/drag */}
       <div
-        className={`shrink-0 items-center gap-0.5 ${
-          isBeingDragged || isDraggingSelf ? 'flex' : 'hidden group-hover:flex'
+        className={`shrink-0 flex items-center justify-center ${
+          isComfortable ? 'w-4 h-5 mt-0.5' : 'w-3.5 h-4 mt-0.5'
         }`}
       >
+        {/* Drag Handle: Shown on hover or when dragging */}
         {isDraggable && (
           <div
             onMouseEnter={() => setCanDrag(true)}
@@ -231,8 +232,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             onPointerUp={() => {
               if (!isDraggingSelf) setCanDrag(false);
             }}
-            className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] flex items-center justify-center shrink-0 ${
-              isComfortable ? 'py-1 -ml-1 pr-0.5' : 'py-0.5 -ml-0.5 pr-0.5'
+            className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] items-center justify-center w-full h-full rounded transition-colors ${
+              isBeingDragged || isDraggingSelf ? 'flex' : 'hidden group-hover:flex'
             }`}
             title="Drag to reorder note"
           >
@@ -240,33 +241,22 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           </div>
         )}
 
-        {/* Strike Action Button (Analog Pencil Scratch) */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStrike(id);
-          }}
-          className={`mt-0.5 rounded transition-colors ${isComfortable ? 'p-1' : 'p-0.5'} ${
-            isStruck
-              ? 'text-[#A19D94] hover:text-[#2B2C30]'
-              : 'text-[#BBB6AC] hover:text-[#2B2C30] hover:bg-[#EAE3D6]'
-          }`}
-          title={isStruck ? 'Restore / Unstrike' : 'Cross out / Strike through'}
-        >
-          <Strikethrough className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
-        </button>
+        {/* Resting Indicator: Color tag dot (Hidden when hovered or dragging if draggable) */}
+        {colorTag && (
+          <span
+            className={`rounded-full shrink-0 ${
+              isComfortable ? 'w-1.5 h-1.5' : 'w-1 h-1'
+            } ${
+              isBeingDragged || isDraggingSelf
+                ? 'hidden'
+                : isDraggable
+                ? 'block group-hover:hidden'
+                : 'block'
+            }`}
+            style={{ backgroundColor: colorTag }}
+          />
+        )}
       </div>
-
-      {/* Resting Indicator: Color tag dot (Hidden when hovered or interacting) */}
-      {colorTag && (
-        <span
-          className={`rounded-full shrink-0 ${
-            isComfortable ? 'w-1.5 h-1.5 mt-2' : 'w-1 h-1 mt-1.5'
-          } ${isBeingDragged || isDraggingSelf ? 'hidden' : 'block group-hover:hidden'}`}
-          style={{ backgroundColor: colorTag }}
-        />
-      )}
 
       {/* Note Content with Realistic Graphite Strike Line & Word-Level Diffs */}
       <div className="flex-1 min-w-0">
@@ -332,12 +322,27 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         {badge}
       </div>
 
-      {/* Note Action Cluster: Edit & Delete (Hidden at rest, revealed on hover/interaction) */}
+      {/* Note Action Cluster: Strikethrough, Edit & Delete (Hidden at rest, revealed on hover/interaction) */}
       <div
         className={`flex items-center gap-0.5 shrink-0 ml-1 transition-opacity ${
           isBeingDragged || isDraggingSelf ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}
       >
+        {/* Strike Action Button (Analog Pencil Scratch) */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStrike(id);
+          }}
+          className={`text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-all ${
+            isComfortable ? 'p-1' : 'p-0.5'
+          } ${isStruck ? 'text-[#2B2C30]' : ''}`}
+          title={isStruck ? 'Restore / Unstrike' : 'Cross out / Strike through'}
+        >
+          <Strikethrough className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
+        </button>
+
         {/* Edit Button */}
         <button
           type="button"
