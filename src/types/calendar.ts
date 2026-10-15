@@ -48,7 +48,16 @@ export interface WeekNote {
   createdAt: string;
 }
 
+export const NOTE_ACCENT_COLORS = [
+  '#E29578', // Terracotta
+  '#83C5BE', // Sage / Aqua
+  '#E9C46A', // Warm Ochre
+  '#9B5DE5', // Lavender / Purple
+  '#F15BB5', // Rose / Pink
+  '#457B9D', // Slate / Steel Blue
+] as const;
 
+export type NoteAccentColor = typeof NOTE_ACCENT_COLORS[number];
 
 export type DrawingTool = 'select' | 'pencil' | 'arrow' | 'circle' | 'highlighter' | 'eraser';
 

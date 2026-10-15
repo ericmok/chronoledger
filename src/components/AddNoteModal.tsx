@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { formatDateKey, parseDateKey } from '../utils/dateUtils';
-
+import { NOTE_ACCENT_COLORS } from '../types/calendar';
 
 interface AddNoteModalProps {
   initialDate?: string;
@@ -26,8 +26,6 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
   const [colorTag, setColorTag] = useState<string | undefined>('#E29578');
 
   if (!isOpen) return null;
-
-  const colorOptions = ['#E29578', '#83C5BE', '#E9C46A', '#9B5DE5', '#F15BB5', '#457B9D'];
 
   const handleAddCustomDate = () => {
     if (newDateInput && !customDates.includes(newDateInput)) {
@@ -218,7 +216,7 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
               Accent Color
             </label>
             <div className="flex items-center gap-2">
-              {colorOptions.map((c) => (
+              {NOTE_ACCENT_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
