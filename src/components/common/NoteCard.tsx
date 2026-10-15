@@ -215,50 +215,58 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
       )}
 
-      {/* Drag Handle Button */}
-      {isDraggable && (
-        <div
-          onMouseEnter={() => setCanDrag(true)}
-          onMouseLeave={() => {
-            if (!isDraggingSelf) setCanDrag(false);
-          }}
-          onPointerDown={() => setCanDrag(true)}
-          onPointerUp={() => {
-            if (!isDraggingSelf) setCanDrag(false);
-          }}
-          className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] opacity-25 group-hover:opacity-85 hover:!opacity-100 transition-opacity flex items-center justify-center shrink-0 ${
-            isComfortable ? 'py-1 -ml-1 pr-0.5' : 'py-0.5 -ml-0.5 pr-0.5'
-          }`}
-          title="Drag to reorder note"
-        >
-          <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
-        </div>
-      )}
+      {/* Interaction Controls: Drag Handle & Strike Action (Shown on hover or when interacting) */}
+      <div
+        className={`shrink-0 items-center gap-0.5 ${
+          isBeingDragged || isDraggingSelf ? 'flex' : 'hidden group-hover:flex'
+        }`}
+      >
+        {isDraggable && (
+          <div
+            onMouseEnter={() => setCanDrag(true)}
+            onMouseLeave={() => {
+              if (!isDraggingSelf) setCanDrag(false);
+            }}
+            onPointerDown={() => setCanDrag(true)}
+            onPointerUp={() => {
+              if (!isDraggingSelf) setCanDrag(false);
+            }}
+            className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] flex items-center justify-center shrink-0 ${
+              isComfortable ? 'py-1 -ml-1 pr-0.5' : 'py-0.5 -ml-0.5 pr-0.5'
+            }`}
+            title="Drag to reorder note"
+          >
+            <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
+          </div>
+        )}
 
-      {/* Color tag dot if present */}
+        {/* Strike Action Button (Analog Pencil Scratch) */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStrike(id);
+          }}
+          className={`mt-0.5 rounded transition-colors ${isComfortable ? 'p-1' : 'p-0.5'} ${
+            isStruck
+              ? 'text-[#A19D94] hover:text-[#2B2C30]'
+              : 'text-[#BBB6AC] hover:text-[#2B2C30] hover:bg-[#EAE3D6]'
+          }`}
+          title={isStruck ? 'Restore / Unstrike' : 'Cross out / Strike through'}
+        >
+          <Strikethrough className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
+        </button>
+      </div>
+
+      {/* Resting Indicator: Color tag dot (Hidden when hovered or interacting) */}
       {colorTag && (
         <span
-          className={`rounded-full shrink-0 ${isComfortable ? 'w-1.5 h-1.5 mt-2' : 'w-1 h-1 mt-1.5'}`}
+          className={`rounded-full shrink-0 ${
+            isComfortable ? 'w-1.5 h-1.5 mt-2' : 'w-1 h-1 mt-1.5'
+          } ${isBeingDragged || isDraggingSelf ? 'hidden' : 'block group-hover:hidden'}`}
           style={{ backgroundColor: colorTag }}
         />
       )}
-
-      {/* Strike Action Button (Analog Pencil Scratch) */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleStrike(id);
-        }}
-        className={`mt-0.5 rounded transition-colors ${isComfortable ? 'p-1' : 'p-0.5'} ${
-          isStruck
-            ? 'text-[#A19D94] hover:text-[#2B2C30]'
-            : 'text-[#BBB6AC] opacity-30 group-hover:opacity-100 hover:!opacity-100 hover:text-[#2B2C30] hover:bg-[#EAE3D6]'
-        }`}
-        title={isStruck ? 'Restore / Unstrike' : 'Cross out / Strike through'}
-      >
-        <Strikethrough className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
-      </button>
 
       {/* Note Content with Realistic Graphite Strike Line & Word-Level Diffs */}
       <div className="flex-1 min-w-0">
@@ -324,13 +332,17 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         {badge}
       </div>
 
-      {/* Note Action Cluster: Edit & Delete */}
-      <div className="flex items-center gap-0.5 shrink-0 ml-1">
+      {/* Note Action Cluster: Edit & Delete (Hidden at rest, revealed on hover/interaction) */}
+      <div
+        className={`flex items-center gap-0.5 shrink-0 ml-1 transition-opacity ${
+          isBeingDragged || isDraggingSelf ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+      >
         {/* Edit Button */}
         <button
           type="button"
           onClick={handleStartEdit}
-          className={`opacity-40 group-hover:opacity-100 hover:!opacity-100 text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-all ${
+          className={`text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-all ${
             isComfortable ? 'p-1' : 'p-0.5'
           }`}
           title="Edit note (or double-click text)"
@@ -345,7 +357,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             e.stopPropagation();
             onRemove(id);
           }}
-          className={`opacity-40 group-hover:opacity-100 hover:!opacity-100 text-[#8E8F95] hover:text-[#D23B38] hover:bg-[#FDEDEC] rounded transition-all ${
+          className={`text-[#8E8F95] hover:text-[#D23B38] hover:bg-[#FDEDEC] rounded transition-all ${
             isComfortable ? 'p-1' : 'p-0.5'
           }`}
           title="Delete note permanently"
