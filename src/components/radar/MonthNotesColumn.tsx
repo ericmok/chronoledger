@@ -105,11 +105,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
               onStartQuickAddMonth(meta.monthKey);
             }}
             title={`${meta.fullName} notes — double-click to add`}
-            className={`absolute left-0 w-full border-b flex flex-col justify-between p-2 group/month transition-colors cursor-pointer hover:brightness-[0.98] ${
-              isCurrentMonth
-                ? 'border-l-[3.5px] border-l-[#D23B38] -ml-[3.5px]'
-                : ''
-            }`}
+            className="absolute left-0 w-full border-b flex flex-col justify-between p-2 group/month transition-colors cursor-pointer hover:brightness-[0.98]"
             style={{
               top: `${meta.topPx}px`,
               height: `${meta.heightPx}px`,

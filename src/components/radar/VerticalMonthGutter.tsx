@@ -6,16 +6,18 @@ export interface VerticalMonthGutterProps {
   monthMetas: MonthMeta[];
   totalWeeksHeight: number;
   todayKey: string;
+  onJumpToMonth?: (monthKey: string) => void;
 }
 
 export const VerticalMonthGutter: React.FC<VerticalMonthGutterProps> = ({
   monthMetas,
   totalWeeksHeight,
   todayKey,
+  onJumpToMonth,
 }) => {
   return (
     <div
-      className="w-10 shrink-0 border-l border-[#E5DFD5] relative bg-[#F7F4EC]/40"
+      className="w-10 shrink-0 border-r border-[#E5DFD5] relative bg-[#F7F4EC]/40"
       style={{ height: `${totalWeeksHeight}px` }}
     >
       {monthMetas.map((meta) => {
@@ -25,8 +27,9 @@ export const VerticalMonthGutter: React.FC<VerticalMonthGutterProps> = ({
         return (
           <div
             key={`vmonth-${meta.monthKey}`}
-            className={`absolute left-0 w-full flex items-center justify-center border-b select-none overflow-hidden py-1 transition-colors hover:brightness-[0.98] ${
-              isCurrentMonth ? 'border-l-2 border-l-[#D23B38]' : ''
+            onClick={() => onJumpToMonth?.(meta.monthKey)}
+            className={`absolute left-0 w-full flex items-center justify-center border-b select-none overflow-hidden py-1 transition-colors hover:brightness-[0.98] cursor-pointer ${
+              isCurrentMonth ? 'border-l-[3.5px] border-l-[#D23B38]' : ''
             }`}
             style={{
               top: `${meta.topPx}px`,
@@ -34,7 +37,7 @@ export const VerticalMonthGutter: React.FC<VerticalMonthGutterProps> = ({
               backgroundColor: seasonalColor.gutterBg,
               borderBottomColor: seasonalColor.notesBorder,
             }}
-            title={`${meta.fullName} ${meta.year} (${seasonalColor.season})`}
+            title={`${meta.fullName} ${meta.year} (${seasonalColor.season}) — click to jump`}
           >
             <div
               className="font-serif text-[11px] font-bold tracking-widest uppercase flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity select-none text-[#2B2C30]"
