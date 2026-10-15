@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type React from 'react';
 import { ChevronLeft, ChevronRight, Compass, Plus } from 'lucide-react';
 import type { NoteItem, MonthNote, DrawingElement, WeekStartDay } from '../types/calendar';
@@ -19,6 +19,7 @@ interface JigsawMonthGridProps {
   onToggleStrikeMonthNote: (id: string) => void;
   onRemoveMonthNote: (id: string) => void;
   onUpdateMonthNote?: (id: string, newContent: string) => void;
+  scrollTargetDate?: { dateString: string; key: number } | null;
 }
 
 const CELL_SIZE = 34; // Square 34x34px cells
@@ -34,6 +35,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onToggleStrikeMonthNote,
   onRemoveMonthNote,
   onUpdateMonthNote,
+  scrollTargetDate,
 }) => {
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [quickInputMonth, setQuickInputMonth] = useState<string | null>(null);
@@ -235,6 +237,64 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     };
   }, [targetMonths, weekStartsOn, todayKey, notesCountMap, circledDates]);
 
+  // Scroll to a specific date in the radar grid smoothly
+  const scrollToDateInRadar = useCallback(
+    (targetDateKey: string, smooth = true) => {
+      if (!gridContainerRef.current) return;
+
+      const targetRowIndex = weeks.findIndex((row) =>
+        row.some((cell) => cell.dateKey === targetDateKey)
+      );
+
+      if (targetRowIndex !== -1) {
+        const rowTop = targetRowIndex * CELL_SIZE;
+        const containerHeight = gridContainerRef.current.clientHeight || 500;
+        const targetScrollTop = Math.max(0, rowTop - containerHeight / 2 + CELL_SIZE / 2);
+
+        gridContainerRef.current.scrollTo({
+          top: targetScrollTop,
+          behavior: smooth ? 'smooth' : 'auto',
+        });
+      }
+    },
+    [weeks]
+  );
+
+  const lastTargetKeyRef = useRef<number | null>(null);
+
+  // Focus radar when scrollTargetDate changes (e.g. "Today" button or date click)
+  useEffect(() => {
+    if (!scrollTargetDate || scrollTargetDate.key === lastTargetKeyRef.current) return;
+    lastTargetKeyRef.current = scrollTargetDate.key;
+
+    const parts = scrollTargetDate.dateString.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+
+      // If outside current anchor month, align anchorDate
+      setAnchorDate((prev) => {
+        if (prev.getFullYear() !== y || prev.getMonth() !== m) {
+          return new Date(y, m, 1);
+        }
+        return prev;
+      });
+
+      const timer = setTimeout(() => {
+        scrollToDateInRadar(scrollTargetDate.dateString, true);
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [scrollTargetDate, scrollToDateInRadar]);
+
+  // Initial mount: auto-focus and center today in the monthly radar
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToDateInRadar(todayKey, false);
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [scrollToDateInRadar, todayKey]);
+
   // Quick month note submit
   const handleQuickMonthNoteSubmit = (e: React.FormEvent, monthKey: string) => {
     e.preventDefault();
@@ -343,6 +403,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           totalWeeksHeight={totalWeeksHeight}
           cellSize={CELL_SIZE}
           onSelectDate={onSelectDate}
+          selectedDateKey={scrollTargetDate?.dateString}
         />
 
         {/* 3. Right Column: Vertical Month Name Gutter */}

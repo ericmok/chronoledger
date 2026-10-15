@@ -26,6 +26,7 @@ export interface ContinuousRadarGridProps {
   totalWeeksHeight: number;
   cellSize: number;
   onSelectDate: (dateKey: string) => void;
+  selectedDateKey?: string | null;
 }
 
 export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
@@ -34,6 +35,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
   totalWeeksHeight,
   cellSize,
   onSelectDate,
+  selectedDateKey,
 }) => {
   return (
     <div className="w-[238px] shrink-0 relative pr-2" style={{ height: `${totalWeeksHeight}px` }}>
@@ -83,9 +85,11 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                 >
                   {/* Day Number */}
                   <span
-                    className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-transform group-hover:scale-110 ${
+                    className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-all group-hover:scale-110 ${
                       cell.isToday
-                        ? 'bg-[#D23B38] text-white font-black shadow-xs ring-2 ring-[#D23B38]/30'
+                        ? 'bg-[#D23B38] text-white font-black shadow-md ring-3 ring-[#D23B38]/35 scale-105'
+                        : selectedDateKey === cell.dateKey
+                        ? 'bg-[#2B2C30] text-white font-bold ring-2 ring-[#2B2C30]/40'
                         : isCurrentWeekRow
                         ? 'text-[#2B2C30] font-bold'
                         : cell.isOutsideTargetRange

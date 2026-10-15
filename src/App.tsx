@@ -179,6 +179,7 @@ export function App() {
             onToggleStrikeMonthNote={toggleStrikeMonthNote}
             onRemoveMonthNote={removeMonthNote}
             onUpdateMonthNote={updateMonthNote}
+            scrollTargetDate={scrollTargetDate}
           />
         )}
       </div>
