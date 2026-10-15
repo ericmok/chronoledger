@@ -4,28 +4,42 @@
 
 ChronoLedger blends the continuous spatial awareness of physical wall scrolls and stationery planners with modern digital flexibility. It reimagines traditional grid calendars into an infinite vertical timeline paired with an interconnected month jigsaw radar and freeform margin markup tools.
 
+![ChronoLedger Demo Screenshot](docs/assets/chronoledger-demo.png)
+
 ---
 
 ## ✨ Features
 
-- **Infinite Vertical Timeline**: Continuous paper roll displaying months and weeks without artificial page boundaries. Seamlessly scroll across months and years.
-- **Continuous Jigsaw Month Radar**: A connected spatial month overview on the right sidebar for long-range planning, jump navigation, and multi-month visualization.
-- **Three-Tier Note Hierarchy**:
-  - **Day Notes**: Padded quick-entry inputs and sticky note items attached directly to dates.
-  - **Week Notes**: Dedicated weekly focus objectives with quick-entry headers and container double-click.
+- **Infinite Vertical Timeline**: Continuous paper roll displaying months and weeks without artificial page boundaries. Seamlessly scroll across months and years with squarish date cells and red week separator lines.
+- **Infinite Bidirectional Month Radar**:
+  - Continuous, virtualized multi-month sidebar on the right for long-range planning and rapid jump navigation.
+  - Smooth bidirectional infinite scrolling with dynamic month loading and scroll offset stabilization.
+  - **1st-of-Month Alignment**: Every month aligns cleanly on the 1st of the month for spatial predictability across years.
+  - One-click **Today** snap button to return instantly to the active month.
+- **12-Month Subtle Seasonal Gradient Palette**:
+  - Distinct ambient color cues assigned to all 12 months across the year:
+    - 🌱 **Spring (Mar, Apr, May)**: Soft sage and mint greens.
+    - ☀️ **Summer (Jun, Jul, Aug)**: Warm sunshine ambers and light yellows.
+    - 🍂 **Autumn (Sep, Oct, Nov)**: Gentle terracotta, peach, and russet oranges.
+    - ❄️ **Winter (Dec, Jan, Feb)**: Subtle frosty blues and cool cyans.
+  - Harmoniously tints radar tiles, gutters, and monthly note headers, providing instantaneous spatial and temporal orientation when scrolling long distances.
+- **Three-Tier Note Hierarchy & Drag-and-Drop Reordering**:
+  - **Day Notes**: Quick-entry inputs and tactile note cards attached directly to dates.
+  - **Week Notes**: Dedicated weekly focus objectives with responsive viewports that expand naturally as tasks accumulate.
   - **Month Notes**: Long-term monthly notes anchored in the margin gutter and jigsaw radar.
+  - **Reordering**: Smooth drag handles (`:::`) on all daily, weekly, and monthly notes for intuitive reorganization. Newly created notes append to the bottom of lists.
 - **Visual Revision Diffs**:
   - Double-click any note to edit in-place.
   - Deleted words are struck through in low-opacity red ink.
-  - Newly added words appear in green.
-  - Completely emptied notes display as crossed-out tasks with a deleted status tag.
+  - Newly added words appear in soft green.
+  - Completely emptied notes display as crossed-out tasks with an `EDITED` / `DELETED` status tag.
 - **Freeform Margin & Markup Tools**:
   - **Pencil (`P`)**: Natural pressure-sensitive freehand sketching in margins and across days using RoughJS and Perfect-Freehand.
   - **Circle Date (`C`)**: Hand-drawn style circular highlights to ring milestone dates.
   - **Timeline Arrow (`A`)**: Drag between two dates across days or weeks to visually link projects and deadlines.
   - **Continuous Painting Eraser (`E`)**: Real-time hit-testing eraser that lets you brush naturally over strokes to remove them.
 - **Full History Engine (Undo / Redo)**:
-  - `⌘Z` / `Ctrl+Z` to undo actions (note deletions, edits, strikethroughs, sketches, erasures).
+  - `⌘Z` / `Ctrl+Z` to undo actions (note deletions, edits, strikethroughs, sketches, erasures, reordering).
   - `⌘⇧Z` / `Ctrl+Shift+Z` / `Ctrl+Y` to redo.
   - Native browser undo is fully preserved when typing inside text boxes.
 - **Embedded SQLite Database Auto-Sync (`data/chronoledger.sqlite`)**:
