@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import type React from 'react';
 import { ChevronLeft, ChevronRight, Compass, Plus } from 'lucide-react';
 import type { NoteItem, MonthNote, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
@@ -60,7 +60,26 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onUpdateDrawing,
   settings,
 }) => {
-  const [anchorDate, setAnchorDate] = useState(() => new Date());
+  const baseMonth = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1), []);
+  const [pastMonthsCount, setPastMonthsCount] = useState(12);
+  const [futureMonthsCount, setFutureMonthsCount] = useState(24);
+
+  const [visibleMonth, setVisibleMonth] = useState<{
+    name: string;
+    fullName: string;
+    year: number;
+    monthIndex: number;
+  }>(() => {
+    const now = new Date();
+    const m = now.getMonth();
+    return {
+      name: MONTH_NAMES[m],
+      fullName: FULL_MONTH_NAMES[m],
+      year: now.getFullYear(),
+      monthIndex: m,
+    };
+  });
+
   const [quickInputMonth, setQuickInputMonth] = useState<string | null>(null);
   const [quickInputText, setQuickInputText] = useState('');
   const [isMultiMonthModalOpen, setIsMultiMonthModalOpen] = useState(false);
@@ -90,20 +109,6 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     return map;
   }, [drawings]);
 
-  // Navigate months
-  const handlePrevMonth = () => {
-    setAnchorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setAnchorDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  };
-
-  const handleResetToCurrent = () => {
-    setAnchorDate(new Date());
-    onJumpToToday();
-  };
-
   // Group month notes by monthKey
   const monthNotesByMonth = useMemo(() => {
     const map = new Map<string, MonthNote[]>();
@@ -119,19 +124,41 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     return map;
   }, [monthNotes]);
 
-  // 6 months window: past month, current month, and next 4 months (fills viewport without awkward gap)
+  // Infinitely expandable continuous months window
   const targetMonths = useMemo(() => {
-    const y = anchorDate.getFullYear();
-    const m = anchorDate.getMonth();
-    return [
-      new Date(y, m - 1, 1),
-      new Date(y, m, 1),
-      new Date(y, m + 1, 1),
-      new Date(y, m + 2, 1),
-      new Date(y, m + 3, 1),
-      new Date(y, m + 4, 1),
-    ];
-  }, [anchorDate]);
+    const list: Date[] = [];
+    const baseYear = baseMonth.getFullYear();
+    const baseM = baseMonth.getMonth();
+
+    for (let offset = -pastMonthsCount; offset <= futureMonthsCount; offset++) {
+      list.push(new Date(baseYear, baseM + offset, 1));
+    }
+    return list;
+  }, [baseMonth, pastMonthsCount, futureMonthsCount]);
+
+  // Scroll compensation refs for seamless bi-directional prepending
+  const prependScrollAdjustRef = useRef<{ prevScrollHeight: number; prevScrollTop: number } | null>(null);
+  const isPrependingRef = useRef(false);
+  const isAppendingRef = useRef(false);
+
+  const handleLoadEarlierMonths = useCallback(() => {
+    if (isPrependingRef.current || !gridContainerRef.current) return;
+    isPrependingRef.current = true;
+    prependScrollAdjustRef.current = {
+      prevScrollHeight: gridContainerRef.current.scrollHeight,
+      prevScrollTop: gridContainerRef.current.scrollTop,
+    };
+    setPastMonthsCount((prev) => prev + 12);
+  }, []);
+
+  const handleLoadLaterMonths = useCallback(() => {
+    if (isAppendingRef.current) return;
+    isAppendingRef.current = true;
+    setFutureMonthsCount((prev) => prev + 12);
+    setTimeout(() => {
+      isAppendingRef.current = false;
+    }, 150);
+  }, []);
 
   // Calculate grid range & cells
   const { weeks, monthMetas, totalWeeksHeight, svgBoundaries } = useMemo(() => {
@@ -268,6 +295,20 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     };
   }, [targetMonths, weekStartsOn, todayKey, notesCountMap, circledDatesMap]);
 
+  // Synchronously adjust scrollTop after prepending earlier months so content never jumps
+  useLayoutEffect(() => {
+    if (prependScrollAdjustRef.current && gridContainerRef.current) {
+      const { prevScrollHeight, prevScrollTop } = prependScrollAdjustRef.current;
+      const newScrollHeight = gridContainerRef.current.scrollHeight;
+      const heightDiff = newScrollHeight - prevScrollHeight;
+      if (heightDiff > 0) {
+        gridContainerRef.current.scrollTop = prevScrollTop + heightDiff;
+      }
+      prependScrollAdjustRef.current = null;
+      isPrependingRef.current = false;
+    }
+  }, [weeks]);
+
   // Scroll to a specific date in the radar grid smoothly
   const scrollToDateInRadar = useCallback(
     (targetDateKey: string, smooth = true) => {
@@ -286,10 +327,104 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           top: targetScrollTop,
           behavior: smooth ? 'smooth' : 'auto',
         });
+      } else {
+        // Expand range if target date is outside current loaded range
+        const parts = targetDateKey.split('-');
+        if (parts.length === 3) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10) - 1;
+          const targetDate = new Date(y, m, 1);
+          const monthDiff =
+            (targetDate.getFullYear() - baseMonth.getFullYear()) * 12 +
+            (targetDate.getMonth() - baseMonth.getMonth());
+
+          if (monthDiff < -pastMonthsCount) {
+            setPastMonthsCount(Math.abs(monthDiff) + 6);
+          } else if (monthDiff > futureMonthsCount) {
+            setFutureMonthsCount(monthDiff + 6);
+          }
+        }
       }
     },
-    [weeks]
+    [weeks, baseMonth, pastMonthsCount, futureMonthsCount]
   );
+
+  // Scroll listener: updates currently visible month in header and triggers infinite scroll loading
+  const handleScroll = useCallback(() => {
+    if (!gridContainerRef.current) return;
+    const container = gridContainerRef.current;
+    const scrollTop = container.scrollTop;
+
+    // Detect currently visible month
+    const focusY = scrollTop + 80;
+    const activeMeta = monthMetas.find(
+      (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
+    );
+    if (activeMeta) {
+      setVisibleMonth((prev) => {
+        if (prev.monthIndex !== activeMeta.monthIndex || prev.year !== activeMeta.year) {
+          return {
+            name: activeMeta.name,
+            fullName: activeMeta.fullName,
+            year: activeMeta.year,
+            monthIndex: activeMeta.monthIndex,
+          };
+        }
+        return prev;
+      });
+    }
+
+    // Infinite scroll thresholds
+    if (scrollTop < 350) {
+      handleLoadEarlierMonths();
+    } else if (scrollTop + container.clientHeight > container.scrollHeight - 350) {
+      handleLoadLaterMonths();
+    }
+  }, [monthMetas, handleLoadEarlierMonths, handleLoadLaterMonths]);
+
+  // Navigate months: scroll smoothly to prev / next month
+  const handlePrevMonth = () => {
+    if (!gridContainerRef.current) return;
+    const currentScrollTop = gridContainerRef.current.scrollTop;
+    const focusY = currentScrollTop + 80;
+    const currentMetaIndex = monthMetas.findIndex(
+      (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
+    );
+    if (currentMetaIndex > 0) {
+      const prevMeta = monthMetas[currentMetaIndex - 1];
+      gridContainerRef.current.scrollTo({
+        top: prevMeta.topPx,
+        behavior: 'smooth',
+      });
+    } else {
+      handleLoadEarlierMonths();
+      gridContainerRef.current.scrollBy({ top: -CELL_HEIGHT * 5, behavior: 'smooth' });
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (!gridContainerRef.current) return;
+    const currentScrollTop = gridContainerRef.current.scrollTop;
+    const focusY = currentScrollTop + 80;
+    const currentMetaIndex = monthMetas.findIndex(
+      (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
+    );
+    if (currentMetaIndex !== -1 && currentMetaIndex < monthMetas.length - 1) {
+      const nextMeta = monthMetas[currentMetaIndex + 1];
+      gridContainerRef.current.scrollTo({
+        top: nextMeta.topPx,
+        behavior: 'smooth',
+      });
+    } else {
+      handleLoadLaterMonths();
+      gridContainerRef.current.scrollBy({ top: CELL_HEIGHT * 5, behavior: 'smooth' });
+    }
+  };
+
+  const handleResetToCurrent = () => {
+    onJumpToToday();
+    scrollToDateInRadar(todayKey, true);
+  };
 
   const lastTargetKeyRef = useRef<number | null>(null);
 
@@ -298,33 +433,17 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     if (!scrollTargetDate || scrollTargetDate.key === lastTargetKeyRef.current) return;
     lastTargetKeyRef.current = scrollTargetDate.key;
 
-    const parts = scrollTargetDate.dateString.split('-');
-    if (parts.length === 3) {
-      const y = parseInt(parts[0], 10);
-      const m = parseInt(parts[1], 10) - 1;
-
-      // If outside current anchor month, align anchorDate
-      setAnchorDate((prev) => {
-        if (prev.getFullYear() !== y || prev.getMonth() !== m) {
-          return new Date(y, m, 1);
-        }
-        return prev;
-      });
-
-      const timer = setTimeout(() => {
-        scrollToDateInRadar(scrollTargetDate.dateString, true);
-      }, 60);
-      return () => clearTimeout(timer);
-    }
+    scrollToDateInRadar(scrollTargetDate.dateString, true);
   }, [scrollTargetDate, scrollToDateInRadar]);
 
-  // Initial mount: auto-focus and center today in the monthly radar
+  // Initial mount: auto-focus and center today in the monthly radar without animation
+  const hasInitiallyCenteredRef = useRef(false);
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (!hasInitiallyCenteredRef.current && weeks.length > 0 && gridContainerRef.current) {
+      hasInitiallyCenteredRef.current = true;
       scrollToDateInRadar(todayKey, false);
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [scrollToDateInRadar, todayKey]);
+    }
+  }, [weeks, todayKey, scrollToDateInRadar]);
 
   // Quick month note submit
   const handleQuickMonthNoteSubmit = (e: React.FormEvent, monthKey: string) => {
@@ -404,8 +523,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="font-serif font-bold text-xs text-[#2B2C30] tracking-tight">
-            {FULL_MONTH_NAMES[anchorDate.getMonth()]} {anchorDate.getFullYear()}
+          <span className="font-serif font-bold text-xs text-[#2B2C30] tracking-tight min-w-[110px] text-center">
+            {visibleMonth.fullName} {visibleMonth.year}
           </span>
           <button
             type="button"
@@ -459,7 +578,11 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       </div>
 
       {/* Main Continuous Jigsaw Canvas (Left: Month Notes, Center: 7-Day Grid, Right: Vertical Month Gutter) */}
-      <div ref={gridContainerRef} className="flex-1 overflow-y-auto relative flex">
+      <div
+        ref={gridContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto relative flex scroll-smooth-focus"
+      >
         {/* Interactive Radar Drawing Overlay for Pencil, Arrow, Eraser */}
         {settings && (
           <RadarDrawingOverlay
