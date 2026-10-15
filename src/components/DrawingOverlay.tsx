@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type React from 'react';
 import rough from 'roughjs';
-import type { DrawingElement, DrawingTool } from '../types/calendar';
+import type { DrawingElement, DrawingTool, ArrowEndpointAnchor } from '../types/calendar';
 import {
   pointsToPath,
   getCurvedArrowPath,
@@ -22,6 +22,142 @@ interface DrawingOverlayProps {
   getYForDate: (dateString: string) => number | null;
 }
 
+interface CalendarHitResult {
+  dateString: string;
+  noteId?: string;
+  xRatio: number;
+  yRatio: number;
+}
+
+/**
+ * Hit-tests the underlying DOM beneath (clientX, clientY) through the SVG overlay.
+ * Identifies if a specific note card or day row was targeted, and calculates
+ * the relative horizontal ratio across the notes column.
+ */
+function hitTestCalendar(clientX: number, clientY: number): CalendarHitResult | null {
+  if (typeof document === 'undefined' || !document.elementsFromPoint) return null;
+
+  const elements = document.elementsFromPoint(clientX, clientY);
+  let noteEl: HTMLElement | null = null;
+  let dayEl: HTMLElement | null = null;
+  let notesColEl: HTMLElement | null = null;
+
+  for (const el of elements) {
+    if (!noteEl && el instanceof HTMLElement && el.closest('[data-note-id]')) {
+      noteEl = el.closest('[data-note-id]') as HTMLElement;
+    }
+    if (!dayEl && el instanceof HTMLElement && el.closest('[data-day-row]')) {
+      dayEl = el.closest('[data-day-row]') as HTMLElement;
+    }
+    if (!notesColEl && el instanceof HTMLElement && el.closest('[data-notes-column]')) {
+      notesColEl = el.closest('[data-notes-column]') as HTMLElement;
+    }
+  }
+
+  if (noteEl && !dayEl) {
+    dayEl = noteEl.closest('[data-day-row]') as HTMLElement | null;
+  }
+  if (dayEl && !notesColEl) {
+    notesColEl = dayEl.querySelector('[data-notes-column]') as HTMLElement | null;
+  }
+
+  const dateString = dayEl?.getAttribute('data-date-string');
+  if (!dateString) return null;
+
+  const noteId = noteEl?.getAttribute('data-note-id') || undefined;
+
+  let xRatio = 0.5;
+  const colRect = notesColEl?.getBoundingClientRect();
+  const dayRect = dayEl?.getBoundingClientRect();
+
+  if (colRect && colRect.width > 0) {
+    xRatio = Math.max(0, Math.min(1, (clientX - colRect.left) / colRect.width));
+  } else if (dayRect && dayRect.width > 0) {
+    xRatio = Math.max(0, Math.min(1, (clientX - dayRect.left) / dayRect.width));
+  }
+
+  let yRatio = 0.5;
+  if (dayRect && dayRect.height > 0) {
+    yRatio = Math.max(0, Math.min(1, (clientY - dayRect.top) / dayRect.height));
+  }
+
+  return {
+    dateString,
+    noteId,
+    xRatio,
+    yRatio,
+  };
+}
+
+/**
+ * Resolves an arrow endpoint into pixel coordinates relative to the SVG canvas.
+ * If anchored to a Note and the note exists in the DOM, centers vertically on the note and sets hasDot = true.
+ * If anchored to a Day or if the note was deleted, falls back to the day row and sets hasDot = false.
+ */
+function resolveEndpoint(
+  anchor: ArrowEndpointAnchor | undefined,
+  dateString: string,
+  fallbackOffset: { x: number; y: number },
+  svgRect: DOMRect | null,
+  getYForDate: (dateString: string) => number | null
+): { x: number; y: number; hasDot: boolean } | null {
+  const anchorY = getYForDate(dateString);
+
+  if (!svgRect || !anchor) {
+    if (anchorY === null) return null;
+    return {
+      x: fallbackOffset.x,
+      y: anchorY + fallbackOffset.y,
+      hasDot: false,
+    };
+  }
+
+  let noteEl: HTMLElement | null = null;
+  if (anchor.noteId) {
+    noteEl = document.querySelector(`[data-note-id="${anchor.noteId}"]`);
+  }
+
+  const dayEl: HTMLElement | null = document.querySelector(`[data-date-string="${dateString}"]`);
+  const notesColEl: HTMLElement | null =
+    dayEl?.querySelector('[data-notes-column]') ||
+    noteEl?.closest('[data-notes-column]') ||
+    null;
+
+  let x: number;
+  let y: number;
+  let hasDot = false;
+
+  // Resolve X: scale proportionally across the notes column
+  if (notesColEl) {
+    const colRect = notesColEl.getBoundingClientRect();
+    x = (colRect.left - svgRect.left) + anchor.xRatio * colRect.width;
+  } else if (dayEl) {
+    const dayRect = dayEl.getBoundingClientRect();
+    x = (dayRect.left - svgRect.left) + anchor.xRatio * dayRect.width;
+  } else {
+    x = fallbackOffset.x;
+  }
+
+  // Resolve Y: center on note if present; otherwise fall back to day row
+  if (noteEl) {
+    const noteRect = noteEl.getBoundingClientRect();
+    y = (noteRect.top - svgRect.top) + noteRect.height * 0.5;
+    hasDot = true; // Connected to existing note: draw dot!
+  } else if (dayEl) {
+    const dayRect = dayEl.getBoundingClientRect();
+    const yRatio = anchor.yRatio ?? 0.5;
+    y = (dayRect.top - svgRect.top) + yRatio * dayRect.height;
+    hasDot = false; // Connected to day or note was deleted: no dot!
+  } else {
+    if (anchorY === null) return null;
+    const yRatio = anchor.yRatio ?? 0.5;
+    y = anchorY + yRatio * 48;
+    hasDot = Boolean(anchor.noteId);
+  }
+
+  return { x, y, hasDot };
+}
+
 const generator = rough.generator();
 const ERASER_RADIUS = 18;
 
@@ -36,18 +172,50 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
   getDateAtY,
   getYForDate,
 }) => {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [, setRenderTrigger] = useState(0);
   const [currentPoints, setCurrentPoints] = useState<[number, number][]>([]);
   const [eraserTrail, setEraserTrail] = useState<[number, number][]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number; dateString: string } | null>(null);
+  const [dragStart, setDragStart] = useState<{
+    x: number;
+    y: number;
+    dateString: string;
+    noteId?: string;
+    xRatio?: number;
+    yRatio?: number;
+  } | null>(null);
+  const [hoverEndHit, setHoverEndHit] = useState<CalendarHitResult | null>(null);
   const [currentPointer, setCurrentPointer] = useState<{ x: number; y: number } | null>(null);
   const [lastPointer, setLastPointer] = useState<{ x: number; y: number } | null>(null);
 
   const isInteractive = tool !== 'select';
 
+  // Listen to window resize, container resize, and scroll to re-render responsive arrows
+  useEffect(() => {
+    const handleUpdate = () => setRenderTrigger((n) => n + 1);
+    window.addEventListener('resize', handleUpdate);
+
+    const scrollParent = svgRef.current?.closest('.overflow-y-auto') || window;
+    scrollParent.addEventListener('scroll', handleUpdate, { passive: true });
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && svgRef.current?.parentElement) {
+      observer = new ResizeObserver(handleUpdate);
+      observer.observe(svgRef.current.parentElement);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleUpdate);
+      scrollParent.removeEventListener('scroll', handleUpdate);
+      observer?.disconnect();
+    };
+  }, []);
+
   // Helper to erase any drawing elements intersecting with (px, py)
   const eraseDrawingsNear = (px: number, py: number) => {
     const hitIds: string[] = [];
+    const svgRect = svgRef.current?.getBoundingClientRect() || null;
 
     for (const d of drawings) {
       if (d.anchorStartDate?.startsWith('radar:')) continue;
@@ -66,13 +234,24 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
           hitIds.push(d.id);
         }
       } else if (d.type === 'arrow' && d.anchorEndDate) {
-        const endAnchorY = getYForDate(d.anchorEndDate);
-        if (endAnchorY === null) continue;
-        const startX = d.startOffset.x;
-        const startY = anchorY + d.startOffset.y;
-        const endX = d.endOffset ? d.endOffset.x : startX;
-        const endY = endAnchorY + (d.endOffset ? d.endOffset.y : 0);
-        if (isArrowHit(startX, startY, endX, endY, px, py, ERASER_RADIUS)) {
+        const startResolved = resolveEndpoint(
+          d.startAnchor,
+          d.anchorStartDate,
+          d.startOffset,
+          svgRect,
+          getYForDate
+        );
+        const endResolved = resolveEndpoint(
+          d.endAnchor,
+          d.anchorEndDate,
+          d.endOffset || d.startOffset,
+          svgRect,
+          getYForDate
+        );
+
+        if (!startResolved || !endResolved) continue;
+
+        if (isArrowHit(startResolved.x, startResolved.y, endResolved.x, endResolved.y, px, py, ERASER_RADIUS)) {
           hitIds.push(d.id);
         }
       }
@@ -100,11 +279,20 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    const hit = hitTestCalendar(e.clientX, e.clientY);
     const dateMatch = getDateAtY(y);
-    const dateString = dateMatch ? dateMatch.dateString : '';
+    const dateString = hit?.dateString || (dateMatch ? dateMatch.dateString : '');
 
     setIsDrawing(true);
-    setDragStart({ x, y, dateString });
+    setDragStart({
+      x,
+      y,
+      dateString,
+      noteId: hit?.noteId,
+      xRatio: hit?.xRatio,
+      yRatio: hit?.yRatio,
+    });
+    setHoverEndHit(null);
     setCurrentPoints([[x, y]]);
     setCurrentPointer({ x, y });
     setLastPointer({ x, y });
@@ -124,7 +312,10 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
 
     if (!isDrawing) return;
 
-    if (tool === 'pencil') {
+    if (tool === 'arrow') {
+      const hit = hitTestCalendar(e.clientX, e.clientY);
+      setHoverEndHit(hit);
+    } else if (tool === 'pencil') {
       setCurrentPoints((prev) => [...prev, [x, y]]);
     } else if (tool === 'eraser') {
       setEraserTrail((prev) => [...prev, [x, y]]);
@@ -192,21 +383,40 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
         });
       }
     } else if (tool === 'arrow' && dragStart && currentPointer) {
+      const endHit = hitTestCalendar(e.clientX, e.clientY);
       const startMatch = getDateAtY(dragStart.y);
       const endMatch = getDateAtY(currentPointer.y);
 
-      if (startMatch && endMatch) {
+      const startDate = dragStart.dateString || startMatch?.dateString || '';
+      const endDate = endHit?.dateString || endMatch?.dateString || '';
+
+      if (startDate && endDate) {
+        const startAnchorY = startMatch ? startMatch.dateY : dragStart.y;
+        const endAnchorY = endMatch ? endMatch.dateY : currentPointer.y;
+
         onAddDrawing({
           type: 'arrow',
           color: inkColor,
           strokeWidth: 2,
-          anchorStartDate: startMatch.dateString,
-          anchorEndDate: endMatch.dateString,
-          startOffset: { x: dragStart.x, y: dragStart.y - startMatch.dateY },
-          endOffset: { x: currentPointer.x, y: currentPointer.y - endMatch.dateY },
+          anchorStartDate: startDate,
+          anchorEndDate: endDate,
+          startAnchor: {
+            dateString: startDate,
+            noteId: dragStart.noteId,
+            xRatio: dragStart.xRatio ?? 0.5,
+            yRatio: dragStart.yRatio ?? 0.5,
+          },
+          endAnchor: {
+            dateString: endDate,
+            noteId: endHit?.noteId,
+            xRatio: endHit?.xRatio ?? 0.5,
+            yRatio: endHit?.yRatio ?? 0.5,
+          },
+          startOffset: { x: dragStart.x, y: dragStart.y - startAnchorY },
+          endOffset: { x: currentPointer.x, y: currentPointer.y - endAnchorY },
           points: [
-            [dragStart.x, dragStart.y - startMatch.dateY],
-            [currentPointer.x, currentPointer.y - endMatch.dateY],
+            [dragStart.x, dragStart.y - startAnchorY],
+            [currentPointer.x, currentPointer.y - endAnchorY],
           ],
         });
       }
@@ -215,11 +425,14 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
     setCurrentPoints([]);
     setEraserTrail([]);
     setDragStart(null);
+    setHoverEndHit(null);
     setLastPointer(null);
   };
 
   // Render individual drawings anchored to dates
   const renderDrawings = () => {
+    const svgRect = svgRef.current?.getBoundingClientRect() || null;
+
     return drawings.map((d) => {
       if (d.anchorStartDate?.startsWith('radar:')) return null;
       const anchorY = getYForDate(d.anchorStartDate);
@@ -251,13 +464,30 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
       }
 
       if (d.type === 'arrow' && d.anchorEndDate) {
-        const endAnchorY = getYForDate(d.anchorEndDate);
-        if (endAnchorY === null) return null;
+        // Responsively resolve endpoints
+        const startResolved = resolveEndpoint(
+          d.startAnchor,
+          d.anchorStartDate,
+          d.startOffset,
+          svgRect,
+          getYForDate
+        );
+        const endResolved = resolveEndpoint(
+          d.endAnchor,
+          d.anchorEndDate,
+          d.endOffset || d.startOffset,
+          svgRect,
+          getYForDate
+        );
 
-        const startX = d.startOffset.x;
-        const startY = anchorY + d.startOffset.y;
-        const endX = d.endOffset ? d.endOffset.x : startX;
-        const endY = endAnchorY + (d.endOffset ? d.endOffset.y : 0);
+        if (!startResolved || !endResolved) return null;
+
+        const startX = startResolved.x;
+        const startY = startResolved.y;
+        const endX = endResolved.x;
+        const endY = endResolved.y;
+        const hasStartDot = startResolved.hasDot;
+        const hasEndDot = endResolved.hasDot;
 
         const { path, headPoints } = getCurvedArrowPath(startX, startY, endX, endY);
 
@@ -297,6 +527,26 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
             {head2Paths.map((p, idx) => (
               <path key={`h2-${idx}`} d={p.d} stroke={d.color} strokeWidth={p.strokeWidth} fill="none" />
             ))}
+
+            {/* Start Dot: rendered only when anchored to an existing note */}
+            {hasStartDot && (
+              <circle
+                cx={startX}
+                cy={startY}
+                r={3.5}
+                fill={d.color}
+              />
+            )}
+
+            {/* End Dot: rendered only when anchored to an existing note */}
+            {hasEndDot && (
+              <circle
+                cx={endX}
+                cy={endY}
+                r={3.5}
+                fill={d.color}
+              />
+            )}
           </g>
         );
       }
@@ -322,6 +572,7 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
 
   return (
     <svg
+      ref={svgRef}
       className={`absolute inset-0 w-full z-20 ${
         isInteractive ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'
       }`}
@@ -352,7 +603,7 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
       )}
 
       {isDrawing && tool === 'arrow' && dragStart && currentPointer && (
-        <g opacity={0.8}>
+        <g opacity={0.85}>
           <path
             d={getCurvedArrowPath(dragStart.x, dragStart.y, currentPointer.x, currentPointer.y).path}
             stroke={inkColor}
@@ -360,6 +611,24 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
             strokeDasharray="4 2"
             fill="none"
           />
+          {/* Live Start Dot preview if anchored to a note */}
+          {dragStart.noteId && (
+            <circle
+              cx={dragStart.x}
+              cy={dragStart.y}
+              r={3.5}
+              fill={inkColor}
+            />
+          )}
+          {/* Live End Dot preview if hovering over a note */}
+          {hoverEndHit?.noteId && (
+            <circle
+              cx={currentPointer.x}
+              cy={currentPointer.y}
+              r={3.5}
+              fill={inkColor}
+            />
+          )}
         </g>
       )}
 

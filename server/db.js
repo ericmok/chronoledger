@@ -96,8 +96,104 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
     );
   `);
 
+  migrateDatabase(db);
+
   cachedDb = db;
   return db;
+}
+
+/**
+ * Automatically applies schema migrations in a disciplined, transactional, and idempotent manner.
+ */
+export function migrateDatabase(db) {
+  // Ensure table columns exist
+  const columns = db.prepare('PRAGMA table_info(drawings)').all();
+  const columnNames = new Set(columns.map((c) => c.name));
+
+  if (!columnNames.has('start_anchor')) {
+    db.exec('ALTER TABLE drawings ADD COLUMN start_anchor TEXT;');
+  }
+  if (!columnNames.has('end_anchor')) {
+    db.exec('ALTER TABLE drawings ADD COLUMN end_anchor TEXT;');
+  }
+
+  const metaRow = db.prepare('SELECT value FROM metadata WHERE key = ?').get('schema_version');
+  const currentVersion = Number(metaRow?.value) || 1;
+
+  if (currentVersion < 2) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      // 1. Fetch notes to correlate dates with existing note IDs
+      const noteRows = db.prepare('SELECT id, parent_dates FROM notes').all();
+      const notesByDate = new Map();
+      for (const n of noteRows) {
+        const parentDates = JSON.parse(n.parent_dates || '[]');
+        for (const d of parentDates) {
+          const list = notesByDate.get(d) || [];
+          list.push(n.id);
+          notesByDate.set(d, list);
+        }
+      }
+
+      // 2. Fetch legacy arrows lacking start_anchor
+      const legacyArrows = db
+        .prepare("SELECT * FROM drawings WHERE type = 'arrow' AND (start_anchor IS NULL OR start_anchor = '')")
+        .all();
+
+      const updateStmt = db.prepare(`
+        UPDATE drawings
+        SET start_anchor = ?, end_anchor = ?
+        WHERE id = ?
+      `);
+
+      // Baseline desktop notes column geometry:
+      // Left margin of notes column is ~204px, width is ~468px in standard desktop layout.
+      const BASELINE_COL_LEFT = 204;
+      const BASELINE_COL_WIDTH = 468;
+
+      for (const row of legacyArrows) {
+        const startOffset = JSON.parse(row.start_offset || '{"x":0,"y":0}');
+        const endOffset = row.end_offset ? JSON.parse(row.end_offset) : startOffset;
+
+        const startXRatio = Math.max(0.05, Math.min(0.95, (startOffset.x - BASELINE_COL_LEFT) / BASELINE_COL_WIDTH));
+        const endXRatio = Math.max(0.05, Math.min(0.95, (endOffset.x - BASELINE_COL_LEFT) / BASELINE_COL_WIDTH));
+
+        const startNotes = notesByDate.get(row.anchor_start_date) || [];
+        const endNotes = notesByDate.get(row.anchor_end_date) || [];
+
+        const startNoteId = startNotes.length > 0 ? startNotes[0] : undefined;
+        const endNoteId = endNotes.length > 0 ? endNotes[0] : undefined;
+
+        const startAnchor = {
+          dateString: row.anchor_start_date,
+          noteId: startNoteId,
+          xRatio: Number(startXRatio.toFixed(3)),
+          yRatio: 0.5,
+        };
+
+        const endAnchor = {
+          dateString: row.anchor_end_date || row.anchor_start_date,
+          noteId: endNoteId,
+          xRatio: Number(endXRatio.toFixed(3)),
+          yRatio: 0.5,
+        };
+
+        updateStmt.run(JSON.stringify(startAnchor), JSON.stringify(endAnchor), row.id);
+      }
+
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES ('schema_version', '2')
+        ON CONFLICT(key) DO UPDATE SET value = '2'
+      `).run();
+
+      db.exec('COMMIT;');
+      console.log(`[DB Migration] Applied schema v2: migrated ${legacyArrows.length} arrows with semantic anchors.`);
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      console.error('[DB Migration Error]:', err);
+      throw err;
+    }
+  }
 }
 
 /**
@@ -154,6 +250,8 @@ export function getCalendarData(db = getDatabase()) {
     strokeWidth: r.stroke_width,
     anchorStartDate: r.anchor_start_date,
     anchorEndDate: r.anchor_end_date || undefined,
+    startAnchor: r.start_anchor ? JSON.parse(r.start_anchor) : undefined,
+    endAnchor: r.end_anchor ? JSON.parse(r.end_anchor) : undefined,
     startOffset: JSON.parse(r.start_offset || '{"x":0,"y":0}'),
     endOffset: r.end_offset ? JSON.parse(r.end_offset) : undefined,
     points: JSON.parse(r.points || '[]'),
@@ -263,8 +361,8 @@ export function saveCalendarData(db = getDatabase(), data) {
     if (Array.isArray(data.drawings)) {
       db.exec('DELETE FROM drawings;');
       const insertDrawing = db.prepare(`
-        INSERT INTO drawings (id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_offset, end_offset, points, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO drawings (id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_offset, end_offset, points, created_at, start_anchor, end_anchor)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const d of data.drawings) {
         insertDrawing.run(
@@ -277,7 +375,9 @@ export function saveCalendarData(db = getDatabase(), data) {
           JSON.stringify(d.startOffset || { x: 0, y: 0 }),
           d.endOffset ? JSON.stringify(d.endOffset) : null,
           JSON.stringify(d.points || []),
-          d.createdAt || new Date().toISOString()
+          d.createdAt || new Date().toISOString(),
+          d.startAnchor ? JSON.stringify(d.startAnchor) : null,
+          d.endAnchor ? JSON.stringify(d.endAnchor) : null
         );
       }
     }
@@ -310,7 +410,7 @@ export function saveCalendarData(db = getDatabase(), data) {
     `);
     const now = new Date().toISOString();
     setMeta.run('last_synced_at', now);
-    setMeta.run('schema_version', '1');
+    setMeta.run('schema_version', '2');
 
     db.exec('COMMIT;');
     return { ok: true, syncedAt: now };

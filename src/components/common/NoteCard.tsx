@@ -89,6 +89,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   if (isEditing) {
     return (
       <form
+        data-note-id={id}
         onSubmit={handleSaveEdit}
         onClick={(e) => e.stopPropagation()}
         className={`flex items-center gap-1.5 w-full my-1 p-1 bg-white border border-[#2B2C30] rounded-lg shadow-xs animate-in fade-in duration-100 ${className}`}
@@ -133,6 +134,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   // Normal Display Mode
   return (
     <div
+      data-note-id={id}
       onDoubleClick={handleStartEdit}
       draggable={isDraggable && canDrag}
       onDragStart={(e) => {

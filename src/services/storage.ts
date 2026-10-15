@@ -1,7 +1,7 @@
 import type { NoteItem, MonthNote, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
 import { formatDateKey, getWeekKey } from '../utils/dateUtils';
 
-export const STORAGE_VERSION = 1;
+export const STORAGE_VERSION = 2;
 
 export const STORAGE_KEYS = {
   NOTES: 'chrono_ledger_notes_v1',
@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   MONTH_NOTES: 'chrono_ledger_month_notes_v1',
   DRAWINGS: 'chrono_ledger_drawings_v1',
   SETTINGS: 'chrono_ledger_settings_v1',
+  SCHEMA_VERSION: 'chrono_ledger_schema_version',
 } as const;
 
 export interface CalendarBackupData {
@@ -161,6 +162,76 @@ export function createDefaultMonthNotes(): MonthNote[] {
   ];
 }
 
+/**
+ * Disciplined data migration from v1 (raw desktop pixel offsets) to v2 (semantic responsive anchors).
+ * Idempotent, deterministic, and non-destructive (retains original offsets).
+ */
+export function migrateDrawingsV1ToV2(
+  rawDrawings: DrawingElement[],
+  notes: NoteItem[] = []
+): DrawingElement[] {
+  // Baseline geometry of the desktop notes column:
+  // In a standard 1024px container: left margin to notes area is ~204px, width is ~468px.
+  const BASELINE_COL_LEFT = 204;
+  const BASELINE_COL_WIDTH = 468;
+
+  const notesByDate = new Map<string, NoteItem[]>();
+  for (const n of notes) {
+    for (const d of n.parentDates) {
+      const list = notesByDate.get(d) || [];
+      list.push(n);
+      notesByDate.set(d, list);
+    }
+  }
+
+  let migratedCount = 0;
+
+  const migrated = rawDrawings.map((d) => {
+    if (d.type !== 'arrow') return d;
+    // Already has both anchors: idempotent no-op
+    if (d.startAnchor && d.endAnchor) return d;
+
+    migratedCount++;
+    const startXRatio = Math.max(
+      0.05,
+      Math.min(0.95, (d.startOffset.x - BASELINE_COL_LEFT) / BASELINE_COL_WIDTH)
+    );
+    const endX = d.endOffset ? d.endOffset.x : d.startOffset.x;
+    const endXRatio = Math.max(
+      0.05,
+      Math.min(0.95, (endX - BASELINE_COL_LEFT) / BASELINE_COL_WIDTH)
+    );
+
+    const startNotes = notesByDate.get(d.anchorStartDate) || [];
+    const endNotes = d.anchorEndDate ? notesByDate.get(d.anchorEndDate) || [] : [];
+
+    const startNoteId = startNotes.length > 0 ? startNotes[0].id : undefined;
+    const endNoteId = endNotes.length > 0 ? endNotes[0].id : undefined;
+
+    return {
+      ...d,
+      startAnchor: d.startAnchor || {
+        dateString: d.anchorStartDate,
+        noteId: startNoteId,
+        xRatio: Number(startXRatio.toFixed(3)),
+        yRatio: 0.5,
+      },
+      endAnchor: d.endAnchor || {
+        dateString: d.anchorEndDate || d.anchorStartDate,
+        noteId: endNoteId,
+        xRatio: Number(endXRatio.toFixed(3)),
+        yRatio: 0.5,
+      },
+    };
+  });
+
+  if (migratedCount > 0) {
+    console.info(`[ChronoLedger Migration] Successfully migrated ${migratedCount} legacy arrows to schema v2.`);
+  }
+
+  return migrated;
+}
+
 export class LocalStorageAdapter implements CalendarStorage {
   loadNotes(): NoteItem[] {
     const raw = localStorage.getItem(STORAGE_KEYS.NOTES);
@@ -212,7 +283,20 @@ export class LocalStorageAdapter implements CalendarStorage {
     if (!raw) return [];
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+
+      const notes = this.loadNotes();
+      const migrated = migrateDrawingsV1ToV2(parsed, notes);
+
+      const hadUnmigrated = parsed.some(
+        (d) => d.type === 'arrow' && (!d.startAnchor || !d.endAnchor)
+      );
+      if (hadUnmigrated) {
+        this.saveDrawings(migrated);
+        localStorage.setItem(STORAGE_KEYS.SCHEMA_VERSION, String(STORAGE_VERSION));
+      }
+
+      return migrated;
     } catch {
       return [];
     }
@@ -255,13 +339,17 @@ export class LocalStorageAdapter implements CalendarStorage {
       throw new Error('Invalid backup file: not a JSON object');
     }
 
+    const notes = Array.isArray(parsed.notes) ? parsed.notes : [];
+    const rawDrawings = Array.isArray(parsed.drawings) ? parsed.drawings : [];
+    const migratedDrawings = migrateDrawingsV1ToV2(rawDrawings, notes);
+
     const data: CalendarBackupData = {
-      version: parsed.version || STORAGE_VERSION,
+      version: STORAGE_VERSION,
       exportedAt: parsed.exportedAt || new Date().toISOString(),
-      notes: Array.isArray(parsed.notes) ? parsed.notes : [],
+      notes,
       weekNotes: Array.isArray(parsed.weekNotes) ? parsed.weekNotes : [],
       monthNotes: Array.isArray(parsed.monthNotes) ? parsed.monthNotes : [],
-      drawings: Array.isArray(parsed.drawings) ? parsed.drawings : [],
+      drawings: migratedDrawings,
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
     };
 
@@ -270,6 +358,7 @@ export class LocalStorageAdapter implements CalendarStorage {
     this.saveMonthNotes(data.monthNotes);
     this.saveDrawings(data.drawings);
     this.saveSettings(data.settings);
+    localStorage.setItem(STORAGE_KEYS.SCHEMA_VERSION, String(STORAGE_VERSION));
 
     return data;
   }

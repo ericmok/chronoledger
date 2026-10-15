@@ -52,6 +52,13 @@ export interface WeekNote {
 
 export type DrawingTool = 'select' | 'pencil' | 'arrow' | 'circle' | 'highlighter' | 'eraser';
 
+export interface ArrowEndpointAnchor {
+  dateString: string;
+  noteId?: string;
+  xRatio: number; // Ratio across the daily notes column (0..1)
+  yRatio?: number; // Vertical ratio within the day row (0..1, fallback if note is absent/deleted)
+}
+
 export interface DrawingElement {
   id: string;
   type: 'freehand' | 'arrow' | 'circle';
@@ -60,6 +67,9 @@ export interface DrawingElement {
   // Anchors keep drawings aligned with dates across scrolling and dynamic resizing
   anchorStartDate: string;
   anchorEndDate?: string;
+  // Semantic anchors for responsive arrows
+  startAnchor?: ArrowEndpointAnchor;
+  endAnchor?: ArrowEndpointAnchor;
   // Normalized or relative offset (dx, dy) within the anchor day row
   startOffset: { x: number; y: number };
   endOffset?: { x: number; y: number };

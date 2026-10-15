@@ -70,6 +70,8 @@ export const DayRow: React.FC<DayRowProps> = ({
 
   return (
     <div
+      data-day-row="true"
+      data-date-string={dateItem.dateString}
       onDoubleClick={(e) => {
         const target = e.target as HTMLElement;
         if (target.closest('button, input, form')) return;
@@ -123,7 +125,10 @@ export const DayRow: React.FC<DayRowProps> = ({
       </div>
 
       {/* Date & Day of Week */}
-      <div className="w-16 sm:w-22 shrink-0 flex items-center justify-start gap-1.5 pt-1 font-mono text-sm sm:text-base">
+      <div
+        data-date-gutter="true"
+        className="w-16 sm:w-22 shrink-0 flex items-center justify-start gap-1.5 pt-1 font-mono text-sm sm:text-base"
+      >
         <span
           className={`inline-flex items-center justify-center min-w-6 px-1 h-6 rounded-md text-xs sm:text-sm font-medium ${
             dateItem.isToday
@@ -207,6 +212,7 @@ export const DayRow: React.FC<DayRowProps> = ({
         className={`flex-1 min-w-0 pr-3 rounded-lg transition-colors ${
           isDayDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
         }`}
+        data-notes-column="true"
       >
         <div className="space-y-0.5">
           {dayNotes.map((note) => (
