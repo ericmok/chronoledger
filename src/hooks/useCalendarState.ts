@@ -51,31 +51,76 @@ export function useCalendarState() {
     currentStateRef.current = { notes, weekNotes, monthNotes, drawings };
   }, [notes, weekNotes, monthNotes, drawings]);
 
-  // Initial SQLite hydration
+  // Initial SQLite hydration with safe non-destructive merging
   useEffect(() => {
     let isCancelled = false;
 
+    // Helper: merge collections by ID to never drop locally created entries
+    function safeMerge<T extends { id: string }>(localList: T[], remoteList: T[]): T[] {
+      const map = new Map<string, T>();
+      for (const item of localList) {
+        map.set(item.id, item);
+      }
+      for (const item of remoteList) {
+        map.set(item.id, item);
+      }
+      return Array.from(map.values());
+    }
+
     async function hydrate() {
+      // 1. Save an emergency local recovery snapshot before any remote sync
+      try {
+        localStorage.setItem(
+          'chrono_ledger_recovery_snapshot_v1',
+          JSON.stringify(currentStateRef.current)
+        );
+      } catch {
+        // quota or privacy mode
+      }
+
       const remote = await fetchRemoteCalendar();
       if (isCancelled) return;
 
       if (remote) {
         if (remote.hasData) {
-          // Hydrate client state from server SQLite database
-          setNotes(remote.notes);
-          setWeekNotes(remote.weekNotes);
-          setMonthNotes(remote.monthNotes);
-          setDrawings(remote.drawings);
+          // Non-destructive merge: preserve any local items while adopting remote items
+          const mergedNotes = safeMerge(currentStateRef.current.notes, remote.notes);
+          const mergedWeekNotes = safeMerge(currentStateRef.current.weekNotes, remote.weekNotes);
+          const mergedMonthNotes = safeMerge(currentStateRef.current.monthNotes, remote.monthNotes);
+          const mergedDrawings = safeMerge(currentStateRef.current.drawings, remote.drawings);
+
+          setNotes(mergedNotes);
+          setWeekNotes(mergedWeekNotes);
+          setMonthNotes(mergedMonthNotes);
+          setDrawings(mergedDrawings);
           if (remote.settings) {
             setSettings(remote.settings);
           }
-          storage.saveNotes(remote.notes);
-          storage.saveWeekNotes(remote.weekNotes);
-          storage.saveMonthNotes(remote.monthNotes);
-          storage.saveDrawings(remote.drawings);
+
+          storage.saveNotes(mergedNotes);
+          storage.saveWeekNotes(mergedWeekNotes);
+          storage.saveMonthNotes(mergedMonthNotes);
+          storage.saveDrawings(mergedDrawings);
           if (remote.settings) {
             storage.saveSettings(remote.settings);
           }
+
+          // If local had extra items not yet in remote, sync merged set back to SQLite
+          if (
+            mergedNotes.length !== remote.notes.length ||
+            mergedWeekNotes.length !== remote.weekNotes.length ||
+            mergedMonthNotes.length !== remote.monthNotes.length ||
+            mergedDrawings.length !== remote.drawings.length
+          ) {
+            saveRemoteCalendar({
+              notes: mergedNotes,
+              weekNotes: mergedWeekNotes,
+              monthNotes: mergedMonthNotes,
+              drawings: mergedDrawings,
+              settings: remote.settings || storage.loadSettings(),
+            });
+          }
+
           setLastSyncedAt(remote.syncedAt || new Date().toISOString());
           setSyncStatus('synced');
         } else {
