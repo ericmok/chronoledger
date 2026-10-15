@@ -31,6 +31,10 @@ export function App() {
     updateSettings,
     exportBackup,
     importBackupFile,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   } = useCalendarState();
 
 
@@ -55,11 +59,34 @@ export function App() {
     scrollToDate(todayStr);
   };
 
-  // Global hotkeys
+  // Global hotkeys (Undo/Redo, Tool switching, navigation)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger when typing in inputs/textareas
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      // Don't trigger when typing in inputs/textareas or contenteditable elements
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const isMod = e.metaKey || e.ctrlKey;
+
+      // Undo: Cmd+Z / Ctrl+Z (without shift)
+      if (isMod && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      // Redo: Cmd+Shift+Z / Ctrl+Shift+Z or Ctrl+Y
+      if (
+        (isMod && (e.key === 'z' || e.key === 'Z') && e.shiftKey) ||
+        (isMod && (e.key === 'y' || e.key === 'Y'))
+      ) {
+        e.preventDefault();
+        redo();
         return;
       }
 
@@ -84,7 +111,7 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [updateSettings]);
+  }, [updateSettings, undo, redo]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FAF8F5] text-[#2B2C30]">
@@ -98,6 +125,10 @@ export function App() {
         onOpenAddNote={() => setIsAddNoteOpen(true)}
         onExportBackup={exportBackup}
         onImportBackup={importBackupFile}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
       {/* Main Container: Infinite Vertical Roll (Left) + Continuous Jigsaw Month Radar (Right) */}

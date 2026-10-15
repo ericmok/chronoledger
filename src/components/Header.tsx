@@ -10,7 +10,9 @@ import {
   Eye,
   EyeOff,
   Download,
-  Upload
+  Upload,
+  Undo,
+  Redo
 } from 'lucide-react';
 import type { CalendarSettings, DrawingTool } from '../types/calendar';
 
@@ -23,6 +25,10 @@ interface HeaderProps {
   onOpenAddNote: () => void;
   onExportBackup?: () => void;
   onImportBackup?: (file: File) => Promise<boolean>;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,6 +40,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAddNote,
   onExportBackup,
   onImportBackup,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -130,6 +140,45 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
       </div>
+
+      {/* Undo & Redo History Controls */}
+      {(onUndo || onRedo) && (
+        <div className="hidden sm:flex items-center gap-0.5 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8]">
+          {onUndo && (
+            <button
+              type="button"
+              onClick={onUndo}
+              disabled={!canUndo}
+              className={`flex items-center gap-1 px-1.5 py-1 rounded text-xs font-medium transition-all ${
+                canUndo
+                  ? 'text-[#2B2C30] hover:bg-[#FAF8F5] hover:shadow-2xs cursor-pointer'
+                  : 'text-[#A19D94] opacity-35 cursor-not-allowed'
+              }`}
+              title="Undo (⌘Z / Ctrl+Z)"
+            >
+              <Undo className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline text-[10px] font-mono">Undo</span>
+            </button>
+          )}
+
+          {onRedo && (
+            <button
+              type="button"
+              onClick={onRedo}
+              disabled={!canRedo}
+              className={`flex items-center gap-1 px-1.5 py-1 rounded text-xs font-medium transition-all ${
+                canRedo
+                  ? 'text-[#2B2C30] hover:bg-[#FAF8F5] hover:shadow-2xs cursor-pointer'
+                  : 'text-[#A19D94] opacity-35 cursor-not-allowed'
+              }`}
+              title="Redo (⌘⇧Z / Ctrl+Y)"
+            >
+              <Redo className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline text-[10px] font-mono">Redo</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Right: Backup/Restore & View Preferences */}
       <div className="flex items-center gap-2">
