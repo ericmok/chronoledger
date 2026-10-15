@@ -20,7 +20,16 @@ interface JigsawMonthGridProps {
   onRemoveMonthNote: (id: string) => void;
   onUpdateMonthNote?: (id: string, newContent: string) => void;
   scrollTargetDate?: { dateString: string; key: number } | null;
+  onAddDrawing: (d: Omit<DrawingElement, 'id' | 'createdAt'>) => DrawingElement;
+  onRemoveDrawing: (id: string) => void;
+  onUpdateDrawing?: (id: string, partial: Partial<DrawingElement>) => void;
 }
+
+export const RADAR_CIRCLE_COLORS = [
+  '#D23B38', // 1. Red Pencil (Deadlines / Milestones)
+  '#2A9D8F', // 2. Pine / Sage (Completed / Events)
+  '#E9C46A', // 3. Warm Ochre (Special dates / Highlights)
+];
 
 const CELL_SIZE = 34; // Square 34x34px cells
 
@@ -36,6 +45,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onRemoveMonthNote,
   onUpdateMonthNote,
   scrollTargetDate,
+  onAddDrawing,
+  onRemoveDrawing,
+  onUpdateDrawing,
 }) => {
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [quickInputMonth, setQuickInputMonth] = useState<string | null>(null);
@@ -56,11 +68,15 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     return map;
   }, [notes]);
 
-  // Circled dates set
-  const circledDates = useMemo(() => {
-    return new Set(
-      drawings.filter((d) => d.type === 'circle').map((d) => d.anchorStartDate)
-    );
+  // Map of circled dates with their drawing ID and color
+  const circledDatesMap = useMemo(() => {
+    const map = new Map<string, { id: string; color: string }>();
+    for (const d of drawings) {
+      if (d.type === 'circle' && d.anchorStartDate) {
+        map.set(d.anchorStartDate, { id: d.id, color: d.color });
+      }
+    }
+    return map;
   }, [drawings]);
 
   // Navigate months
@@ -138,6 +154,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       const mKey = `${y}-${String(mIdx + 1).padStart(2, '0')}`;
       const isOutside = mKey < targetMinKey || mKey > targetMaxKey;
 
+      const circleInfo = circledDatesMap.get(dKey);
+
       allCells.push({
         date: new Date(curr),
         dateKey: dKey,
@@ -147,7 +165,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         monthKey: mKey,
         isToday: dKey === todayKey,
         hasNotes: (notesCountMap.get(dKey) || 0) > 0,
-        isCircled: circledDates.has(dKey),
+        isCircled: Boolean(circleInfo),
+        circleColor: circleInfo?.color,
         isOutsideTargetRange: isOutside,
       });
 
@@ -235,7 +254,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       totalWeeksHeight: weekRows.length * CELL_SIZE,
       svgBoundaries: boundaries,
     };
-  }, [targetMonths, weekStartsOn, todayKey, notesCountMap, circledDates]);
+  }, [targetMonths, weekStartsOn, todayKey, notesCountMap, circledDatesMap]);
 
   // Scroll to a specific date in the radar grid smoothly
   const scrollToDateInRadar = useCallback(
@@ -304,6 +323,54 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       setQuickInputMonth(null);
     }
   };
+
+  // Double-click date: toggle circle
+  const handleToggleCircleDate = useCallback(
+    (dateKey: string) => {
+      const existing = circledDatesMap.get(dateKey);
+      if (existing) {
+        onRemoveDrawing(existing.id);
+      } else {
+        onAddDrawing({
+          type: 'circle',
+          color: RADAR_CIRCLE_COLORS[0],
+          strokeWidth: 2,
+          anchorStartDate: dateKey,
+          startOffset: { x: 95, y: 18 },
+          points: [[18, 18]],
+        });
+      }
+    },
+    [circledDatesMap, onAddDrawing, onRemoveDrawing]
+  );
+
+  // Single-click circle ring: cycle through 3 colors
+  const handleCycleCircleColor = useCallback(
+    (dateKey: string) => {
+      const existing = circledDatesMap.get(dateKey);
+      if (existing) {
+        const currentIndex = RADAR_CIRCLE_COLORS.indexOf(existing.color);
+        const nextIndex = (currentIndex + 1) % RADAR_CIRCLE_COLORS.length;
+        const nextColor = RADAR_CIRCLE_COLORS[nextIndex];
+        if (onUpdateDrawing) {
+          onUpdateDrawing(existing.id, { color: nextColor });
+        } else {
+          onRemoveDrawing(existing.id);
+          onAddDrawing({
+            type: 'circle',
+            color: nextColor,
+            strokeWidth: 2,
+            anchorStartDate: dateKey,
+            startOffset: { x: 95, y: 18 },
+            points: [[18, 18]],
+          });
+        }
+      } else {
+        handleToggleCircleDate(dateKey);
+      }
+    },
+    [circledDatesMap, onUpdateDrawing, onRemoveDrawing, onAddDrawing, handleToggleCircleDate]
+  );
 
   // Day header names based on weekStartsOn
   const dayHeaders = weekStartsOn === 0
@@ -404,6 +471,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           cellSize={CELL_SIZE}
           onSelectDate={onSelectDate}
           selectedDateKey={scrollTargetDate?.dateString}
+          onToggleCircleDate={handleToggleCircleDate}
+          onCycleCircleColor={handleCycleCircleColor}
         />
 
         {/* 3. Right Column: Vertical Month Name Gutter */}

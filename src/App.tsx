@@ -28,6 +28,7 @@ export function App() {
     addDrawing,
     removeDrawing,
     removeDrawings,
+    updateDrawing,
     updateSettings,
     exportBackup,
     importBackupFile,
@@ -180,6 +181,9 @@ export function App() {
             onRemoveMonthNote={removeMonthNote}
             onUpdateMonthNote={updateMonthNote}
             scrollTargetDate={scrollTargetDate}
+            onAddDrawing={addDrawing}
+            onRemoveDrawing={removeDrawing}
+            onUpdateDrawing={updateDrawing}
           />
         )}
       </div>

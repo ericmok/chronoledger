@@ -470,6 +470,13 @@ export function useCalendarState() {
     setDrawings((prev) => prev.filter((d) => !idSet.has(d.id)));
   }, [recordHistory]);
 
+  const updateDrawing = useCallback((drawingId: string, partial: Partial<DrawingElement>) => {
+    recordHistory(true);
+    setDrawings((prev) =>
+      prev.map((d) => (d.id === drawingId ? { ...d, ...partial } : d))
+    );
+  }, [recordHistory]);
+
   const clearAllDrawings = useCallback(() => {
     recordHistory(true);
     setDrawings([]);
@@ -524,6 +531,7 @@ export function useCalendarState() {
     addDrawing,
     removeDrawing,
     removeDrawings,
+    updateDrawing,
     clearAllDrawings,
     updateSettings,
     exportBackup,

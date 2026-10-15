@@ -10,6 +10,7 @@ export interface JigsawCell {
   isToday: boolean;
   hasNotes: boolean;
   isCircled: boolean;
+  circleColor?: string;
   isOutsideTargetRange?: boolean;
 }
 
@@ -26,6 +27,8 @@ export interface ContinuousRadarGridProps {
   totalWeeksHeight: number;
   cellSize: number;
   onSelectDate: (dateKey: string) => void;
+  onToggleCircleDate?: (dateKey: string) => void;
+  onCycleCircleColor?: (dateKey: string) => void;
   selectedDateKey?: string | null;
 }
 
@@ -35,6 +38,8 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
   totalWeeksHeight,
   cellSize,
   onSelectDate,
+  onToggleCircleDate,
+  onCycleCircleColor,
   selectedDateKey,
 }) => {
   return (
@@ -69,6 +74,10 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                   key={cell.dateKey}
                   type="button"
                   onClick={() => onSelectDate(cell.dateKey)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    onToggleCircleDate?.(cell.dateKey);
+                  }}
                   className={`relative w-[34px] h-[34px] flex flex-col items-center justify-center text-[11px] font-mono transition-transform hover:z-10 group cursor-pointer ${
                     isCurrentWeekRow
                       ? 'bg-transparent'
@@ -81,7 +90,11 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                   style={{
                     boxShadow: 'inset 0 0 0 0.5px rgba(229, 223, 213, 0.45)',
                   }}
-                  title={`${cell.monthKey} - ${cell.dayNumber}${cell.isToday ? ' (Today)' : isCurrentWeekRow ? ' (Current Week)' : ''}`}
+                  title={`${cell.monthKey} - ${cell.dayNumber}${
+                    cell.isCircled
+                      ? ' (Circled - click circle to cycle color, double-click to remove)'
+                      : ' (Double-click to circle)'
+                  }`}
                 >
                   {/* Day Number */}
                   <span
@@ -100,9 +113,43 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                     {cell.dayNumber}
                   </span>
 
-                  {/* Circled mark indicator */}
+                  {/* Tactile Circled mark indicator - organic hand-drawn pen ring */}
                   {cell.isCircled && (
-                    <span className="absolute inset-1 rounded-full border-2 border-[#D23B38] pointer-events-none opacity-85" />
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCycleCircleColor?.(cell.dateKey);
+                        onSelectDate(cell.dateKey);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        onToggleCircleDate?.(cell.dateKey);
+                      }}
+                      className="absolute inset-[3px] rounded-full pointer-events-auto cursor-pointer hover:scale-110 transition-transform flex items-center justify-center z-10"
+                      title="Click circle to cycle color (Red → Sage → Ochre) • Double-click to remove"
+                    >
+                      <svg className="w-full h-full overflow-visible" viewBox="0 0 28 28">
+                        <circle
+                          cx="14"
+                          cy="14"
+                          r="11.5"
+                          fill="none"
+                          stroke={cell.circleColor || '#D23B38'}
+                          strokeWidth="2.2"
+                          strokeDasharray="80"
+                          strokeDashoffset="2"
+                          strokeLinecap="round"
+                          className="transition-colors duration-150"
+                          style={{
+                            filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))',
+                            transform: 'rotate(-12deg)',
+                            transformOrigin: 'center',
+                          }}
+                        />
+                      </svg>
+                    </span>
                   )}
 
                   {/* Has Notes Pip */}
