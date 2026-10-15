@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Link2, X } from 'lucide-react';
 import type { MonthNote } from '../../types/calendar';
 import { NoteCard } from '../common/NoteCard';
+import { getSeasonalColor } from '../../utils/seasonalColors';
 
 export interface MonthMeta {
   monthKey: string;
@@ -84,6 +85,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
         const currentMonthNotes = monthNotesByMonth.get(meta.monthKey) || [];
         const isAdding = quickInputMonth === meta.monthKey;
         const isCurrentMonth = meta.monthKey === todayKey.slice(0, 7);
+        const seasonalColor = getSeasonalColor(meta.monthIndex);
 
         return (
           <div
@@ -94,24 +96,38 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
               onStartQuickAddMonth(meta.monthKey);
             }}
             title={`${meta.fullName} notes — double-click to add`}
-            className={`absolute left-0 w-full border-b border-[#E5DFD5]/80 flex flex-col justify-between p-2 group/month transition-colors cursor-pointer ${
+            className={`absolute left-0 w-full border-b flex flex-col justify-between p-2 group/month transition-colors cursor-pointer hover:brightness-[0.98] ${
               isCurrentMonth
-                ? 'bg-[#FAF5ED]/95 border-l-[3.5px] border-l-[#D23B38] -ml-[3.5px]'
-                : 'hover:bg-[#F2EDE4]/30'
+                ? 'border-l-[3.5px] border-l-[#D23B38] -ml-[3.5px]'
+                : ''
             }`}
             style={{
               top: `${meta.topPx}px`,
               height: `${meta.heightPx}px`,
+              backgroundColor: seasonalColor.notesBg,
+              borderBottomColor: seasonalColor.notesBorder,
             }}
           >
             {/* Month Notes Header */}
-            <div className="flex items-center justify-between pb-1 mb-1 border-b border-[#EAE3D6]/70">
+            <div
+              className="flex items-center justify-between pb-1 mb-1 border-b"
+              style={{ borderBottomColor: `${seasonalColor.notesBorder}99` }}
+            >
               <span
-                className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border flex items-center gap-1.5 ${
+                className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border flex items-center gap-1.5 shadow-2xs ${
                   isCurrentMonth
-                    ? 'bg-[#D23B38] text-white border-[#D23B38] shadow-2xs'
-                    : 'text-[#2B2C30] bg-[#FAF8F5] border-[#E0D9CC]'
+                    ? 'bg-[#D23B38] text-white border-[#D23B38]'
+                    : ''
                 }`}
+                style={
+                  !isCurrentMonth
+                    ? {
+                        backgroundColor: seasonalColor.cellBg,
+                        borderColor: seasonalColor.notesBorder,
+                        color: seasonalColor.accentTag,
+                      }
+                    : undefined
+                }
               >
                 <span>{meta.name} Notes</span>
                 {isCurrentMonth && <span className="text-[8px] uppercase bg-white/20 px-1 rounded">Focus</span>}
@@ -123,7 +139,8 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                   e.stopPropagation();
                   onStartQuickAddMonth(meta.monthKey);
                 }}
-                className="flex items-center gap-0.5 text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border border-[#DDD6C8] bg-white text-[#2B2C30] hover:bg-[#F2ECE1] hover:border-[#2B2C30] transition-colors shadow-2xs cursor-pointer shrink-0"
+                className="flex items-center gap-0.5 text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border bg-white/80 text-[#2B2C30] hover:bg-white transition-colors shadow-2xs cursor-pointer shrink-0"
+                style={{ borderColor: seasonalColor.notesBorder }}
                 title={`Add ${meta.name} note (or double-click card)`}
               >
                 <Plus className="w-2.5 h-2.5 text-[#D23B38]" />

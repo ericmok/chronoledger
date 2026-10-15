@@ -3,6 +3,7 @@ import type React from 'react';
 import { ChevronLeft, ChevronRight, Compass, Plus } from 'lucide-react';
 import type { NoteItem, MonthNote, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
 import { formatDateKey, MONTH_NAMES, FULL_MONTH_NAMES } from '../utils/dateUtils';
+import { getSeasonalColor } from '../utils/seasonalColors';
 import { MonthNotesColumn, type MonthMeta } from './radar/MonthNotesColumn';
 import { ContinuousRadarGrid, type JigsawCell, type SvgBoundary } from './radar/ContinuousRadarGrid';
 import { VerticalMonthGutter } from './radar/VerticalMonthGutter';
@@ -528,6 +529,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
   const gridWidth = 7 * CELL_WIDTH; // 266px
+  const visibleSeasonal = getSeasonalColor(visibleMonth.monthIndex);
 
   return (
     <aside className="w-[580px] shrink-0 border-l border-[#E5DFD5] bg-[#FAF8F5] flex flex-col h-full select-none relative z-20 shadow-xs">
@@ -542,8 +544,13 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="font-serif font-bold text-xs text-[#2B2C30] tracking-tight min-w-[110px] text-center">
-            {visibleMonth.fullName} {visibleMonth.year}
+          <span className="font-serif font-bold text-xs text-[#2B2C30] tracking-tight min-w-[125px] text-center flex items-center justify-center gap-1.5 px-2 py-0.5 rounded border border-[#E5DFD5]/70 bg-white/70 shadow-2xs">
+            <span
+              className="w-2 h-2 rounded-full shrink-0 shadow-2xs"
+              style={{ backgroundColor: visibleSeasonal.accentTag }}
+              title={`${visibleMonth.fullName} (${visibleSeasonal.season})`}
+            />
+            <span>{visibleMonth.fullName} {visibleMonth.year}</span>
           </span>
           <button
             type="button"

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { MonthMeta } from './MonthNotesColumn';
+import { getSeasonalColor } from '../../utils/seasonalColors';
 
 export interface VerticalMonthGutterProps {
   monthMetas: MonthMeta[];
@@ -19,18 +20,21 @@ export const VerticalMonthGutter: React.FC<VerticalMonthGutterProps> = ({
     >
       {monthMetas.map((meta) => {
         const isCurrentMonth = meta.monthKey === todayKey.slice(0, 7);
+        const seasonalColor = getSeasonalColor(meta.monthIndex);
 
         return (
           <div
             key={`vmonth-${meta.monthKey}`}
-            className={`absolute left-0 w-full flex items-center justify-center border-b border-[#E5DFD5]/80 select-none overflow-hidden py-1 transition-colors ${
-              isCurrentMonth ? 'bg-[#F4ECE1] border-l-2 border-l-[#D23B38]' : ''
+            className={`absolute left-0 w-full flex items-center justify-center border-b select-none overflow-hidden py-1 transition-colors hover:brightness-[0.98] ${
+              isCurrentMonth ? 'border-l-2 border-l-[#D23B38]' : ''
             }`}
             style={{
               top: `${meta.topPx}px`,
               height: `${meta.heightPx}px`,
+              backgroundColor: seasonalColor.gutterBg,
+              borderBottomColor: seasonalColor.notesBorder,
             }}
-            title={`${meta.fullName} ${meta.year}`}
+            title={`${meta.fullName} ${meta.year} (${seasonalColor.season})`}
           >
             <div
               className="font-serif text-[11px] font-bold tracking-widest uppercase flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity select-none text-[#2B2C30]"
@@ -43,7 +47,14 @@ export const VerticalMonthGutter: React.FC<VerticalMonthGutterProps> = ({
                 className={
                   isCurrentMonth
                     ? 'bg-[#D23B38] text-white px-1.5 py-0.5 rounded-xs font-black shadow-2xs'
-                    : ''
+                    : 'font-extrabold tracking-wider'
+                }
+                style={
+                  !isCurrentMonth
+                    ? {
+                        color: seasonalColor.accentTag,
+                      }
+                    : undefined
                 }
               >
                 {meta.name}

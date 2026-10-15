@@ -1,4 +1,5 @@
 import React from 'react';
+import { getSeasonalColor } from '../../utils/seasonalColors';
 
 export interface JigsawCell {
   date: Date;
@@ -74,7 +75,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
             )}
 
             {week.map((cell) => {
-              const isEvenMonth = cell.monthIndex % 2 === 0;
+              const seasonalColor = getSeasonalColor(cell.monthIndex);
 
               return (
                 <button
@@ -85,18 +86,17 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                     e.stopPropagation();
                     onToggleCircleDate?.(cell.dateKey);
                   }}
-                  className={`relative flex flex-col items-center justify-center text-[11px] font-mono transition-transform hover:z-10 group cursor-pointer ${
-                    isCurrentWeekRow
-                      ? 'bg-transparent'
-                      : cell.isToday
-                      ? 'bg-[#FAF3EA]'
-                      : isEvenMonth
-                      ? 'bg-[#FAF8F5]'
-                      : 'bg-[#F2ECE1]/65'
+                  className={`relative flex flex-col items-center justify-center text-[11px] font-mono transition-all hover:z-10 group cursor-pointer hover:brightness-95 ${
+                    isCurrentWeekRow ? 'bg-transparent' : ''
                   }`}
                   style={{
                     width: `${cellWidth}px`,
                     height: `${cellHeight}px`,
+                    backgroundColor: isCurrentWeekRow
+                      ? undefined
+                      : cell.isToday
+                      ? '#FAF3EA'
+                      : seasonalColor.cellBg,
                     boxShadow: 'inset 0 0 0 0.5px rgba(229, 223, 213, 0.45)',
                   }}
                   title={`${cell.monthKey} - ${cell.dayNumber}${
