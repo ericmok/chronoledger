@@ -72,10 +72,10 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
           : 'bg-[#F7F4EC]/40 hover:bg-[#F2EDE4]/30'
       }`}
     >
-      {/* Week Header */}
-      <div>
+      {/* Week Header & Notes Section (expands to utilize full vertical space of the week) */}
+      <div className="flex-1 flex flex-col min-h-0">
         <div
-          className={`flex items-center justify-between border-b pb-1.5 mb-2 ${
+          className={`flex items-center justify-between border-b pb-1.5 mb-2 shrink-0 ${
             weekBlock.containsToday ? 'border-[#D9CDBC]' : 'border-[#E5DFD5]/70'
           }`}
         >
@@ -112,7 +112,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
           </div>
         </div>
 
-        {/* Week Notes List */}
+        {/* Week Notes List: takes all available vertical space in the week block */}
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -149,7 +149,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
               setActiveDragId(null);
             }
           }}
-          className={`space-y-1.5 max-h-[240px] overflow-y-auto pr-1 rounded-lg transition-colors ${
+          className={`flex-1 space-y-1.5 overflow-y-auto pr-1 rounded-lg transition-colors ${
             isWeekDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
           }`}
         >
@@ -160,7 +160,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 e.stopPropagation();
                 onStartAddWeekNote(weekBlock.weekKey);
               }}
-              className="w-full my-1 py-3 px-2 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded-lg flex flex-col items-center justify-center text-center bg-white/50 hover:bg-white/90 transition-all cursor-pointer group/placeholder"
+              className="w-full h-full min-h-[90px] my-auto py-3 px-2 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded-lg flex flex-col items-center justify-center text-center bg-white/50 hover:bg-white/90 transition-all cursor-pointer group/placeholder"
               title="Click or double-click to add weekly note"
             >
               <div className="flex items-center gap-1 text-xs font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
@@ -230,7 +230,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
       </div>
 
       {/* Add Week Note Input with comfortable padding */}
-      <div className="pt-2 border-t border-[#E5DFD5]/60 mt-2">
+      <div className="pt-2 border-t border-[#E5DFD5]/60 mt-2 shrink-0">
         {isAddingWeekNote ? (
           <form
             onSubmit={(e) => onSubmitQuickWeekNote(e, weekBlock.weekKey)}
