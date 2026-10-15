@@ -218,39 +218,58 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       weekRows.push(allCells.slice(i, i + 7));
     }
 
-    // Compute month metas with expanded vertical heights
+    // Map the week row index where each month's 1st day falls
+    const firstDateKeyToRow = new Map<string, number>();
+    weekRows.forEach((row, rIdx) => {
+      row.forEach((cell) => {
+        if (cell.dayNumber === 1) {
+          firstDateKeyToRow.set(cell.monthKey, rIdx);
+        }
+      });
+    });
+
+    // Compute month metas aligned strictly to start on the 1st
     const metas: MonthMeta[] = [];
-    targetMonths.forEach((tm) => {
+    targetMonths.forEach((tm, idx) => {
       const y = tm.getFullYear();
       const m = tm.getMonth();
       const mKey = `${y}-${String(m + 1).padStart(2, '0')}`;
 
-      let startRow = -1;
-      let endRow = -1;
-
-      weekRows.forEach((row, rIdx) => {
-        const containsMonth = row.some((c) => c.monthKey === mKey);
-        if (containsMonth) {
-          if (startRow === -1) startRow = rIdx;
-          endRow = rIdx;
-        }
-      });
-
-      if (startRow !== -1 && endRow !== -1) {
-        const totalRows = endRow - startRow + 1;
-        metas.push({
-          monthKey: mKey,
-          monthIndex: m,
-          year: y,
-          name: MONTH_NAMES[m],
-          fullName: FULL_MONTH_NAMES[m],
-          startRow,
-          endRow,
-          totalRows,
-          topPx: startRow * CELL_HEIGHT,
-          heightPx: totalRows * CELL_HEIGHT,
-        });
+      // Start row: starts on the row containing the 1st of this month
+      // For the first buffer month (idx === 0), anchor to row 0 so there is no gap at the top
+      let startRow = firstDateKeyToRow.get(mKey) ?? 0;
+      if (idx === 0) {
+        startRow = 0;
       }
+
+      // End row: ends right before the next month's 1st begins
+      let endRow: number;
+      if (idx < targetMonths.length - 1) {
+        const nextTm = targetMonths[idx + 1];
+        const nextMKey = `${nextTm.getFullYear()}-${String(nextTm.getMonth() + 1).padStart(2, '0')}`;
+        const nextStartRow = firstDateKeyToRow.get(nextMKey);
+        endRow = nextStartRow !== undefined ? nextStartRow - 1 : weekRows.length - 1;
+      } else {
+        endRow = weekRows.length - 1;
+      }
+
+      if (endRow < startRow) {
+        endRow = startRow;
+      }
+
+      const totalRows = endRow - startRow + 1;
+      metas.push({
+        monthKey: mKey,
+        monthIndex: m,
+        year: y,
+        name: MONTH_NAMES[m],
+        fullName: FULL_MONTH_NAMES[m],
+        startRow,
+        endRow,
+        totalRows,
+        topPx: startRow * CELL_HEIGHT,
+        heightPx: totalRows * CELL_HEIGHT,
+      });
     });
 
     // Gapless interlocking SVG boundaries between adjacent months
