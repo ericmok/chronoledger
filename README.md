@@ -13,7 +13,7 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
 - **Three-Tier Note Hierarchy**:
   - **Day Notes**: Padded quick-entry inputs and sticky note items attached directly to dates.
   - **Week Notes**: Dedicated weekly focus objectives with quick-entry headers and container double-click.
-  - **Month Notes**: Long-term monthly milestones and goals anchored in the margin gutter and jigsaw radar.
+  - **Month Notes**: Long-term monthly notes anchored in the margin gutter and jigsaw radar.
 - **Visual Revision Diffs**:
   - Double-click any note to edit in-place.
   - Deleted words are struck through in low-opacity red ink.

@@ -223,7 +223,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={onExportBackup}
             className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
-            title="Download full JSON backup of notes, goals & drawings"
+            title="Download full JSON backup of notes & drawings"
           >
             <Download className="w-3 h-3 text-[#A19D94]" />
             <span className="hidden xl:inline">Export</span>

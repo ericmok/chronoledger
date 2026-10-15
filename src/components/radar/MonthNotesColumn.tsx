@@ -93,7 +93,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
               if (target.closest('button, form, input')) return;
               onStartQuickAddMonth(meta.monthKey);
             }}
-            title={`${meta.fullName} goals — double-click to add`}
+            title={`${meta.fullName} notes — double-click to add`}
             className={`absolute left-0 w-full border-b border-[#E5DFD5]/80 flex flex-col justify-between p-2 group/month transition-colors cursor-pointer ${
               isCurrentMonth
                 ? 'bg-[#FAF5ED]/95 border-l-[3.5px] border-l-[#D23B38] -ml-[3.5px]'
@@ -104,7 +104,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
               height: `${meta.heightPx}px`,
             }}
           >
-            {/* Month Goals Header */}
+            {/* Month Notes Header */}
             <div className="flex items-center justify-between pb-1 mb-1 border-b border-[#EAE3D6]/70">
               <span
                 className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border flex items-center gap-1.5 ${
@@ -113,7 +113,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     : 'text-[#2B2C30] bg-[#FAF8F5] border-[#E0D9CC]'
                 }`}
               >
-                <span>{meta.name} Goals</span>
+                <span>{meta.name} Notes</span>
                 {isCurrentMonth && <span className="text-[8px] uppercase bg-white/20 px-1 rounded">Focus</span>}
               </span>
 
@@ -124,10 +124,10 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                   onStartQuickAddMonth(meta.monthKey);
                 }}
                 className="flex items-center gap-0.5 text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border border-[#DDD6C8] bg-white text-[#2B2C30] hover:bg-[#F2ECE1] hover:border-[#2B2C30] transition-colors shadow-2xs cursor-pointer shrink-0"
-                title={`Add ${meta.name} goal (or double-click card)`}
+                title={`Add ${meta.name} note (or double-click card)`}
               >
                 <Plus className="w-2.5 h-2.5 text-[#D23B38]" />
-                <span>+ Goal</span>
+                <span>+ Note</span>
               </button>
             </div>
 
@@ -184,11 +184,11 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     onStartQuickAddMonth(meta.monthKey);
                   }}
                   className="w-full my-auto py-2.5 px-1 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded flex flex-col items-center justify-center text-center bg-white/40 hover:bg-white/80 transition-all cursor-pointer group/placeholder"
-                  title={`Add ${meta.name} goal or double-click`}
+                  title={`Add ${meta.name} note or double-click`}
                 >
                   <div className="flex items-center gap-1 text-[11px] font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
                     <Plus className="w-3 h-3 text-[#D23B38]" />
-                    <span>Add {meta.name} goal</span>
+                    <span>Add {meta.name} note</span>
                   </div>
                   <span className="text-[8px] font-mono text-[#A19D94] mt-0.5">
                     or double-click card
@@ -264,7 +264,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                   type="text"
                   value={quickInputText}
                   onChange={(e) => onSetQuickInputText(e.target.value)}
-                  placeholder={`${meta.name} focus/goal... (Enter)`}
+                  placeholder={`${meta.name} note... (Enter)`}
                   onKeyDown={(e) => e.key === 'Escape' && onCancelQuickAddMonth()}
                   className="flex-1 px-2.5 py-1.5 text-xs bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden"
                 />
@@ -284,10 +284,10 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                 type="button"
                 onClick={() => onStartQuickAddMonth(meta.monthKey)}
                 className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1 rounded border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/40 bg-white/50 hover:bg-white transition-all shadow-2xs mt-1 cursor-pointer"
-                title={`Add another ${meta.name} goal`}
+                title={`Add another ${meta.name} note`}
               >
                 <Plus className="w-2.5 h-2.5 text-[#D23B38]" />
-                <span>Add goal</span>
+                <span>Add note</span>
               </button>
             ) : null}
           </div>

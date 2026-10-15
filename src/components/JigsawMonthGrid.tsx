@@ -560,7 +560,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
             type="button"
             onClick={() => setIsMultiMonthModalOpen(true)}
             className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/70 rounded transition-colors cursor-pointer"
-            title="Add multi-month span goal"
+            title="Add multi-month span note"
           >
             <Plus className="w-3 h-3 text-[#D23B38]" />
             <span>Span</span>
@@ -581,7 +581,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       {/* Column Headers */}
       <div className="h-7 border-b border-[#E5DFD5] flex items-center bg-[#F7F4EC]/60 shrink-0">
         <div className="flex-1 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold pl-3">
-          Monthly Focus & Goals
+          Monthly Notes
         </div>
         <div
           className="shrink-0 grid grid-cols-7 pr-2 text-center text-[10px] font-mono font-medium text-[#7E7F85]"

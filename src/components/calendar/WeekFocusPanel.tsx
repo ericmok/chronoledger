@@ -65,7 +65,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
         if (target.closest('button, form, input')) return;
         onStartAddWeekNote(weekBlock.weekKey);
       }}
-      title="Week focus panel — double-click to add note"
+      title="Weekly notes — double-click to add note"
       className={`w-64 sm:w-72 shrink-0 border-l border-[#E5DFD5] p-3 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
         weekBlock.containsToday
           ? 'bg-[#F2ECE1]/90 ring-1 ring-inset ring-[#D23B38]/20'
@@ -165,7 +165,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
             >
               <div className="flex items-center gap-1 text-xs font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
                 <Plus className="w-3.5 h-3.5 text-[#D23B38]" />
-                <span>Add week focus / objective</span>
+                <span>Add weekly note</span>
               </div>
               <span className="text-[9px] font-mono text-[#A19D94] mt-0.5">
                 or double-click panel
@@ -241,7 +241,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
               type="text"
               value={quickWeekText}
               onChange={(e) => onSetQuickWeekText(e.target.value)}
-              placeholder="Week goal/focus... (Enter to save)"
+              placeholder="Weekly note... (Enter to save)"
               onKeyDown={(e) => e.key === 'Escape' && onCancelAddWeekNote()}
               className="flex-1 px-3 py-1.5 text-xs bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden"
             />
@@ -261,10 +261,10 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
             type="button"
             onClick={() => onStartAddWeekNote(weekBlock.weekKey)}
             className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1.5 rounded-md border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/40 bg-white/50 hover:bg-white transition-all shadow-2xs cursor-pointer"
-            title="Add another weekly goal"
+            title="Add another weekly note"
           >
             <Plus className="w-3 h-3 text-[#D23B38]" />
-            <span>Add weekly goal</span>
+            <span>Add weekly note</span>
           </button>
         ) : null}
       </div>
