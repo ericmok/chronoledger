@@ -195,3 +195,99 @@ export function groupDatesIntoWeeks(dates: DateItem[], weekStartsOn: WeekStartDa
   return blocks;
 }
 
+/**
+ * Determines whether an array of week keys (YYYY-Www) are contiguous
+ */
+export function analyzeWeekSpan(weeks: string[], availableWeeks?: { weekKey: string }[]): {
+  isContiguous: boolean;
+  sortedWeeks: string[];
+  startWeek: string;
+  endWeek: string;
+  count: number;
+} {
+  if (weeks.length === 0) {
+    return { isContiguous: true, sortedWeeks: [], startWeek: '', endWeek: '', count: 0 };
+  }
+
+  const sortedWeeks = [...weeks].sort();
+  const startWeek = sortedWeeks[0];
+  const endWeek = sortedWeeks[sortedWeeks.length - 1];
+
+  if (weeks.length <= 1) {
+    return { isContiguous: true, sortedWeeks, startWeek, endWeek, count: weeks.length };
+  }
+
+  if (availableWeeks && availableWeeks.length > 0) {
+    const indices = sortedWeeks.map((w) => availableWeeks.findIndex((b) => b.weekKey === w));
+    if (indices.every((idx) => idx !== -1)) {
+      const orderedIndices = [...indices].sort((a, b) => a - b);
+      let isContiguous = true;
+      for (let i = 0; i < orderedIndices.length - 1; i++) {
+        if (orderedIndices[i + 1] - orderedIndices[i] !== 1) {
+          isContiguous = false;
+          break;
+        }
+      }
+      return { isContiguous, sortedWeeks, startWeek, endWeek, count: weeks.length };
+    }
+  }
+
+  let isContiguous = true;
+  for (let i = 0; i < sortedWeeks.length - 1; i++) {
+    const [y1, w1] = sortedWeeks[i].split('-W').map(Number);
+    const [y2, w2] = sortedWeeks[i + 1].split('-W').map(Number);
+    if (y1 === y2) {
+      if (w2 - w1 !== 1) {
+        isContiguous = false;
+        break;
+      }
+    } else if (y2 - y1 === 1) {
+      if (w2 !== 1 || (w1 !== 52 && w1 !== 53)) {
+        isContiguous = false;
+        break;
+      }
+    } else {
+      isContiguous = false;
+      break;
+    }
+  }
+
+  return { isContiguous, sortedWeeks, startWeek, endWeek, count: weeks.length };
+}
+
+/**
+ * Determines whether an array of month keys (YYYY-MM) are contiguous
+ */
+export function analyzeMonthSpan(months: string[]): {
+  isContiguous: boolean;
+  sortedMonths: string[];
+  startMonth: string;
+  endMonth: string;
+  count: number;
+} {
+  if (months.length === 0) {
+    return { isContiguous: true, sortedMonths: [], startMonth: '', endMonth: '', count: 0 };
+  }
+
+  const sortedMonths = [...months].sort();
+  const startMonth = sortedMonths[0];
+  const endMonth = sortedMonths[sortedMonths.length - 1];
+
+  if (months.length <= 1) {
+    return { isContiguous: true, sortedMonths, startMonth, endMonth, count: months.length };
+  }
+
+  let isContiguous = true;
+  for (let i = 0; i < sortedMonths.length - 1; i++) {
+    const [y1, m1] = sortedMonths[i].split('-').map(Number);
+    const [y2, m2] = sortedMonths[i + 1].split('-').map(Number);
+    const diff = (y2 * 12 + m2) - (y1 * 12 + m1);
+    if (diff !== 1) {
+      isContiguous = false;
+      break;
+    }
+  }
+
+  return { isContiguous, sortedMonths, startMonth, endMonth, count: months.length };
+}
+

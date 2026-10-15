@@ -370,19 +370,29 @@ export function useCalendarState() {
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
-  const updateNote = useCallback((noteId: string, newContent: string) => {
+  const updateNote = useCallback((
+    noteId: string,
+    newContent: string,
+    newParentDates?: string[],
+    newColorTag?: string
+  ) => {
     const current = currentStateRef.current.notes.find((n) => n.id === noteId);
-    if (current && current.content === newContent.trim()) return;
+    if (!current) return;
+    const trimmed = newContent.trim();
+    const datesChanged = Boolean(newParentDates && JSON.stringify(newParentDates) !== JSON.stringify(current.parentDates));
+    const colorChanged = newColorTag !== undefined && newColorTag !== (current.colorTag || undefined);
+    if (current.content === trimmed && !datesChanged && !colorChanged) return;
 
     recordHistory(true);
     setNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          const trimmed = newContent.trim();
           return {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
+            parentDates: newParentDates && newParentDates.length > 0 ? newParentDates : n.parentDates,
+            colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -494,19 +504,29 @@ export function useCalendarState() {
     setWeekNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
-  const updateWeekNote = useCallback((noteId: string, newContent: string) => {
+  const updateWeekNote = useCallback((
+    noteId: string,
+    newContent: string,
+    newParentWeeks?: string[],
+    newColorTag?: string
+  ) => {
     const current = currentStateRef.current.weekNotes.find((n) => n.id === noteId);
-    if (current && current.content === newContent.trim()) return;
+    if (!current) return;
+    const trimmed = newContent.trim();
+    const weeksChanged = Boolean(newParentWeeks && JSON.stringify(newParentWeeks) !== JSON.stringify(current.parentWeeks));
+    const colorChanged = newColorTag !== undefined && newColorTag !== (current.colorTag || undefined);
+    if (current.content === trimmed && !weeksChanged && !colorChanged) return;
 
     recordHistory(true);
     setWeekNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          const trimmed = newContent.trim();
           return {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
+            parentWeeks: newParentWeeks && newParentWeeks.length > 0 ? newParentWeeks : n.parentWeeks,
+            colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -618,19 +638,29 @@ export function useCalendarState() {
     setMonthNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
-  const updateMonthNote = useCallback((noteId: string, newContent: string) => {
+  const updateMonthNote = useCallback((
+    noteId: string,
+    newContent: string,
+    newParentMonths?: string[],
+    newColorTag?: string
+  ) => {
     const current = currentStateRef.current.monthNotes.find((n) => n.id === noteId);
-    if (current && current.content === newContent.trim()) return;
+    if (!current) return;
+    const trimmed = newContent.trim();
+    const monthsChanged = Boolean(newParentMonths && JSON.stringify(newParentMonths) !== JSON.stringify(current.parentMonths));
+    const colorChanged = newColorTag !== undefined && newColorTag !== (current.colorTag || undefined);
+    if (current.content === trimmed && !monthsChanged && !colorChanged) return;
 
     recordHistory(true);
     setMonthNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          const trimmed = newContent.trim();
           return {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
+            parentMonths: newParentMonths && newParentMonths.length > 0 ? newParentMonths : n.parentMonths,
+            colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
         }

@@ -12,6 +12,7 @@ export interface NoteCardProps {
   onToggleStrike: (id: string) => void;
   onRemove: (id: string) => void;
   onUpdate?: (id: string, newContent: string) => void;
+  onStartEdit?: (id: string) => void;
   density?: 'comfortable' | 'compact';
   className?: string;
 
@@ -36,6 +37,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onToggleStrike,
   onRemove,
   onUpdate,
+  onStartEdit,
   density = 'comfortable',
   className = '',
   isDraggable = true,
@@ -65,6 +67,10 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (onStartEdit) {
+      onStartEdit(id);
+      return;
+    }
     setEditText(content || originalContent || '');
     setIsEditing(true);
   };
