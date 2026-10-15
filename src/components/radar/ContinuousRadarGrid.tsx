@@ -49,8 +49,8 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
 
   return (
     <div
-      className="shrink-0 relative pr-2"
-      style={{ width: `${gridWidth + 8}px`, height: `${totalWeeksHeight}px` }}
+      className="shrink-0 relative"
+      style={{ width: `${gridWidth}px`, height: `${totalWeeksHeight}px` }}
     >
       {/* Continuous Grid Weeks */}
       {weeks.map((week, rIdx) => {

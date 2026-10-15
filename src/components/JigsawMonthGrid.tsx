@@ -566,8 +566,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       {/* Column Headers */}
       <div className="h-7 border-b border-[#E5DFD5] flex items-center bg-[#F7F4EC]/60 shrink-0">
         <div
-          className="shrink-0 grid grid-cols-7 pr-2 text-center text-[10px] font-mono font-medium text-[#7E7F85]"
-          style={{ width: `${gridWidth + 8}px` }}
+          className="shrink-0 grid grid-cols-7 text-center text-[10px] font-mono font-medium text-[#7E7F85]"
+          style={{ width: `${gridWidth}px` }}
         >
           {dayHeaders.map((dh) => (
             <div key={dh}>{dh}</div>
