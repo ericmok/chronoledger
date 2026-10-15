@@ -270,22 +270,21 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {/* Top Colored Thick Border for Current Week */}
-              {weekBlock.containsToday && (
+              {/* Top Colored Thick Border for Current Week or First Week */}
+              {weekBlock.containsToday ? (
                 <div className="w-full h-[3.5px] bg-[#D23B38] shadow-xs z-30 shrink-0" />
-              )}
+              ) : virtualRow.index === 0 ? (
+                <div className="w-full h-[2px] bg-[#8E8F95] shrink-0" />
+              ) : null}
 
               <div
-                className={`flex items-stretch border-x border-[#E5DFD5] bg-[#FAF8F5] transition-colors ${
-                  virtualRow.index === 0 && !weekBlock.containsToday ? 'border-t' : ''
-                } ${
-                  weekBlock.containsToday
+                className={`flex items-stretch border-x border-[#E5DFD5] bg-[#FAF8F5] transition-colors ${weekBlock.containsToday
                     ? 'border-l-[4px] border-l-[#D23B38] -ml-[3px]'
                     : ''
-                }`}
+                  }`}
               >
                 {/* TIER 1: Daily Timeline (7 Days) */}
-                <div className="flex-1 flex flex-col divide-y divide-[#EAE3D6]/60 min-w-0">
+                <div className="flex-1 flex flex-col divide-y divide-[#D5CDC0] min-w-0">
                   {weekBlock.days.map((dateItem, dayIdx) => (
                     <DayRow
                       key={dateItem.dateString}
@@ -337,8 +336,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
               {weekBlock.containsToday ? (
                 <div className="w-full h-[3.5px] bg-[#D23B38] shadow-xs z-30 shrink-0" />
               ) : (
-                /* Integrated Dashed Week Separator Line (Zero margin, continuous paper roll) */
-                <div className="w-full border-b border-dashed border-[#A19D94]/70" />
+                /* Integrated Solid Week Separator Line (Zero margin, continuous paper roll) */
+                <div className="w-full h-[2px] bg-[#8E8F95] shrink-0" />
               )}
             </div>
           );
