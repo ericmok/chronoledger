@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { NoteItem, MonthNote, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
 import { formatDateKey } from '../utils/dateUtils';
-import { storage, downloadJsonFile, readJsonFile, type CalendarBackupData } from '../services/storage';
+import { 
+  storage, 
+  downloadJsonFile, 
+  readJsonFile, 
+  fetchRemoteCalendar, 
+  saveRemoteCalendar, 
+  type CalendarBackupData 
+} from '../services/storage';
 
 export interface HistorySnapshot {
   notes: NoteItem[];
@@ -10,12 +17,20 @@ export interface HistorySnapshot {
   drawings: DrawingElement[];
 }
 
+export type SyncStatus = 'synced' | 'syncing' | 'offline';
+
 export function useCalendarState() {
   const [notes, setNotes] = useState<NoteItem[]>(() => storage.loadNotes());
   const [weekNotes, setWeekNotes] = useState<WeekNote[]>(() => storage.loadWeekNotes());
   const [monthNotes, setMonthNotes] = useState<MonthNote[]>(() => storage.loadMonthNotes());
   const [drawings, setDrawings] = useState<DrawingElement[]>(() => storage.loadDrawings());
   const [settings, setSettings] = useState<CalendarSettings>(() => storage.loadSettings());
+
+  // SQLite sync state
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('syncing');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const isHydratedRef = useRef(false);
+  const syncDebounceRef = useRef<number | null>(null);
 
   // History stack for Undo / Redo
   const undoStackRef = useRef<HistorySnapshot[]>([]);
@@ -35,6 +50,63 @@ export function useCalendarState() {
   useEffect(() => {
     currentStateRef.current = { notes, weekNotes, monthNotes, drawings };
   }, [notes, weekNotes, monthNotes, drawings]);
+
+  // Initial SQLite hydration
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function hydrate() {
+      const remote = await fetchRemoteCalendar();
+      if (isCancelled) return;
+
+      if (remote) {
+        if (remote.hasData) {
+          // Hydrate client state from server SQLite database
+          setNotes(remote.notes);
+          setWeekNotes(remote.weekNotes);
+          setMonthNotes(remote.monthNotes);
+          setDrawings(remote.drawings);
+          if (remote.settings) {
+            setSettings(remote.settings);
+          }
+          storage.saveNotes(remote.notes);
+          storage.saveWeekNotes(remote.weekNotes);
+          storage.saveMonthNotes(remote.monthNotes);
+          storage.saveDrawings(remote.drawings);
+          if (remote.settings) {
+            storage.saveSettings(remote.settings);
+          }
+          setLastSyncedAt(remote.syncedAt || new Date().toISOString());
+          setSyncStatus('synced');
+        } else {
+          // Remote SQLite database is empty: seed it from current client state
+          const snapshot = currentStateRef.current;
+          const currentSettings = storage.loadSettings();
+          const result = await saveRemoteCalendar({
+            notes: snapshot.notes,
+            weekNotes: snapshot.weekNotes,
+            monthNotes: snapshot.monthNotes,
+            drawings: snapshot.drawings,
+            settings: currentSettings,
+          });
+          if (result && result.ok) {
+            setLastSyncedAt(result.syncedAt || new Date().toISOString());
+            setSyncStatus('synced');
+          } else {
+            setSyncStatus('synced');
+          }
+        }
+      } else {
+        setSyncStatus('offline');
+      }
+      isHydratedRef.current = true;
+    }
+
+    hydrate();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const recordHistory = useCallback((force = false) => {
     const now = Date.now();
@@ -110,7 +182,7 @@ export function useCalendarState() {
     setCanRedo(redoStackRef.current.length > 0);
   }, []);
 
-  // Storage synchronization via storage service
+  // Synchronous LocalStorage synchronization
   useEffect(() => {
     storage.saveNotes(notes);
   }, [notes]);
@@ -130,6 +202,60 @@ export function useCalendarState() {
   useEffect(() => {
     storage.saveSettings(settings);
   }, [settings]);
+
+  // Debounced auto-sync to SQLite database
+  useEffect(() => {
+    if (!isHydratedRef.current) return;
+
+    setSyncStatus('syncing');
+    if (syncDebounceRef.current) {
+      window.clearTimeout(syncDebounceRef.current);
+    }
+
+    syncDebounceRef.current = window.setTimeout(async () => {
+      const payload = {
+        notes,
+        weekNotes,
+        monthNotes,
+        drawings,
+        settings,
+      };
+
+      const result = await saveRemoteCalendar(payload);
+      if (result && result.ok) {
+        setSyncStatus('synced');
+        setLastSyncedAt(result.syncedAt || new Date().toISOString());
+      } else {
+        setSyncStatus('offline');
+      }
+    }, 600);
+
+    return () => {
+      if (syncDebounceRef.current) {
+        window.clearTimeout(syncDebounceRef.current);
+      }
+    };
+  }, [notes, weekNotes, monthNotes, drawings, settings]);
+
+  const forceSync = useCallback(async () => {
+    setSyncStatus('syncing');
+    const payload = {
+      notes,
+      weekNotes,
+      monthNotes,
+      drawings,
+      settings,
+    };
+    const result = await saveRemoteCalendar(payload);
+    if (result && result.ok) {
+      setSyncStatus('synced');
+      setLastSyncedAt(result.syncedAt || new Date().toISOString());
+      return true;
+    } else {
+      setSyncStatus('offline');
+      return false;
+    }
+  }, [notes, weekNotes, monthNotes, drawings, settings]);
 
   // Date notes
   const addNote = useCallback((content: string, parentDates: string[], colorTag?: string) => {
@@ -361,5 +487,9 @@ export function useCalendarState() {
     redo,
     canUndo,
     canRedo,
+    syncStatus,
+    lastSyncedAt,
+    forceSync,
   };
 }
+

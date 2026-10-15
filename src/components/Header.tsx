@@ -12,7 +12,9 @@ import {
   Download,
   Upload,
   Undo,
-  Redo
+  Redo,
+  Database,
+  RefreshCw
 } from 'lucide-react';
 import type { CalendarSettings, DrawingTool } from '../types/calendar';
 
@@ -29,6 +31,9 @@ interface HeaderProps {
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
+  syncStatus?: 'synced' | 'syncing' | 'offline';
+  lastSyncedAt?: string | null;
+  onForceSync?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -44,6 +49,9 @@ export const Header: React.FC<HeaderProps> = ({
   onRedo,
   canUndo = false,
   canRedo = false,
+  syncStatus,
+  lastSyncedAt,
+  onForceSync,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -182,6 +190,33 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Backup/Restore & View Preferences */}
       <div className="flex items-center gap-2">
+        {/* SQLite Sync Status Indicator */}
+        {syncStatus && (
+          <button
+            type="button"
+            onClick={onForceSync}
+            className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+            title={
+              syncStatus === 'synced'
+                ? `SQLite Synced ${lastSyncedAt ? `(${new Date(lastSyncedAt).toLocaleTimeString()})` : ''}. Click to re-sync.`
+                : syncStatus === 'syncing'
+                ? 'Syncing changes to SQLite database...'
+                : 'Offline / Server unreachable (Saved in browser). Click to retry sync.'
+            }
+          >
+            {syncStatus === 'syncing' ? (
+              <RefreshCw className="w-3 h-3 text-[#E29578] animate-spin" />
+            ) : syncStatus === 'synced' ? (
+              <Database className="w-3 h-3 text-[#2A9D8F]" />
+            ) : (
+              <Database className="w-3 h-3 text-[#E76F51] opacity-70" />
+            )}
+            <span className="hidden xl:inline">
+              {syncStatus === 'synced' ? 'SQLite' : syncStatus === 'syncing' ? 'Syncing…' : 'Offline'}
+            </span>
+          </button>
+        )}
+
         {/* Backup / Export */}
         {onExportBackup && (
           <button

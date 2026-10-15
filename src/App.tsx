@@ -35,6 +35,9 @@ export function App() {
     redo,
     canUndo,
     canRedo,
+    syncStatus,
+    lastSyncedAt,
+    forceSync,
   } = useCalendarState();
 
 
@@ -129,6 +132,9 @@ export function App() {
         onRedo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
+        syncStatus={syncStatus}
+        lastSyncedAt={lastSyncedAt}
+        onForceSync={forceSync}
       />
 
       {/* Main Container: Infinite Vertical Roll (Left) + Continuous Jigsaw Month Radar (Right) */}

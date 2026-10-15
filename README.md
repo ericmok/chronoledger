@@ -28,6 +28,11 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
   - `⌘Z` / `Ctrl+Z` to undo actions (note deletions, edits, strikethroughs, sketches, erasures).
   - `⌘⇧Z` / `Ctrl+Shift+Z` / `Ctrl+Y` to redo.
   - Native browser undo is fully preserved when typing inside text boxes.
+- **Embedded SQLite Database Auto-Sync (`data/chronoledger.sqlite`)**:
+  - Live atomic synchronization between browser and disk-persisted SQLite database.
+  - High-performance WAL (Write-Ahead Logging) mode and transactional batch writes.
+  - Offline-first dual-layer storage: instant browser `localStorage` plus debounced background SQLite commit.
+  - Tactile visual sync status badge in the header indicating live sync state and timestamp.
 - **Zero-Dependency Production Server & Docker Support**:
   - Ready for local deployment or containerized hosting with Docker and Docker Compose.
   - Built-in zero-dependency Node.js HTTP server.
@@ -107,10 +112,11 @@ Access the app on `http://localhost:3000`.
   - `src/components/WeekFocusPanel.tsx`: Dedicated week ledger and objectives.
   - `src/components/JigsawMonthGrid.tsx`: Interlocking month grid radar.
   - `src/components/DrawingCanvas.tsx`: SVG vector layer for RoughJS sketches, arrows, and circles.
-- **Storage Layer**:
-  - `src/services/storage.ts`: Repository pattern wrapping `localStorage` with JSON export/import capability.
+- **Storage & Database Layer**:
+  - `server/db.js`: Embedded SQLite database driver powered by Node's built-in `node:sqlite`. Provides WAL mode, transactional writes, and schema tables (`notes`, `week_notes`, `month_notes`, `drawings`, `settings`, `metadata`).
+  - `src/services/storage.ts`: Dual-layer storage manager handling instant `localStorage` caching, REST API communication, and JSON backup export/import.
 - **State Management**:
-  - `src/hooks/useCalendarState.ts`: History stack snapshots, mutation debouncing, and tool configuration.
+  - `src/hooks/useCalendarState.ts`: History stack snapshots, mutation debouncing, tool configuration, and live SQLite database synchronization.
 
 ---
 

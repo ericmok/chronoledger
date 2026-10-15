@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { handleApiRequest, getDatabase } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,13 +10,14 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'calendar.json');
+const DB_PATH = process.env.DATABASE_PATH || path.join(DATA_DIR, 'chronoledger.sqlite');
 const DIST_DIR = path.join(__dirname, '..', 'dist');
 
-// Ensure data directory exists
+// Ensure data directory exists and initialize SQLite database
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
+const db = getDatabase(DB_PATH);
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -33,18 +35,6 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
 };
-
-function sendJson(res, statusCode, data) {
-  const payload = JSON.stringify(data);
-  res.writeHead(statusCode, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': Buffer.byteLength(payload),
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  });
-  res.end(payload);
-}
 
 function serveStaticFile(res, filePath) {
   fs.stat(filePath, (err, stats) => {
@@ -93,71 +83,14 @@ const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
-  // 1. Health check API
-  if (pathname === '/api/health' && req.method === 'GET') {
-    sendJson(res, 200, { status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
-    return;
-  }
-
-  // 2. Calendar Data API - GET
-  if (pathname === '/api/calendar' && req.method === 'GET') {
-    if (fs.existsSync(DATA_FILE)) {
-      fs.readFile(DATA_FILE, 'utf-8', (err, raw) => {
-        if (err) {
-          sendJson(res, 500, { error: 'Failed to read calendar data' });
-          return;
-        }
-        try {
-          const parsed = JSON.parse(raw);
-          sendJson(res, 200, parsed);
-        } catch {
-          sendJson(res, 500, { error: 'Corrupt calendar data on server' });
-        }
-      });
-    } else {
-      // Empty data if no file yet
-      sendJson(res, 200, null);
+  // 1. Delegate /api/* requests to SQLite database handler
+  if (pathname.startsWith('/api/')) {
+    if (handleApiRequest(req, res, db)) {
+      return;
     }
-    return;
   }
 
-  // 3. Calendar Data API - POST
-  if (pathname === '/api/calendar' && req.method === 'POST') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-      // Protect against gigantic payloads (10MB limit)
-      if (body.length > 10 * 1024 * 1024) {
-        req.destroy();
-      }
-    });
-
-    req.on('end', () => {
-      try {
-        const parsed = JSON.parse(body);
-        // Atomic write: write to temp file then rename
-        const tempFile = `${DATA_FILE}.tmp.${Date.now()}`;
-        fs.writeFile(tempFile, JSON.stringify(parsed, null, 2), 'utf-8', (writeErr) => {
-          if (writeErr) {
-            sendJson(res, 500, { error: 'Failed to save calendar data' });
-            return;
-          }
-          fs.rename(tempFile, DATA_FILE, (renameErr) => {
-            if (renameErr) {
-              sendJson(res, 500, { error: 'Failed to commit calendar data' });
-              return;
-            }
-            sendJson(res, 200, { ok: true, savedAt: new Date().toISOString() });
-          });
-        });
-      } catch (err) {
-        sendJson(res, 400, { error: 'Invalid JSON payload' });
-      }
-    });
-    return;
-  }
-
-  // 4. Static frontend asset serving
+  // 2. Static frontend asset serving
   if (req.method === 'GET' || req.method === 'HEAD') {
     const cleanPath = path.normalize(pathname).replace(/^(\.\.[/\\])+/, '');
     const requestedPath = path.join(DIST_DIR, cleanPath === '/' ? 'index.html' : cleanPath);
@@ -170,8 +103,8 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`🕮 ChronoLedger server listening at http://${HOST}:${PORT}`);
-  console.log(`📁 Calendar data file: ${DATA_FILE}`);
+  console.log(`🕮 ChronoLedger SQLite server listening at http://${HOST}:${PORT}`);
+  console.log(`📁 SQLite database: ${DB_PATH}`);
   console.log(`🌐 Serving static files from: ${DIST_DIR}`);
 });
 

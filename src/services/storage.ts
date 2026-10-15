@@ -277,6 +277,51 @@ export class LocalStorageAdapter implements CalendarStorage {
 
 export const storage = new LocalStorageAdapter();
 
+export interface RemoteCalendarResponse {
+  notes: NoteItem[];
+  weekNotes: WeekNote[];
+  monthNotes: MonthNote[];
+  drawings: DrawingElement[];
+  settings: CalendarSettings | null;
+  syncedAt: string | null;
+  schemaVersion: number;
+  hasData: boolean;
+}
+
+export async function fetchRemoteCalendar(): Promise<RemoteCalendarResponse | null> {
+  try {
+    const res = await fetch('/api/calendar');
+    if (!res.ok) return null;
+    return (await res.json()) as RemoteCalendarResponse;
+  } catch (err) {
+    console.debug('SQLite server not reachable or offline:', err);
+    return null;
+  }
+}
+
+export async function saveRemoteCalendar(data: {
+  notes: NoteItem[];
+  weekNotes: WeekNote[];
+  monthNotes: MonthNote[];
+  drawings: DrawingElement[];
+  settings: CalendarSettings;
+}): Promise<{ ok: boolean; syncedAt?: string } | null> {
+  try {
+    const res = await fetch('/api/calendar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as { ok: boolean; syncedAt?: string };
+  } catch (err) {
+    console.debug('Failed to save to SQLite server:', err);
+    return null;
+  }
+}
+
 export function downloadJsonFile(content: string, filename: string) {
   const blob = new Blob([content], { type: 'application/json;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -300,3 +345,4 @@ export function readJsonFile(file: File): Promise<string> {
     reader.readAsText(file);
   });
 }
+
