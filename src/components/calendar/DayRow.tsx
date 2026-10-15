@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { DateItem, NoteItem } from '../../types/calendar';
 import { analyzeDateSpan } from '../../utils/dateUtils';
 import { NoteItemComponent } from '../NoteItemComponent';
+import { DayNoteInlineForm } from './DayNoteInlineForm';
 import { Plus } from 'lucide-react';
 
 export interface DayRowProps {
@@ -10,14 +11,12 @@ export interface DayRowProps {
   dayNotes: NoteItem[];
   isMonthFocus: boolean;
   isQuickAdding: boolean;
-  quickInputText: string;
-  onSetQuickInputText: (text: string) => void;
   onStartQuickAdd: (dateString: string) => void;
   onCancelQuickAdd: () => void;
-  onSubmitQuickAdd: (e: React.FormEvent, dateString: string) => void;
+  onAddNote: (content: string, parentDates: string[], colorTag?: string) => void;
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
-  onUpdateNote?: (noteId: string, newContent: string) => void;
+  onUpdateNote?: (noteId: string, newContent: string, parentDates?: string[], colorTag?: string) => void;
   onJumpToDateRequested?: (dateKey: string) => void;
   onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
   onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
@@ -29,11 +28,9 @@ export const DayRow: React.FC<DayRowProps> = ({
   dayNotes,
   isMonthFocus,
   isQuickAdding,
-  quickInputText,
-  onSetQuickInputText,
   onStartQuickAdd,
   onCancelQuickAdd,
-  onSubmitQuickAdd,
+  onAddNote,
   onToggleStrike,
   onRemoveNote,
   onUpdateNote,
@@ -41,6 +38,7 @@ export const DayRow: React.FC<DayRowProps> = ({
   onReorderNotes,
   onMoveNoteToDate,
 }) => {
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
@@ -63,6 +61,7 @@ export const DayRow: React.FC<DayRowProps> = ({
       setIsDayDragOver(false);
     }
   };
+
   const contiguousSpansStartingHere = dayNotes.filter((n) => {
     const span = analyzeDateSpan(n.parentDates);
     return span.isContiguous && span.startDate === dateItem.dateString && span.count > 1;
@@ -74,7 +73,7 @@ export const DayRow: React.FC<DayRowProps> = ({
       data-date-string={dateItem.dateString}
       onDoubleClick={(e) => {
         const target = e.target as HTMLElement;
-        if (target.closest('button, input, form')) return;
+        if (target.closest('button, input, form, textarea, select')) return;
         onStartQuickAdd(dateItem.dateString);
       }}
       className={`flex items-start min-h-[48px] group/row py-1 transition-colors ${
@@ -215,85 +214,88 @@ export const DayRow: React.FC<DayRowProps> = ({
         data-notes-column="true"
       >
         <div className="space-y-0.5">
-          {dayNotes.map((note) => (
-            <NoteItemComponent
-              key={note.id}
-              note={note}
-              currentDate={dateItem.dateString}
-              onToggleStrike={onToggleStrike}
-              onRemoveNote={onRemoveNote}
-              onUpdateNote={onUpdateNote}
-              onJumpToDate={(targetDate) => {
-                if (onJumpToDateRequested) onJumpToDateRequested(targetDate);
-              }}
-              onDragStart={(e, id) => {
-                e.dataTransfer.setData(
-                  'text/plain',
-                  JSON.stringify({ type: 'daily-note', id, sourceDate: dateItem.dateString })
-                );
-                setActiveDragId(id);
-              }}
-              onDragOver={(_e, id, pos) => {
-                setDropTargetId(id);
-                setDropPos(pos);
-              }}
-              onDragLeave={(_e, id) => {
-                if (dropTargetId === id) {
+          {dayNotes.map((note) => {
+            if (editingNoteId === note.id) {
+              return (
+                <DayNoteInlineForm
+                  key={note.id}
+                  initialContent={note.content}
+                  initialDates={note.parentDates}
+                  initialColorTag={note.colorTag}
+                  currentDate={dateItem.dateString}
+                  onSubmit={(content, parentDates, colorTag) => {
+                    onUpdateNote?.(note.id, content, parentDates, colorTag);
+                    setEditingNoteId(null);
+                  }}
+                  onCancel={() => setEditingNoteId(null)}
+                  submitLabel="Save"
+                />
+              );
+            }
+
+            return (
+              <NoteItemComponent
+                key={note.id}
+                note={note}
+                currentDate={dateItem.dateString}
+                onToggleStrike={onToggleStrike}
+                onRemoveNote={onRemoveNote}
+                onStartEdit={() => setEditingNoteId(note.id)}
+                onUpdateNote={(id, text) => onUpdateNote?.(id, text, note.parentDates, note.colorTag)}
+                onJumpToDate={(targetDate) => {
+                  if (onJumpToDateRequested) onJumpToDateRequested(targetDate);
+                }}
+                onDragStart={(e, id) => {
+                  e.dataTransfer.setData(
+                    'text/plain',
+                    JSON.stringify({ type: 'daily-note', id, sourceDate: dateItem.dateString })
+                  );
+                  setActiveDragId(id);
+                }}
+                onDragOver={(_e, id, pos) => {
+                  setDropTargetId(id);
+                  setDropPos(pos);
+                }}
+                onDragLeave={(_e, id) => {
+                  if (dropTargetId === id) {
+                    setDropTargetId(null);
+                    setDropPos(null);
+                  }
+                }}
+                onDrop={(e, id, pos) => {
+                  handleNoteDrop(e, id, pos);
+                }}
+                onDragEnd={() => {
+                  setActiveDragId(null);
                   setDropTargetId(null);
                   setDropPos(null);
-                }
-              }}
-              onDrop={(e, id, pos) => {
-                handleNoteDrop(e, id, pos);
-              }}
-              onDragEnd={() => {
-                setActiveDragId(null);
-                setDropTargetId(null);
-                setDropPos(null);
-                setIsDayDragOver(false);
-              }}
-              isBeingDragged={activeDragId === note.id}
-              dropIndicator={dropTargetId === note.id ? dropPos : null}
-            />
-          ))}
+                  setIsDayDragOver(false);
+                }}
+                isBeingDragged={activeDragId === note.id}
+                dropIndicator={dropTargetId === note.id ? dropPos : null}
+              />
+            );
+          })}
         </div>
 
         {/* Quick note input form */}
         {isQuickAdding ? (
-          <form
-            onSubmit={(e) => onSubmitQuickAdd(e, dateItem.dateString)}
-            onClick={(e) => e.stopPropagation()}
-            className="mt-1.5 flex items-center gap-2 p-1.5 bg-white border border-[#DDD6C8] rounded-xl shadow-xs animate-in fade-in duration-100"
-          >
-            <input
-              autoFocus
-              type="text"
-              value={quickInputText}
-              onChange={(e) => onSetQuickInputText(e.target.value)}
-              placeholder="Write a note for this day... (Enter to save, Esc to cancel)"
-              onKeyDown={(e) => e.key === 'Escape' && onCancelQuickAdd()}
-              className="flex-1 px-3.5 py-2 text-sm bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden font-sans"
+          <div className="mt-1.5">
+            <DayNoteInlineForm
+              currentDate={dateItem.dateString}
+              onSubmit={(content, parentDates, colorTag) => {
+                onAddNote(content, parentDates, colorTag);
+                onCancelQuickAdd();
+              }}
+              onCancel={onCancelQuickAdd}
+              submitLabel="Add"
             />
-            <button
-              type="submit"
-              className="px-3.5 py-1.5 text-xs bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] rounded-lg font-medium shadow-2xs transition-colors shrink-0"
-            >
-              Add
-            </button>
-            <button
-              type="button"
-              onClick={onCancelQuickAdd}
-              className="px-2.5 py-1.5 text-xs text-[#8E8F95] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50 rounded-lg transition-colors shrink-0"
-              title="Cancel (Esc)"
-            >
-              Esc
-            </button>
-          </form>
+          </div>
         ) : (
           <button
             type="button"
             onClick={() => onStartQuickAdd(dateItem.dateString)}
-            className="opacity-0 group-row:opacity-100 mt-0.5 text-[11px] font-mono text-[#A19D94] hover:text-[#2B2C30] flex items-center gap-1 transition-opacity py-0.5 px-1 rounded cursor-pointer"
+            className="opacity-0 group-hover/row:opacity-100 mt-0.5 text-[11px] font-mono text-[#A19D94] hover:text-[#2B2C30] flex items-center gap-1 transition-opacity py-0.5 px-1 rounded cursor-pointer"
             title="Write note (or double-click day)"
           >
             <Plus className="w-3 h-3" />

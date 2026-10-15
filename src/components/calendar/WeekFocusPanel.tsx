@@ -2,39 +2,42 @@ import React, { useState } from 'react';
 import { Plus, Link2 } from 'lucide-react';
 import type { WeekNote } from '../../types/calendar';
 import type { WeekBlock } from '../../utils/dateUtils';
+import { analyzeWeekSpan } from '../../utils/dateUtils';
 import { NoteCard } from '../common/NoteCard';
+import { WeekNoteInlineForm, type WeekOption } from './WeekNoteInlineForm';
 
 export interface WeekFocusPanelProps {
   weekBlock: WeekBlock;
   currentWeekNotes: WeekNote[];
   isAddingWeekNote: boolean;
-  quickWeekText: string;
-  onSetQuickWeekText: (text: string) => void;
+  availableWeeks?: WeekOption[];
   onStartAddWeekNote: (weekKey: string) => void;
   onCancelAddWeekNote: () => void;
-  onSubmitQuickWeekNote: (e: React.FormEvent, weekKey: string) => void;
+  onAddWeekNote: (content: string, parentWeeks: string[], colorTag?: string) => void;
   onToggleStrikeWeekNote: (id: string) => void;
   onRemoveWeekNote: (id: string) => void;
-  onUpdateWeekNote?: (id: string, newContent: string) => void;
+  onUpdateWeekNote?: (id: string, newContent: string, parentWeeks?: string[], colorTag?: string) => void;
   onReorderWeekNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => void;
   onMoveWeekNoteToWeek?: (noteId: string, targetWeek: string, position?: 'start' | 'end') => void;
+  onJumpToWeek?: (weekKey: string) => void;
 }
 
 export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
   weekBlock,
   currentWeekNotes,
   isAddingWeekNote,
-  quickWeekText,
-  onSetQuickWeekText,
+  availableWeeks = [],
   onStartAddWeekNote,
   onCancelAddWeekNote,
-  onSubmitQuickWeekNote,
+  onAddWeekNote,
   onToggleStrikeWeekNote,
   onRemoveWeekNote,
   onUpdateWeekNote,
   onReorderWeekNotes,
   onMoveWeekNoteToWeek,
+  onJumpToWeek,
 }) => {
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
@@ -62,7 +65,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
     <div
       onDoubleClick={(e) => {
         const target = e.target as HTMLElement;
-        if (target.closest('button, form, input')) return;
+        if (target.closest('button, form, input, textarea, select')) return;
         onStartAddWeekNote(weekBlock.weekKey);
       }}
       title="Weekly notes — double-click to add note"
@@ -91,28 +94,14 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {weekBlock.containsToday && (
-              <span className="text-[9px] font-mono bg-[#D23B38] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-2xs">
-                Active
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartAddWeekNote(weekBlock.weekKey);
-              }}
-              className="flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-0.5 rounded border border-[#DDD6C8] bg-white text-[#2B2C30] hover:bg-[#F2ECE1] hover:border-[#2B2C30] transition-colors shadow-2xs cursor-pointer"
-              title="Add weekly note / objective (or double-click panel)"
-            >
-              <Plus className="w-3 h-3 text-[#D23B38]" />
-              <span>+ Note</span>
-            </button>
-          </div>
+          {weekBlock.containsToday && (
+            <span className="text-[9px] font-mono bg-[#D23B38] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-2xs">
+              Active
+            </span>
+          )}
         </div>
 
-        {/* Week Notes List: takes all available vertical space in the week block */}
+        {/* Week Notes List */}
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -174,11 +163,59 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
           )}
 
           {currentWeekNotes.map((wn) => {
+            if (editingNoteId === wn.id) {
+              return (
+                <WeekNoteInlineForm
+                  key={wn.id}
+                  initialContent={wn.content}
+                  initialWeeks={wn.parentWeeks}
+                  initialColorTag={wn.colorTag}
+                  currentWeekKey={weekBlock.weekKey}
+                  availableWeeks={availableWeeks}
+                  onSubmit={(content, parentWeeks, colorTag) => {
+                    onUpdateWeekNote?.(wn.id, content, parentWeeks, colorTag);
+                    setEditingNoteId(null);
+                  }}
+                  onCancel={() => setEditingNoteId(null)}
+                  submitLabel="Save"
+                />
+              );
+            }
+
             const isMulti = wn.parentWeeks.length > 1;
-            const multiBadge = isMulti ? (
-              <div className="flex items-center gap-1 mt-0.5 text-[9px] font-mono text-[#83C5BE]">
-                <Link2 className="w-2.5 h-2.5" />
-                <span>Multi-week ({wn.parentWeeks.join(', ')})</span>
+            const spanInfo = isMulti ? analyzeWeekSpan(wn.parentWeeks, availableWeeks) : null;
+            const multiBadge = isMulti && spanInfo ? (
+              <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[9px] font-mono text-[#7E7F85]">
+                {spanInfo.isContiguous ? (
+                  <span className="inline-flex items-center gap-1 bg-[#EBE5DA] px-1.5 py-0.5 rounded text-[9px] text-[#55565B]">
+                    <Link2 className="w-2.5 h-2.5 text-[#83C5BE]" />
+                    <span>{spanInfo.count}w span</span>
+                    <span className="text-[#8E8F95]">
+                      ({spanInfo.startWeek.slice(5)} → {spanInfo.endWeek.slice(5)})
+                    </span>
+                  </span>
+                ) : (
+                  <div className="inline-flex flex-wrap items-center gap-1 bg-[#EBE5DA] px-1.5 py-0.5 rounded text-[9px] text-[#55565B]">
+                    <Link2 className="w-2.5 h-2.5 text-[#D23B38]" />
+                    <span>Linked:</span>
+                    {wn.parentWeeks.map((wk) => (
+                      <button
+                        key={wk}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onJumpToWeek?.(wk);
+                        }}
+                        className={`hover:underline cursor-pointer ${
+                          wk === weekBlock.weekKey ? 'font-bold text-[#2B2C30]' : 'text-[#7E7F85]'
+                        }`}
+                        title={`Jump to ${wk}`}
+                      >
+                        {wk.slice(5)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : null;
 
@@ -194,7 +231,8 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 density="compact"
                 onToggleStrike={onToggleStrikeWeekNote}
                 onRemove={onRemoveWeekNote}
-                onUpdate={onUpdateWeekNote}
+                onStartEdit={() => setEditingNoteId(wn.id)}
+                onUpdate={(id, text) => onUpdateWeekNote?.(id, text, wn.parentWeeks, wn.colorTag)}
                 onDragStart={(e, id) => {
                   e.dataTransfer.setData(
                     'text/plain',
@@ -229,33 +267,19 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
         </div>
       </div>
 
-      {/* Add Week Note Input with comfortable padding */}
+      {/* Add Week Note Form / Button */}
       <div className="pt-2 border-t border-[#E5DFD5]/60 mt-2 shrink-0">
         {isAddingWeekNote ? (
-          <form
-            onSubmit={(e) => onSubmitQuickWeekNote(e, weekBlock.weekKey)}
-            className="flex items-center gap-1.5 p-1 bg-white border border-[#DDD6C8] rounded-lg shadow-xs"
-          >
-            <input
-              autoFocus
-              type="text"
-              value={quickWeekText}
-              onChange={(e) => onSetQuickWeekText(e.target.value)}
-              placeholder="Weekly note... (Enter to save)"
-              onKeyDown={(e) => e.key === 'Escape' && onCancelAddWeekNote()}
-              className="flex-1 px-3 py-1.5 text-xs bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden"
-            />
-            <button type="submit" className="px-2.5 py-1.5 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded-md font-medium shrink-0 cursor-pointer">
-              Add
-            </button>
-            <button
-              type="button"
-              onClick={onCancelAddWeekNote}
-              className="px-1.5 py-1.5 text-xs text-[#8E8F95] hover:text-[#2B2C30] shrink-0 cursor-pointer"
-            >
-              Esc
-            </button>
-          </form>
+          <WeekNoteInlineForm
+            currentWeekKey={weekBlock.weekKey}
+            availableWeeks={availableWeeks}
+            onSubmit={(content, parentWeeks, colorTag) => {
+              onAddWeekNote(content, parentWeeks, colorTag);
+              onCancelAddWeekNote();
+            }}
+            onCancel={onCancelAddWeekNote}
+            submitLabel="Add"
+          />
         ) : currentWeekNotes.length > 0 ? (
           <button
             type="button"

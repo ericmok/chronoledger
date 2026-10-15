@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Plus, Link2, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Link2 } from 'lucide-react';
 import type { MonthNote } from '../../types/calendar';
+import { analyzeMonthSpan } from '../../utils/dateUtils';
 import { NoteCard } from '../common/NoteCard';
 import { getSeasonalColor } from '../../utils/seasonalColors';
+import { MonthNoteInlineForm } from './MonthNoteInlineForm';
 
 export interface MonthMeta {
   monthKey: string;
@@ -23,16 +25,15 @@ export interface MonthNotesColumnProps {
   totalWeeksHeight: number;
   todayKey: string;
   quickInputMonth: string | null;
-  quickInputText: string;
-  onSetQuickInputText: (text: string) => void;
   onStartQuickAddMonth: (monthKey: string) => void;
   onCancelQuickAddMonth: () => void;
-  onSubmitQuickMonthNote: (e: React.FormEvent, monthKey: string) => void;
+  onAddMonthNote: (content: string, parentMonths: string[], colorTag?: string) => void;
   onToggleStrikeMonthNote: (id: string) => void;
   onRemoveMonthNote: (id: string) => void;
-  onUpdateMonthNote?: (id: string, newContent: string) => void;
+  onUpdateMonthNote?: (id: string, newContent: string, parentMonths?: string[], colorTag?: string) => void;
   onReorderMonthNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => void;
   onMoveMonthNoteToMonth?: (noteId: string, targetMonth: string, position?: 'start' | 'end') => void;
+  onJumpToMonth?: (monthKey: string) => void;
 }
 
 export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
@@ -41,21 +42,28 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
   totalWeeksHeight,
   todayKey,
   quickInputMonth,
-  quickInputText,
-  onSetQuickInputText,
   onStartQuickAddMonth,
   onCancelQuickAddMonth,
-  onSubmitQuickMonthNote,
+  onAddMonthNote,
   onToggleStrikeMonthNote,
   onRemoveMonthNote,
   onUpdateMonthNote,
   onReorderMonthNotes,
   onMoveMonthNoteToMonth,
+  onJumpToMonth,
 }) => {
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
   const [dragOverMonthKey, setDragOverMonthKey] = useState<string | null>(null);
+
+  const availableMonths = useMemo(() => {
+    return monthMetas.map((m) => ({
+      monthKey: m.monthKey,
+      label: `${m.fullName} ${m.year}`,
+    }));
+  }, [monthMetas]);
 
   const handleMonthNoteDrop = (
     e: React.DragEvent<HTMLElement>,
@@ -79,6 +87,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
       setDragOverMonthKey(null);
     }
   };
+
   return (
     <div className="flex-1 border-r border-[#E5DFD5] relative min-w-0" style={{ height: `${totalWeeksHeight}px` }}>
       {monthMetas.map((meta) => {
@@ -92,7 +101,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
             key={meta.monthKey}
             onDoubleClick={(e) => {
               const target = e.target as HTMLElement;
-              if (target.closest('button, form, input')) return;
+              if (target.closest('button, form, input, textarea, select')) return;
               onStartQuickAddMonth(meta.monthKey);
             }}
             title={`${meta.fullName} notes — double-click to add`}
@@ -110,7 +119,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
           >
             {/* Month Notes Header */}
             <div
-              className="flex items-center justify-between pb-1 mb-1 border-b"
+              className="flex items-center justify-between pb-1 mb-1 border-b shrink-0"
               style={{ borderBottomColor: `${seasonalColor.notesBorder}99` }}
             >
               <span
@@ -132,20 +141,6 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                 <span>{meta.name} Notes</span>
                 {isCurrentMonth && <span className="text-[8px] uppercase bg-white/20 px-1 rounded">Focus</span>}
               </span>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStartQuickAddMonth(meta.monthKey);
-                }}
-                className="flex items-center gap-0.5 text-[9px] font-mono font-medium px-1.5 py-0.5 rounded border bg-white/80 text-[#2B2C30] hover:bg-white transition-colors shadow-2xs cursor-pointer shrink-0"
-                style={{ borderColor: seasonalColor.notesBorder }}
-                title={`Add ${meta.name} note (or double-click card)`}
-              >
-                <Plus className="w-2.5 h-2.5 text-[#D23B38]" />
-                <span>+ Note</span>
-              </button>
             </div>
 
             {/* Notes List for this month */}
@@ -214,13 +209,59 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
               )}
 
               {currentMonthNotes.map((mn) => {
+                if (editingNoteId === mn.id) {
+                  return (
+                    <MonthNoteInlineForm
+                      key={mn.id}
+                      initialContent={mn.content}
+                      initialMonths={mn.parentMonths}
+                      initialColorTag={mn.colorTag}
+                      currentMonthKey={meta.monthKey}
+                      availableMonths={availableMonths}
+                      onSubmit={(content, parentMonths, colorTag) => {
+                        onUpdateMonthNote?.(mn.id, content, parentMonths, colorTag);
+                        setEditingNoteId(null);
+                      }}
+                      onCancel={() => setEditingNoteId(null)}
+                      submitLabel="Save"
+                    />
+                  );
+                }
+
                 const isMulti = mn.parentMonths.length > 1;
-                const multiBadge = isMulti ? (
-                  <div className="flex items-center gap-1 mt-0.5 text-[9px] font-mono text-[#D23B38]">
-                    <Link2 className="w-2.5 h-2.5" />
-                    <span>
-                      Spans {mn.parentMonths.length} mos ({mn.parentMonths[0]} → {mn.parentMonths[mn.parentMonths.length - 1]})
-                    </span>
+                const spanInfo = isMulti ? analyzeMonthSpan(mn.parentMonths) : null;
+                const multiBadge = isMulti && spanInfo ? (
+                  <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[9px] font-mono text-[#7E7F85]">
+                    {spanInfo.isContiguous ? (
+                      <span className="inline-flex items-center gap-1 bg-[#EBE5DA] px-1.5 py-0.5 rounded text-[9px] text-[#55565B]">
+                        <Link2 className="w-2.5 h-2.5 text-[#D23B38]" />
+                        <span>{spanInfo.count}m span</span>
+                        <span className="text-[#8E8F95]">
+                          ({spanInfo.startMonth} → {spanInfo.endMonth})
+                        </span>
+                      </span>
+                    ) : (
+                      <div className="inline-flex flex-wrap items-center gap-1 bg-[#EBE5DA] px-1.5 py-0.5 rounded text-[9px] text-[#55565B]">
+                        <Link2 className="w-2.5 h-2.5 text-[#D23B38]" />
+                        <span>Linked:</span>
+                        {mn.parentMonths.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onJumpToMonth?.(m);
+                            }}
+                            className={`hover:underline cursor-pointer ${
+                              m === meta.monthKey ? 'font-bold text-[#2B2C30]' : 'text-[#7E7F85]'
+                            }`}
+                            title={`Jump to ${m}`}
+                          >
+                            {m.slice(5)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : null;
 
@@ -236,7 +277,8 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     density="compact"
                     onToggleStrike={onToggleStrikeMonthNote}
                     onRemove={onRemoveMonthNote}
-                    onUpdate={onUpdateMonthNote}
+                    onStartEdit={() => setEditingNoteId(mn.id)}
+                    onUpdate={(id, text) => onUpdateMonthNote?.(id, text, mn.parentMonths, mn.colorTag)}
                     onDragStart={(e, id) => {
                       e.dataTransfer.setData(
                         'text/plain',
@@ -272,30 +314,18 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
 
             {/* Quick Add Note on Month */}
             {isAdding ? (
-              <form
-                onSubmit={(e) => onSubmitQuickMonthNote(e, meta.monthKey)}
-                className="flex items-center gap-1 mt-1 p-0.5 bg-white border border-[#DDD6C8] rounded-md shadow-2xs"
-              >
-                <input
-                  autoFocus
-                  type="text"
-                  value={quickInputText}
-                  onChange={(e) => onSetQuickInputText(e.target.value)}
-                  placeholder={`${meta.name} note... (Enter)`}
-                  onKeyDown={(e) => e.key === 'Escape' && onCancelQuickAddMonth()}
-                  className="flex-1 px-2.5 py-1.5 text-xs bg-transparent border-0 text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-hidden"
+              <div className="mt-1">
+                <MonthNoteInlineForm
+                  currentMonthKey={meta.monthKey}
+                  availableMonths={availableMonths}
+                  onSubmit={(content, parentMonths, colorTag) => {
+                    onAddMonthNote(content, parentMonths, colorTag);
+                    onCancelQuickAddMonth();
+                  }}
+                  onCancel={onCancelQuickAddMonth}
+                  submitLabel="Add"
                 />
-                <button type="submit" className="px-2 py-1 text-xs bg-[#2B2C30] text-[#FAF8F5] rounded shrink-0 cursor-pointer">
-                  Add
-                </button>
-                <button
-                  type="button"
-                  onClick={onCancelQuickAddMonth}
-                  className="p-1 text-xs text-[#8E8F95] hover:text-[#2B2C30] shrink-0 cursor-pointer"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </form>
+              </div>
             ) : currentMonthNotes.length > 0 ? (
               <button
                 type="button"

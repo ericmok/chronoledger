@@ -1,13 +1,12 @@
 import { useState, useMemo, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import type React from 'react';
-import { ChevronLeft, ChevronRight, Compass, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 import type { NoteItem, MonthNote, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
 import { formatDateKey, MONTH_NAMES, FULL_MONTH_NAMES } from '../utils/dateUtils';
 import { getSeasonalColor } from '../utils/seasonalColors';
 import { MonthNotesColumn, type MonthMeta } from './radar/MonthNotesColumn';
 import { ContinuousRadarGrid, type JigsawCell, type SvgBoundary } from './radar/ContinuousRadarGrid';
 import { VerticalMonthGutter } from './radar/VerticalMonthGutter';
-import { MultiMonthNoteModal } from './radar/MultiMonthNoteModal';
 import { RadarDrawingOverlay } from './radar/RadarDrawingOverlay';
 
 interface JigsawMonthGridProps {
@@ -20,7 +19,7 @@ interface JigsawMonthGridProps {
   onAddMonthNote: (content: string, parentMonths: string[], colorTag?: string) => void;
   onToggleStrikeMonthNote: (id: string) => void;
   onRemoveMonthNote: (id: string) => void;
-  onUpdateMonthNote?: (id: string, newContent: string) => void;
+  onUpdateMonthNote?: (id: string, newContent: string, parentMonths?: string[], colorTag?: string) => void;
   onReorderMonthNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => void;
   onMoveMonthNoteToMonth?: (noteId: string, targetMonth: string, position?: 'start' | 'end') => void;
   scrollTargetDate?: { dateString: string; key: number } | null;
@@ -82,8 +81,6 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   });
 
   const [quickInputMonth, setQuickInputMonth] = useState<string | null>(null);
-  const [quickInputText, setQuickInputText] = useState('');
-  const [isMultiMonthModalOpen, setIsMultiMonthModalOpen] = useState(false);
 
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
@@ -465,15 +462,6 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     }
   }, [weeks, todayKey, scrollToDateInRadar]);
 
-  // Quick month note submit
-  const handleQuickMonthNoteSubmit = (e: React.FormEvent, monthKey: string) => {
-    e.preventDefault();
-    if (quickInputText.trim()) {
-      onAddMonthNote(quickInputText.trim(), [monthKey]);
-      setQuickInputText('');
-      setQuickInputMonth(null);
-    }
-  };
 
   // Double-click date: toggle circle
   const handleToggleCircleDate = useCallback(
@@ -565,16 +553,6 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setIsMultiMonthModalOpen(true)}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/70 rounded transition-colors cursor-pointer"
-            title="Add multi-month span note"
-          >
-            <Plus className="w-3 h-3 text-[#D23B38]" />
-            <span>Span</span>
-          </button>
-
-          <button
-            type="button"
             onClick={handleResetToCurrent}
             className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/70 rounded transition-colors cursor-pointer"
             title="Jump radar to today"
@@ -631,19 +609,15 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           totalWeeksHeight={totalWeeksHeight}
           todayKey={todayKey}
           quickInputMonth={quickInputMonth}
-          quickInputText={quickInputText}
-          onSetQuickInputText={setQuickInputText}
-          onStartQuickAddMonth={(mKey) => {
-            setQuickInputMonth(mKey);
-            setQuickInputText('');
-          }}
+          onStartQuickAddMonth={(mKey) => setQuickInputMonth(mKey)}
           onCancelQuickAddMonth={() => setQuickInputMonth(null)}
-          onSubmitQuickMonthNote={handleQuickMonthNoteSubmit}
+          onAddMonthNote={onAddMonthNote}
           onToggleStrikeMonthNote={onToggleStrikeMonthNote}
           onRemoveMonthNote={onRemoveMonthNote}
           onUpdateMonthNote={onUpdateMonthNote}
           onReorderMonthNotes={onReorderMonthNotes}
           onMoveMonthNoteToMonth={onMoveMonthNoteToMonth}
+          onJumpToMonth={(mKey) => scrollToDateInRadar(mKey + '-01', true)}
         />
 
         {/* 2. Center Column: 7-Day Continuous Radar Grid */}
@@ -666,19 +640,6 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           todayKey={todayKey}
         />
       </div>
-
-      {/* Multi-Month Note Modal */}
-      {isMultiMonthModalOpen && (
-        <MultiMonthNoteModal
-          isOpen={isMultiMonthModalOpen}
-          monthMetas={monthMetas}
-          onClose={() => setIsMultiMonthModalOpen(false)}
-          onSave={(content, targetMonths, colorTag) => {
-            onAddMonthNote(content, targetMonths, colorTag);
-            setIsMultiMonthModalOpen(false);
-          }}
-        />
-      )}
     </aside>
   );
 };

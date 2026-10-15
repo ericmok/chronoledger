@@ -15,14 +15,14 @@ interface VerticalCalendarProps {
   settings: CalendarSettings;
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
-  onUpdateNote?: (noteId: string, newContent: string) => void;
+  onUpdateNote?: (noteId: string, newContent: string, parentDates?: string[], colorTag?: string) => void;
   onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
   onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
-  onAddQuickNote: (dateString: string, content: string) => void;
+  onAddQuickNote: (dateString: string, content: string, parentDates?: string[], colorTag?: string) => void;
   onAddWeekNote: (content: string, parentWeeks: string[], colorTag?: string) => void;
   onToggleStrikeWeekNote: (id: string) => void;
   onRemoveWeekNote: (id: string) => void;
-  onUpdateWeekNote?: (id: string, newContent: string) => void;
+  onUpdateWeekNote?: (id: string, newContent: string, parentWeeks?: string[], colorTag?: string) => void;
   onReorderWeekNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => void;
   onMoveWeekNoteToWeek?: (noteId: string, targetWeek: string, position?: 'start' | 'end') => void;
   onAddDrawing: (drawing: Omit<DrawingElement, 'id' | 'createdAt'>) => void;
@@ -61,9 +61,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   scrollRef,
 }) => {
   const [quickInputDate, setQuickInputDate] = useState<string | null>(null);
-  const [quickInputText, setQuickInputText] = useState('');
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
-  const [quickWeekText, setQuickWeekText] = useState('');
 
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
   const currentMonthKey = useMemo(() => todayKey.slice(0, 7), [todayKey]);
@@ -104,6 +102,10 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   const weekBlocks = useMemo(() => {
     return groupDatesIntoWeeks(dates, settings.weekStartsOn);
   }, [dates, settings.weekStartsOn]);
+
+  const availableWeeks = useMemo(() => {
+    return weekBlocks.map((b) => ({ weekKey: b.weekKey, label: b.label }));
+  }, [weekBlocks]);
 
   // TanStack Virtualizer
   const virtualizer = useVirtualizer({
@@ -180,25 +182,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
       return vItem.start + dayIdx * dayHeight;
     }
     return wIdx * 360 + (dayIdx >= 0 ? dayIdx * 50 : 0);
-  };
-
-  // Quick note submit handlers
-  const handleQuickNoteSubmit = (e: React.FormEvent, dateString: string) => {
-    e.preventDefault();
-    if (quickInputText.trim()) {
-      onAddQuickNote(dateString, quickInputText.trim());
-      setQuickInputText('');
-      setQuickInputDate(null);
-    }
-  };
-
-  const handleQuickWeekNoteSubmit = (e: React.FormEvent, weekKey: string) => {
-    e.preventDefault();
-    if (quickWeekText.trim()) {
-      onAddWeekNote(quickWeekText.trim(), [weekKey]);
-      setQuickWeekText('');
-      setQuickInputWeek(null);
-    }
   };
 
   return (
@@ -293,14 +276,11 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       dayNotes={notesByDate.get(dateItem.dateString) || []}
                       isMonthFocus={dateItem.dateString.slice(0, 7) === currentMonthKey}
                       isQuickAdding={quickInputDate === dateItem.dateString}
-                      quickInputText={quickInputText}
-                      onSetQuickInputText={setQuickInputText}
-                      onStartQuickAdd={(d) => {
-                        setQuickInputDate(d);
-                        setQuickInputText('');
-                      }}
+                      onStartQuickAdd={(d) => setQuickInputDate(d)}
                       onCancelQuickAdd={() => setQuickInputDate(null)}
-                      onSubmitQuickAdd={handleQuickNoteSubmit}
+                      onAddNote={(content, parentDates, colorTag) => {
+                        onAddQuickNote(dateItem.dateString, content, parentDates, colorTag);
+                      }}
                       onToggleStrike={onToggleStrike}
                       onRemoveNote={onRemoveNote}
                       onUpdateNote={onUpdateNote}
@@ -316,19 +296,21 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                   weekBlock={weekBlock}
                   currentWeekNotes={currentWeekNotes}
                   isAddingWeekNote={isAddingWeekNote}
-                  quickWeekText={quickWeekText}
-                  onSetQuickWeekText={setQuickWeekText}
-                  onStartAddWeekNote={(wKey) => {
-                    setQuickInputWeek(wKey);
-                    setQuickWeekText('');
-                  }}
+                  availableWeeks={availableWeeks}
+                  onStartAddWeekNote={(wKey) => setQuickInputWeek(wKey)}
                   onCancelAddWeekNote={() => setQuickInputWeek(null)}
-                  onSubmitQuickWeekNote={handleQuickWeekNoteSubmit}
+                  onAddWeekNote={onAddWeekNote}
                   onToggleStrikeWeekNote={onToggleStrikeWeekNote}
                   onRemoveWeekNote={onRemoveWeekNote}
                   onUpdateWeekNote={onUpdateWeekNote}
                   onReorderWeekNotes={onReorderWeekNotes}
                   onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
+                  onJumpToWeek={(wKey) => {
+                    const targetBlock = weekBlocks.find((b) => b.weekKey === wKey);
+                    if (targetBlock && onJumpToDateRequested) {
+                      onJumpToDateRequested(targetBlock.startDate.dateString);
+                    }
+                  }}
                 />
               </div>
 

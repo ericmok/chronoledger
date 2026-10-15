@@ -10,6 +10,7 @@ export interface NoteItemComponentProps {
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
   onUpdateNote?: (noteId: string, newContent: string) => void;
+  onStartEdit?: (noteId: string) => void;
   onJumpToDate?: (dateKey: string) => void;
 
   // Drag and drop reordering
@@ -29,6 +30,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
   onToggleStrike,
   onRemoveNote,
   onUpdateNote,
+  onStartEdit,
   onJumpToDate,
   isDraggable = true,
   onDragStart,
@@ -89,6 +91,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
       onToggleStrike={onToggleStrike}
       onRemove={onRemoveNote}
       onUpdate={onUpdateNote}
+      onStartEdit={onStartEdit}
       isDraggable={isDraggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}

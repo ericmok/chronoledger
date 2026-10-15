@@ -159,7 +159,7 @@ export function App() {
             onUpdateNote={updateNote}
             onReorderNotes={reorderNotes}
             onMoveNoteToDate={moveNoteToDate}
-            onAddQuickNote={(date, text) => addNote(text, [date])}
+            onAddQuickNote={(date, text, parentDates, colorTag) => addNote(text, parentDates || [date], colorTag)}
             onAddWeekNote={addWeekNote}
             onToggleStrikeWeekNote={toggleStrikeWeekNote}
             onRemoveWeekNote={removeWeekNote}
