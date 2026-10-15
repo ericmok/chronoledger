@@ -17,14 +17,20 @@ export function App() {
     toggleStrikeNote,
     removeNote,
     updateNote,
+    reorderNotes,
+    moveNoteToDate,
     addWeekNote,
     toggleStrikeWeekNote,
     removeWeekNote,
     updateWeekNote,
+    reorderWeekNotes,
+    moveWeekNoteToWeek,
     addMonthNote,
     toggleStrikeMonthNote,
     removeMonthNote,
     updateMonthNote,
+    reorderMonthNotes,
+    moveMonthNoteToMonth,
     addDrawing,
     removeDrawing,
     removeDrawings,
@@ -151,11 +157,15 @@ export function App() {
             onToggleStrike={toggleStrikeNote}
             onRemoveNote={removeNote}
             onUpdateNote={updateNote}
+            onReorderNotes={reorderNotes}
+            onMoveNoteToDate={moveNoteToDate}
             onAddQuickNote={(date, text) => addNote(text, [date])}
             onAddWeekNote={addWeekNote}
             onToggleStrikeWeekNote={toggleStrikeWeekNote}
             onRemoveWeekNote={removeWeekNote}
             onUpdateWeekNote={updateWeekNote}
+            onReorderWeekNotes={reorderWeekNotes}
+            onMoveWeekNoteToWeek={moveWeekNoteToWeek}
             onAddDrawing={addDrawing}
             onRemoveDrawing={removeDrawing}
             onRemoveDrawings={removeDrawings}
@@ -180,6 +190,8 @@ export function App() {
             onToggleStrikeMonthNote={toggleStrikeMonthNote}
             onRemoveMonthNote={removeMonthNote}
             onUpdateMonthNote={updateMonthNote}
+            onReorderMonthNotes={reorderMonthNotes}
+            onMoveMonthNoteToMonth={moveMonthNoteToMonth}
             scrollTargetDate={scrollTargetDate}
             onAddDrawing={addDrawing}
             onRemoveDrawing={removeDrawing}

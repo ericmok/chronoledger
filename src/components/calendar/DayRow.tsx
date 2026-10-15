@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { DateItem, NoteItem } from '../../types/calendar';
 import { analyzeDateSpan } from '../../utils/dateUtils';
 import { NoteItemComponent } from '../NoteItemComponent';
@@ -19,6 +19,8 @@ export interface DayRowProps {
   onRemoveNote: (noteId: string) => void;
   onUpdateNote?: (noteId: string, newContent: string) => void;
   onJumpToDateRequested?: (dateKey: string) => void;
+  onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
+  onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
 }
 
 export const DayRow: React.FC<DayRowProps> = ({
@@ -36,7 +38,31 @@ export const DayRow: React.FC<DayRowProps> = ({
   onRemoveNote,
   onUpdateNote,
   onJumpToDateRequested,
+  onReorderNotes,
+  onMoveNoteToDate,
 }) => {
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
+  const [isDayDragOver, setIsDayDragOver] = useState(false);
+
+  const handleNoteDrop = (e: React.DragEvent<HTMLElement>, targetNoteId: string, position: 'before' | 'after') => {
+    try {
+      const raw = e.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.type === 'daily-note' && data.id) {
+        onReorderNotes?.(data.id, targetNoteId, position, dateItem.dateString);
+      }
+    } catch (err) {
+      console.error('Failed to parse drag drop data:', err);
+    } finally {
+      setDropTargetId(null);
+      setDropPos(null);
+      setActiveDragId(null);
+      setIsDayDragOver(false);
+    }
+  };
   const contiguousSpansStartingHere = dayNotes.filter((n) => {
     const span = analyzeDateSpan(n.parentDates);
     return span.isContiguous && span.startDate === dateItem.dateString && span.count > 1;
@@ -142,7 +168,46 @@ export const DayRow: React.FC<DayRowProps> = ({
       </div>
 
       {/* Daily Notes Area */}
-      <div className="flex-1 min-w-0 pr-3">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          setIsDayDragOver(true);
+        }}
+        onDragLeave={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          if (
+            e.clientY < rect.top ||
+            e.clientY >= rect.bottom ||
+            e.clientX < rect.left ||
+            e.clientX >= rect.right
+          ) {
+            setIsDayDragOver(false);
+          }
+        }}
+        onDrop={(e) => {
+          try {
+            const raw = e.dataTransfer.getData('text/plain');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.type === 'daily-note' && data.id) {
+              if (!dropTargetId) {
+                onMoveNoteToDate?.(data.id, dateItem.dateString, 'end');
+              }
+            }
+          } catch (err) {
+            console.error('Failed to parse drag drop data:', err);
+          } finally {
+            setIsDayDragOver(false);
+            setDropTargetId(null);
+            setDropPos(null);
+            setActiveDragId(null);
+          }
+        }}
+        className={`flex-1 min-w-0 pr-3 rounded-lg transition-colors ${
+          isDayDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
+        }`}
+      >
         <div className="space-y-0.5">
           {dayNotes.map((note) => (
             <NoteItemComponent
@@ -155,6 +220,34 @@ export const DayRow: React.FC<DayRowProps> = ({
               onJumpToDate={(targetDate) => {
                 if (onJumpToDateRequested) onJumpToDateRequested(targetDate);
               }}
+              onDragStart={(e, id) => {
+                e.dataTransfer.setData(
+                  'text/plain',
+                  JSON.stringify({ type: 'daily-note', id, sourceDate: dateItem.dateString })
+                );
+                setActiveDragId(id);
+              }}
+              onDragOver={(_e, id, pos) => {
+                setDropTargetId(id);
+                setDropPos(pos);
+              }}
+              onDragLeave={(_e, id) => {
+                if (dropTargetId === id) {
+                  setDropTargetId(null);
+                  setDropPos(null);
+                }
+              }}
+              onDrop={(e, id, pos) => {
+                handleNoteDrop(e, id, pos);
+              }}
+              onDragEnd={() => {
+                setActiveDragId(null);
+                setDropTargetId(null);
+                setDropPos(null);
+                setIsDayDragOver(false);
+              }}
+              isBeingDragged={activeDragId === note.id}
+              dropIndicator={dropTargetId === note.id ? dropPos : null}
             />
           ))}
         </div>

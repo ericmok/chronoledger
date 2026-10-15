@@ -16,11 +16,15 @@ interface VerticalCalendarProps {
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
   onUpdateNote?: (noteId: string, newContent: string) => void;
+  onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
+  onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
   onAddQuickNote: (dateString: string, content: string) => void;
   onAddWeekNote: (content: string, parentWeeks: string[], colorTag?: string) => void;
   onToggleStrikeWeekNote: (id: string) => void;
   onRemoveWeekNote: (id: string) => void;
   onUpdateWeekNote?: (id: string, newContent: string) => void;
+  onReorderWeekNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => void;
+  onMoveWeekNoteToWeek?: (noteId: string, targetWeek: string, position?: 'start' | 'end') => void;
   onAddDrawing: (drawing: Omit<DrawingElement, 'id' | 'createdAt'>) => void;
   onRemoveDrawing: (id: string) => void;
   onRemoveDrawings?: (ids: string[]) => void;
@@ -39,11 +43,15 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   onToggleStrike,
   onRemoveNote,
   onUpdateNote,
+  onReorderNotes,
+  onMoveNoteToDate,
   onAddQuickNote,
   onAddWeekNote,
   onToggleStrikeWeekNote,
   onRemoveWeekNote,
   onUpdateWeekNote,
+  onReorderWeekNotes,
+  onMoveWeekNoteToWeek,
   onAddDrawing,
   onRemoveDrawing,
   onRemoveDrawings,
@@ -298,6 +306,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       onRemoveNote={onRemoveNote}
                       onUpdateNote={onUpdateNote}
                       onJumpToDateRequested={onJumpToDateRequested}
+                      onReorderNotes={onReorderNotes}
+                      onMoveNoteToDate={onMoveNoteToDate}
                     />
                   ))}
                 </div>
@@ -318,6 +328,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                   onToggleStrikeWeekNote={onToggleStrikeWeekNote}
                   onRemoveWeekNote={onRemoveWeekNote}
                   onUpdateWeekNote={onUpdateWeekNote}
+                  onReorderWeekNotes={onReorderWeekNotes}
+                  onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
                 />
               </div>
 

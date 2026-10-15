@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Link2, X } from 'lucide-react';
 import type { MonthNote } from '../../types/calendar';
 import { NoteCard } from '../common/NoteCard';
@@ -30,6 +30,8 @@ export interface MonthNotesColumnProps {
   onToggleStrikeMonthNote: (id: string) => void;
   onRemoveMonthNote: (id: string) => void;
   onUpdateMonthNote?: (id: string, newContent: string) => void;
+  onReorderMonthNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => void;
+  onMoveMonthNoteToMonth?: (noteId: string, targetMonth: string, position?: 'start' | 'end') => void;
 }
 
 export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
@@ -46,7 +48,36 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
   onToggleStrikeMonthNote,
   onRemoveMonthNote,
   onUpdateMonthNote,
+  onReorderMonthNotes,
+  onMoveMonthNoteToMonth,
 }) => {
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
+  const [dragOverMonthKey, setDragOverMonthKey] = useState<string | null>(null);
+
+  const handleMonthNoteDrop = (
+    e: React.DragEvent<HTMLElement>,
+    targetNoteId: string,
+    position: 'before' | 'after',
+    targetMonthKey: string
+  ) => {
+    try {
+      const raw = e.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.type === 'month-note' && data.id) {
+        onReorderMonthNotes?.(data.id, targetNoteId, position, targetMonthKey);
+      }
+    } catch (err) {
+      console.error('Failed to parse month note drag data:', err);
+    } finally {
+      setDropTargetId(null);
+      setDropPos(null);
+      setActiveDragId(null);
+      setDragOverMonthKey(null);
+    }
+  };
   return (
     <div className="flex-1 border-r border-[#E5DFD5] relative min-w-0" style={{ height: `${totalWeeksHeight}px` }}>
       {monthMetas.map((meta) => {
@@ -101,7 +132,50 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
             </div>
 
             {/* Notes List for this month */}
-            <div className="flex-1 overflow-y-auto space-y-1 py-1 pr-1 flex flex-col justify-start">
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                setDragOverMonthKey(meta.monthKey);
+              }}
+              onDragLeave={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                if (
+                  e.clientY < rect.top ||
+                  e.clientY >= rect.bottom ||
+                  e.clientX < rect.left ||
+                  e.clientX >= rect.right
+                ) {
+                  if (dragOverMonthKey === meta.monthKey) {
+                    setDragOverMonthKey(null);
+                  }
+                }
+              }}
+              onDrop={(e) => {
+                try {
+                  const raw = e.dataTransfer.getData('text/plain');
+                  if (!raw) return;
+                  const data = JSON.parse(raw);
+                  if (data.type === 'month-note' && data.id) {
+                    if (!dropTargetId) {
+                      onMoveMonthNoteToMonth?.(data.id, meta.monthKey, 'end');
+                    }
+                  }
+                } catch (err) {
+                  console.error('Failed to parse month note drag data:', err);
+                } finally {
+                  setDragOverMonthKey(null);
+                  setDropTargetId(null);
+                  setDropPos(null);
+                  setActiveDragId(null);
+                }
+              }}
+              className={`flex-1 overflow-y-auto space-y-1 py-1 pr-1 flex flex-col justify-start rounded-md transition-colors ${
+                dragOverMonthKey === meta.monthKey && !dropTargetId
+                  ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1'
+                  : ''
+              }`}
+            >
               {currentMonthNotes.length === 0 && !isAdding && (
                 <button
                   type="button"
@@ -146,6 +220,34 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     onToggleStrike={onToggleStrikeMonthNote}
                     onRemove={onRemoveMonthNote}
                     onUpdate={onUpdateMonthNote}
+                    onDragStart={(e, id) => {
+                      e.dataTransfer.setData(
+                        'text/plain',
+                        JSON.stringify({ type: 'month-note', id, sourceMonth: meta.monthKey })
+                      );
+                      setActiveDragId(id);
+                    }}
+                    onDragOver={(_e, id, pos) => {
+                      setDropTargetId(id);
+                      setDropPos(pos);
+                    }}
+                    onDragLeave={(_e, id) => {
+                      if (dropTargetId === id) {
+                        setDropTargetId(null);
+                        setDropPos(null);
+                      }
+                    }}
+                    onDrop={(e, id, pos) => {
+                      handleMonthNoteDrop(e, id, pos, meta.monthKey);
+                    }}
+                    onDragEnd={() => {
+                      setActiveDragId(null);
+                      setDropTargetId(null);
+                      setDropPos(null);
+                      setDragOverMonthKey(null);
+                    }}
+                    isBeingDragged={activeDragId === mn.id}
+                    dropIndicator={dropTargetId === mn.id ? dropPos : null}
                   />
                 );
               })}

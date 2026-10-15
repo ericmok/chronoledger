@@ -20,6 +20,8 @@ interface JigsawMonthGridProps {
   onToggleStrikeMonthNote: (id: string) => void;
   onRemoveMonthNote: (id: string) => void;
   onUpdateMonthNote?: (id: string, newContent: string) => void;
+  onReorderMonthNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => void;
+  onMoveMonthNoteToMonth?: (noteId: string, targetMonth: string, position?: 'start' | 'end') => void;
   scrollTargetDate?: { dateString: string; key: number } | null;
   onAddDrawing: (d: Omit<DrawingElement, 'id' | 'createdAt'>) => DrawingElement;
   onRemoveDrawing: (id: string) => void;
@@ -49,6 +51,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onToggleStrikeMonthNote,
   onRemoveMonthNote,
   onUpdateMonthNote,
+  onReorderMonthNotes,
+  onMoveMonthNoteToMonth,
   scrollTargetDate,
   onAddDrawing,
   onRemoveDrawing,
@@ -489,6 +493,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           onToggleStrikeMonthNote={onToggleStrikeMonthNote}
           onRemoveMonthNote={onRemoveMonthNote}
           onUpdateMonthNote={onUpdateMonthNote}
+          onReorderMonthNotes={onReorderMonthNotes}
+          onMoveMonthNoteToMonth={onMoveMonthNoteToMonth}
         />
 
         {/* 2. Center Column: 7-Day Continuous Radar Grid */}

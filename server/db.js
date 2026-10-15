@@ -104,9 +104,9 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
  * Reads all calendar data from the SQLite database.
  */
 export function getCalendarData(db = getDatabase()) {
-  const noteRows = db.prepare('SELECT * FROM notes ORDER BY created_at DESC').all();
-  const weekNoteRows = db.prepare('SELECT * FROM week_notes ORDER BY created_at DESC').all();
-  const monthNoteRows = db.prepare('SELECT * FROM month_notes ORDER BY created_at DESC').all();
+  const noteRows = db.prepare('SELECT * FROM notes ORDER BY rowid ASC').all();
+  const weekNoteRows = db.prepare('SELECT * FROM week_notes ORDER BY rowid ASC').all();
+  const monthNoteRows = db.prepare('SELECT * FROM month_notes ORDER BY rowid ASC').all();
   const drawingRows = db.prepare('SELECT * FROM drawings ORDER BY created_at ASC').all();
   const settingsRow = db.prepare('SELECT * FROM settings WHERE id = ?').get('default');
   const metaRows = db.prepare('SELECT * FROM metadata').all();

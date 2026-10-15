@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Strikethrough, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Strikethrough, Pencil, Trash2, Check, X, GripVertical } from 'lucide-react';
 import { computeWordDiff } from '../../utils/diffUtils';
 
 export interface NoteCardProps {
@@ -14,6 +14,16 @@ export interface NoteCardProps {
   onUpdate?: (id: string, newContent: string) => void;
   density?: 'comfortable' | 'compact';
   className?: string;
+
+  // Drag and drop reordering
+  isDraggable?: boolean;
+  onDragStart?: (e: React.DragEvent<HTMLElement>, id: string) => void;
+  onDragOver?: (e: React.DragEvent<HTMLElement>, id: string, position: 'before' | 'after') => void;
+  onDragLeave?: (e: React.DragEvent<HTMLElement>, id: string) => void;
+  onDrop?: (e: React.DragEvent<HTMLElement>, id: string, position: 'before' | 'after') => void;
+  onDragEnd?: (e: React.DragEvent<HTMLElement>) => void;
+  isBeingDragged?: boolean;
+  dropIndicator?: 'before' | 'after' | null;
 }
 
 export const NoteCard: React.FC<NoteCardProps> = ({
@@ -28,9 +38,22 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onUpdate,
   density = 'comfortable',
   className = '',
+  isDraggable = true,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  isBeingDragged = false,
+  dropIndicator,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(content || originalContent || '');
+  const [canDrag, setCanDrag] = useState(false);
+  const [isDraggingSelf, setIsDraggingSelf] = useState(false);
+  const [localDropIndicator, setLocalDropIndicator] = useState<'before' | 'after' | null>(null);
+
+  const activeDropIndicator = dropIndicator !== undefined ? dropIndicator : localDropIndicator;
 
   const isComfortable = density === 'comfortable';
   const hasEdits = Boolean(originalContent && originalContent !== content);
@@ -111,17 +134,99 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   return (
     <div
       onDoubleClick={handleStartEdit}
+      draggable={isDraggable && canDrag}
+      onDragStart={(e) => {
+        setIsDraggingSelf(true);
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart?.(e, id);
+      }}
+      onDragEnd={(e) => {
+        setIsDraggingSelf(false);
+        setCanDrag(false);
+        setLocalDropIndicator(null);
+        onDragEnd?.(e);
+      }}
+      onDragOver={(e) => {
+        if (!isDraggable) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = e.currentTarget.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const pos: 'before' | 'after' = e.clientY < midY ? 'before' : 'after';
+        setLocalDropIndicator(pos);
+        onDragOver?.(e, id, pos);
+      }}
+      onDragLeave={(e) => {
+        if (!isDraggable) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        if (
+          e.clientY < rect.top ||
+          e.clientY >= rect.bottom ||
+          e.clientX < rect.left ||
+          e.clientX >= rect.right
+        ) {
+          setLocalDropIndicator(null);
+          onDragLeave?.(e, id);
+        }
+      }}
+      onDrop={(e) => {
+        if (!isDraggable) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const pos: 'before' | 'after' = e.clientY < midY ? 'before' : 'after';
+        setLocalDropIndicator(null);
+        onDrop?.(e, id, pos);
+      }}
       className={`group relative flex items-start gap-1.5 rounded-md transition-all duration-150 cursor-pointer ${
         isComfortable ? 'py-1 px-2 text-sm' : 'p-1 text-xs'
       } ${
-        isStruck
+        isBeingDragged || isDraggingSelf
+          ? 'opacity-35 border border-dashed border-[#D23B38]/60 bg-[#FAF8F5]'
+          : isStruck
           ? 'bg-transparent text-[#8E8F95]'
           : isComfortable
           ? 'hover:bg-[#F2EDE4]/70 text-[#2B2C30]'
           : 'text-[#2B2C30] bg-[#FAF8F5]/80 hover:bg-white shadow-2xs'
       } ${className}`}
-      title="Double-click to edit note"
+      title="Double-click to edit note • Drag handle to reorder"
     >
+      {/* Drop Target Indicator: Before */}
+      {activeDropIndicator === 'before' && (
+        <div className="absolute -top-1 left-1 right-1 h-[2px] bg-[#D23B38] z-30 pointer-events-none rounded-full flex items-center shadow-xs">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#D23B38] -ml-0.5" />
+        </div>
+      )}
+
+      {/* Drop Target Indicator: After */}
+      {activeDropIndicator === 'after' && (
+        <div className="absolute -bottom-1 left-1 right-1 h-[2px] bg-[#D23B38] z-30 pointer-events-none rounded-full flex items-center shadow-xs">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#D23B38] -ml-0.5" />
+        </div>
+      )}
+
+      {/* Drag Handle Button */}
+      {isDraggable && (
+        <div
+          onMouseEnter={() => setCanDrag(true)}
+          onMouseLeave={() => {
+            if (!isDraggingSelf) setCanDrag(false);
+          }}
+          onPointerDown={() => setCanDrag(true)}
+          onPointerUp={() => {
+            if (!isDraggingSelf) setCanDrag(false);
+          }}
+          className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] opacity-25 group-hover:opacity-85 hover:!opacity-100 transition-opacity flex items-center justify-center shrink-0 ${
+            isComfortable ? 'py-1 -ml-1 pr-0.5' : 'py-0.5 -ml-0.5 pr-0.5'
+          }`}
+          title="Drag to reorder note"
+        >
+          <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
+        </div>
+      )}
+
       {/* Color tag dot if present */}
       {colorTag && (
         <span

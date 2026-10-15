@@ -313,7 +313,7 @@ export function useCalendarState() {
       colorTag,
       createdAt: new Date().toISOString(),
     };
-    setNotes((prev) => [newNote, ...prev]);
+    setNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
 
@@ -350,6 +350,82 @@ export function useCalendarState() {
     );
   }, [recordHistory]);
 
+  const reorderNotes = useCallback(
+    (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => {
+      if (sourceNoteId === targetNoteId && !targetDate) return;
+
+      recordHistory(true);
+      setNotes((prev) => {
+        const sourceIndex = prev.findIndex((n) => n.id === sourceNoteId);
+        if (sourceIndex === -1) return prev;
+        const sourceNote = prev[sourceIndex];
+
+        let updatedSourceNote = sourceNote;
+        if (targetDate && (!sourceNote.parentDates.includes(targetDate) || sourceNote.parentDates.length === 1)) {
+          updatedSourceNote = {
+            ...sourceNote,
+            parentDates: [targetDate],
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        const remaining = prev.filter((n) => n.id !== sourceNoteId);
+        const targetIndex = remaining.findIndex((n) => n.id === targetNoteId);
+
+        if (targetIndex === -1) {
+          return [...remaining, updatedSourceNote];
+        }
+
+        const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+        const next = [...remaining];
+        next.splice(insertIndex, 0, updatedSourceNote);
+        return next;
+      });
+    },
+    [recordHistory]
+  );
+
+  const moveNoteToDate = useCallback(
+    (noteId: string, targetDate: string, position: 'start' | 'end' = 'end') => {
+      recordHistory(true);
+      setNotes((prev) => {
+        const sourceIndex = prev.findIndex((n) => n.id === noteId);
+        if (sourceIndex === -1) return prev;
+        const sourceNote = prev[sourceIndex];
+
+        const updatedSourceNote = {
+          ...sourceNote,
+          parentDates: [targetDate],
+          updatedAt: new Date().toISOString(),
+        };
+
+        const remaining = prev.filter((n) => n.id !== noteId);
+        const targetDateNotes = remaining.filter((n) => n.parentDates.includes(targetDate));
+
+        if (targetDateNotes.length === 0) {
+          return position === 'start'
+            ? [updatedSourceNote, ...remaining]
+            : [...remaining, updatedSourceNote];
+        }
+
+        if (position === 'start') {
+          const firstIndex = remaining.findIndex((n) => n.id === targetDateNotes[0].id);
+          const next = [...remaining];
+          next.splice(firstIndex, 0, updatedSourceNote);
+          return next;
+        } else {
+          const lastIndex = remaining.findIndex(
+            (n) => n.id === targetDateNotes[targetDateNotes.length - 1].id
+          );
+          const next = [...remaining];
+          next.splice(lastIndex + 1, 0, updatedSourceNote);
+          return next;
+        }
+      });
+    },
+    [recordHistory]
+  );
+
   // Week notes
   const addWeekNote = useCallback((content: string, parentWeeks: string[], colorTag?: string) => {
     recordHistory(true);
@@ -361,7 +437,7 @@ export function useCalendarState() {
       colorTag,
       createdAt: new Date().toISOString(),
     };
-    setWeekNotes((prev) => [newNote, ...prev]);
+    setWeekNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
 
@@ -398,6 +474,82 @@ export function useCalendarState() {
     );
   }, [recordHistory]);
 
+  const reorderWeekNotes = useCallback(
+    (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => {
+      if (sourceNoteId === targetNoteId && !targetWeek) return;
+
+      recordHistory(true);
+      setWeekNotes((prev) => {
+        const sourceIndex = prev.findIndex((n) => n.id === sourceNoteId);
+        if (sourceIndex === -1) return prev;
+        const sourceNote = prev[sourceIndex];
+
+        let updatedSourceNote = sourceNote;
+        if (targetWeek && (!sourceNote.parentWeeks.includes(targetWeek) || sourceNote.parentWeeks.length === 1)) {
+          updatedSourceNote = {
+            ...sourceNote,
+            parentWeeks: [targetWeek],
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        const remaining = prev.filter((n) => n.id !== sourceNoteId);
+        const targetIndex = remaining.findIndex((n) => n.id === targetNoteId);
+
+        if (targetIndex === -1) {
+          return [...remaining, updatedSourceNote];
+        }
+
+        const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+        const next = [...remaining];
+        next.splice(insertIndex, 0, updatedSourceNote);
+        return next;
+      });
+    },
+    [recordHistory]
+  );
+
+  const moveWeekNoteToWeek = useCallback(
+    (noteId: string, targetWeek: string, position: 'start' | 'end' = 'end') => {
+      recordHistory(true);
+      setWeekNotes((prev) => {
+        const sourceIndex = prev.findIndex((n) => n.id === noteId);
+        if (sourceIndex === -1) return prev;
+        const sourceNote = prev[sourceIndex];
+
+        const updatedSourceNote = {
+          ...sourceNote,
+          parentWeeks: [targetWeek],
+          updatedAt: new Date().toISOString(),
+        };
+
+        const remaining = prev.filter((n) => n.id !== noteId);
+        const targetWeekNotes = remaining.filter((n) => n.parentWeeks.includes(targetWeek));
+
+        if (targetWeekNotes.length === 0) {
+          return position === 'start'
+            ? [updatedSourceNote, ...remaining]
+            : [...remaining, updatedSourceNote];
+        }
+
+        if (position === 'start') {
+          const firstIndex = remaining.findIndex((n) => n.id === targetWeekNotes[0].id);
+          const next = [...remaining];
+          next.splice(firstIndex, 0, updatedSourceNote);
+          return next;
+        } else {
+          const lastIndex = remaining.findIndex(
+            (n) => n.id === targetWeekNotes[targetWeekNotes.length - 1].id
+          );
+          const next = [...remaining];
+          next.splice(lastIndex + 1, 0, updatedSourceNote);
+          return next;
+        }
+      });
+    },
+    [recordHistory]
+  );
+
   // Month notes
   const addMonthNote = useCallback((content: string, parentMonths: string[], colorTag?: string) => {
     recordHistory(true);
@@ -409,7 +561,7 @@ export function useCalendarState() {
       colorTag,
       createdAt: new Date().toISOString(),
     };
-    setMonthNotes((prev) => [newNote, ...prev]);
+    setMonthNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
 
@@ -445,6 +597,82 @@ export function useCalendarState() {
       })
     );
   }, [recordHistory]);
+
+  const reorderMonthNotes = useCallback(
+    (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => {
+      if (sourceNoteId === targetNoteId && !targetMonth) return;
+
+      recordHistory(true);
+      setMonthNotes((prev) => {
+        const sourceIndex = prev.findIndex((n) => n.id === sourceNoteId);
+        if (sourceIndex === -1) return prev;
+        const sourceNote = prev[sourceIndex];
+
+        let updatedSourceNote = sourceNote;
+        if (targetMonth && (!sourceNote.parentMonths.includes(targetMonth) || sourceNote.parentMonths.length === 1)) {
+          updatedSourceNote = {
+            ...sourceNote,
+            parentMonths: [targetMonth],
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        const remaining = prev.filter((n) => n.id !== sourceNoteId);
+        const targetIndex = remaining.findIndex((n) => n.id === targetNoteId);
+
+        if (targetIndex === -1) {
+          return [...remaining, updatedSourceNote];
+        }
+
+        const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
+        const next = [...remaining];
+        next.splice(insertIndex, 0, updatedSourceNote);
+        return next;
+      });
+    },
+    [recordHistory]
+  );
+
+  const moveMonthNoteToMonth = useCallback(
+    (noteId: string, targetMonth: string, position: 'start' | 'end' = 'end') => {
+      recordHistory(true);
+      setMonthNotes((prev) => {
+        const sourceIndex = prev.findIndex((n) => n.id === noteId);
+        if (sourceIndex === -1) return prev;
+        const sourceNote = prev[sourceIndex];
+
+        const updatedSourceNote = {
+          ...sourceNote,
+          parentMonths: [targetMonth],
+          updatedAt: new Date().toISOString(),
+        };
+
+        const remaining = prev.filter((n) => n.id !== noteId);
+        const targetMonthNotes = remaining.filter((n) => n.parentMonths.includes(targetMonth));
+
+        if (targetMonthNotes.length === 0) {
+          return position === 'start'
+            ? [updatedSourceNote, ...remaining]
+            : [...remaining, updatedSourceNote];
+        }
+
+        if (position === 'start') {
+          const firstIndex = remaining.findIndex((n) => n.id === targetMonthNotes[0].id);
+          const next = [...remaining];
+          next.splice(firstIndex, 0, updatedSourceNote);
+          return next;
+        } else {
+          const lastIndex = remaining.findIndex(
+            (n) => n.id === targetMonthNotes[targetMonthNotes.length - 1].id
+          );
+          const next = [...remaining];
+          next.splice(lastIndex + 1, 0, updatedSourceNote);
+          return next;
+        }
+      });
+    },
+    [recordHistory]
+  );
 
   // Drawings
   const addDrawing = useCallback((drawingData: Omit<DrawingElement, 'id' | 'createdAt'>) => {
@@ -520,14 +748,20 @@ export function useCalendarState() {
     toggleStrikeNote,
     removeNote,
     updateNote,
+    reorderNotes,
+    moveNoteToDate,
     addWeekNote,
     toggleStrikeWeekNote,
     removeWeekNote,
     updateWeekNote,
+    reorderWeekNotes,
+    moveWeekNoteToWeek,
     addMonthNote,
     toggleStrikeMonthNote,
     removeMonthNote,
     updateMonthNote,
+    reorderMonthNotes,
+    moveMonthNoteToMonth,
     addDrawing,
     removeDrawing,
     removeDrawings,

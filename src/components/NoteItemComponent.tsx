@@ -11,6 +11,16 @@ export interface NoteItemComponentProps {
   onRemoveNote: (noteId: string) => void;
   onUpdateNote?: (noteId: string, newContent: string) => void;
   onJumpToDate?: (dateKey: string) => void;
+
+  // Drag and drop reordering
+  isDraggable?: boolean;
+  onDragStart?: (e: React.DragEvent<HTMLElement>, id: string) => void;
+  onDragOver?: (e: React.DragEvent<HTMLElement>, id: string, position: 'before' | 'after') => void;
+  onDragLeave?: (e: React.DragEvent<HTMLElement>, id: string) => void;
+  onDrop?: (e: React.DragEvent<HTMLElement>, id: string, position: 'before' | 'after') => void;
+  onDragEnd?: (e: React.DragEvent<HTMLElement>) => void;
+  isBeingDragged?: boolean;
+  dropIndicator?: 'before' | 'after' | null;
 }
 
 export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
@@ -20,6 +30,14 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
   onRemoveNote,
   onUpdateNote,
   onJumpToDate,
+  isDraggable = true,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  isBeingDragged,
+  dropIndicator,
 }) => {
   const spanInfo = analyzeDateSpan(note.parentDates);
   const isMultiDate = note.parentDates.length > 1;
@@ -71,6 +89,14 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
       onToggleStrike={onToggleStrike}
       onRemove={onRemoveNote}
       onUpdate={onUpdateNote}
+      isDraggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      isBeingDragged={isBeingDragged}
+      dropIndicator={dropIndicator}
     />
   );
 };

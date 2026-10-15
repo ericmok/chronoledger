@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Link2 } from 'lucide-react';
 import type { WeekNote } from '../../types/calendar';
 import type { WeekBlock } from '../../utils/dateUtils';
@@ -16,6 +16,8 @@ export interface WeekFocusPanelProps {
   onToggleStrikeWeekNote: (id: string) => void;
   onRemoveWeekNote: (id: string) => void;
   onUpdateWeekNote?: (id: string, newContent: string) => void;
+  onReorderWeekNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => void;
+  onMoveWeekNoteToWeek?: (noteId: string, targetWeek: string, position?: 'start' | 'end') => void;
 }
 
 export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
@@ -30,7 +32,32 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
   onToggleStrikeWeekNote,
   onRemoveWeekNote,
   onUpdateWeekNote,
+  onReorderWeekNotes,
+  onMoveWeekNoteToWeek,
 }) => {
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [dropPos, setDropPos] = useState<'before' | 'after' | null>(null);
+  const [isWeekDragOver, setIsWeekDragOver] = useState(false);
+
+  const handleWeekNoteDrop = (e: React.DragEvent<HTMLElement>, targetNoteId: string, position: 'before' | 'after') => {
+    try {
+      const raw = e.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data.type === 'week-note' && data.id) {
+        onReorderWeekNotes?.(data.id, targetNoteId, position, weekBlock.weekKey);
+      }
+    } catch (err) {
+      console.error('Failed to parse drag drop data:', err);
+    } finally {
+      setDropTargetId(null);
+      setDropPos(null);
+      setActiveDragId(null);
+      setIsWeekDragOver(false);
+    }
+  };
+
   return (
     <div
       onDoubleClick={(e) => {
@@ -86,7 +113,46 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
         </div>
 
         {/* Week Notes List */}
-        <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setIsWeekDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            if (
+              e.clientY < rect.top ||
+              e.clientY >= rect.bottom ||
+              e.clientX < rect.left ||
+              e.clientX >= rect.right
+            ) {
+              setIsWeekDragOver(false);
+            }
+          }}
+          onDrop={(e) => {
+            try {
+              const raw = e.dataTransfer.getData('text/plain');
+              if (!raw) return;
+              const data = JSON.parse(raw);
+              if (data.type === 'week-note' && data.id) {
+                if (!dropTargetId) {
+                  onMoveWeekNoteToWeek?.(data.id, weekBlock.weekKey, 'end');
+                }
+              }
+            } catch (err) {
+              console.error('Failed to parse drag drop data:', err);
+            } finally {
+              setIsWeekDragOver(false);
+              setDropTargetId(null);
+              setDropPos(null);
+              setActiveDragId(null);
+            }
+          }}
+          className={`space-y-1.5 max-h-[240px] overflow-y-auto pr-1 rounded-lg transition-colors ${
+            isWeekDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
+          }`}
+        >
           {currentWeekNotes.length === 0 && !isAddingWeekNote && (
             <button
               type="button"
@@ -129,6 +195,34 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 onToggleStrike={onToggleStrikeWeekNote}
                 onRemove={onRemoveWeekNote}
                 onUpdate={onUpdateWeekNote}
+                onDragStart={(e, id) => {
+                  e.dataTransfer.setData(
+                    'text/plain',
+                    JSON.stringify({ type: 'week-note', id, sourceWeek: weekBlock.weekKey })
+                  );
+                  setActiveDragId(id);
+                }}
+                onDragOver={(_e, id, pos) => {
+                  setDropTargetId(id);
+                  setDropPos(pos);
+                }}
+                onDragLeave={(_e, id) => {
+                  if (dropTargetId === id) {
+                    setDropTargetId(null);
+                    setDropPos(null);
+                  }
+                }}
+                onDrop={(e, id, pos) => {
+                  handleWeekNoteDrop(e, id, pos);
+                }}
+                onDragEnd={() => {
+                  setActiveDragId(null);
+                  setDropTargetId(null);
+                  setDropPos(null);
+                  setIsWeekDragOver(false);
+                }}
+                isBeingDragged={activeDragId === wn.id}
+                dropIndicator={dropTargetId === wn.id ? dropPos : null}
               />
             );
           })}
