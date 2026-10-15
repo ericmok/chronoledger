@@ -69,7 +69,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
         onStartAddWeekNote(weekBlock.weekKey);
       }}
       title="Weekly notes — double-click to add note"
-      className={`w-64 sm:w-72 shrink-0 border-l border-[#E5DFD5] p-3 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
+      className={`w-64 sm:w-72 shrink-0 border-l border-[#E5DFD5] p-2 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
         weekBlock.containsToday
           ? 'bg-[#F2ECE1]/90 ring-1 ring-inset ring-[#D23B38]/20'
           : 'bg-[#F7F4EC]/40 hover:bg-[#F2EDE4]/30'
@@ -78,27 +78,21 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
       {/* Week Header & Notes Section (expands to utilize full vertical space of the week) */}
       <div className="flex-1 flex flex-col min-h-0">
         <div
-          className={`flex items-center justify-between border-b pb-1.5 mb-2 shrink-0 ${
+          className={`flex items-baseline justify-between border-b pb-1 mb-1.5 shrink-0 ${
             weekBlock.containsToday ? 'border-[#D9CDBC]' : 'border-[#E5DFD5]/70'
           }`}
         >
-          <div>
-            <span className="font-serif text-xs font-bold text-[#2B2C30] flex items-center gap-1.5">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="font-serif text-xs font-bold text-[#2B2C30] shrink-0 flex items-center gap-1">
               Week {weekBlock.weekNumber}
               {weekBlock.containsToday && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#D23B38] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D23B38]" />
               )}
             </span>
-            <span className="text-[10px] font-mono text-[#8E8F95]">
+            <span className="text-[10px] font-mono text-[#8E8F95] truncate">
               {weekBlock.startDate.monthName} {weekBlock.startDate.dayOfMonth} – {weekBlock.endDate.monthName} {weekBlock.endDate.dayOfMonth}
             </span>
           </div>
-
-          {weekBlock.containsToday && (
-            <span className="text-[9px] font-mono bg-[#D23B38] text-white px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shadow-2xs">
-              Active
-            </span>
-          )}
         </div>
 
         {/* Week Notes List */}
@@ -138,7 +132,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
               setActiveDragId(null);
             }
           }}
-          className={`flex-1 space-y-1.5 overflow-y-auto pr-1 rounded-lg transition-colors ${
+          className={`flex-1 space-y-1 overflow-y-auto pr-0.5 rounded-lg transition-colors ${
             isWeekDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
           }`}
         >
@@ -149,7 +143,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 e.stopPropagation();
                 onStartAddWeekNote(weekBlock.weekKey);
               }}
-              className="w-full h-full min-h-[90px] my-auto py-3 px-2 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded-lg flex flex-col items-center justify-center text-center bg-white/50 hover:bg-white/90 transition-all cursor-pointer group/placeholder"
+              className="w-full h-full min-h-[60px] my-auto py-2 px-2 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded-lg flex flex-col items-center justify-center text-center bg-white/40 hover:bg-white/80 transition-all cursor-pointer group/placeholder"
               title="Click or double-click to add weekly note"
             >
               <div className="flex items-center gap-1 text-xs font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
@@ -268,30 +262,32 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
       </div>
 
       {/* Add Week Note Form / Button */}
-      <div className="pt-2 border-t border-[#E5DFD5]/60 mt-2 shrink-0">
-        {isAddingWeekNote ? (
-          <WeekNoteInlineForm
-            currentWeekKey={weekBlock.weekKey}
-            availableWeeks={availableWeeks}
-            onSubmit={(content, parentWeeks, colorTag) => {
-              onAddWeekNote(content, parentWeeks, colorTag);
-              onCancelAddWeekNote();
-            }}
-            onCancel={onCancelAddWeekNote}
-            submitLabel="Add"
-          />
-        ) : currentWeekNotes.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => onStartAddWeekNote(weekBlock.weekKey)}
-            className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1.5 rounded-md border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/40 bg-white/50 hover:bg-white transition-all shadow-2xs cursor-pointer"
-            title="Add another weekly note"
-          >
-            <Plus className="w-3 h-3 text-[#D23B38]" />
-            <span>Add weekly note</span>
-          </button>
-        ) : null}
-      </div>
+      {(isAddingWeekNote || currentWeekNotes.length > 0) && (
+        <div className="pt-1.5 border-t border-[#E5DFD5]/60 mt-1.5 shrink-0">
+          {isAddingWeekNote ? (
+            <WeekNoteInlineForm
+              currentWeekKey={weekBlock.weekKey}
+              availableWeeks={availableWeeks}
+              onSubmit={(content, parentWeeks, colorTag) => {
+                onAddWeekNote(content, parentWeeks, colorTag);
+                onCancelAddWeekNote();
+              }}
+              onCancel={onCancelAddWeekNote}
+              submitLabel="Add"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => onStartAddWeekNote(weekBlock.weekKey)}
+              className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1 rounded-md border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/40 bg-white/50 hover:bg-white transition-all shadow-2xs cursor-pointer"
+              title="Add another weekly note"
+            >
+              <Plus className="w-3 h-3 text-[#D23B38]" />
+              <span>Add weekly note</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

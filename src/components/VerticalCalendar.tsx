@@ -233,7 +233,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
           <div className="w-9 sm:w-10 shrink-0 text-right pr-1.5 font-semibold">Mo</div>
           <div className="w-12 shrink-0 font-semibold text-center">Date</div>
           <div className="flex-1 font-semibold pl-1.5">Daily Notes & Tasks</div>
-          <div className="w-64 sm:w-72 shrink-0 font-semibold pl-4 border-l border-[#E5DFD5]">Weekly Notes</div>
+          <div className="w-64 sm:w-72 shrink-0 font-semibold pl-2.5 border-l border-[#E5DFD5]">Weekly Notes</div>
         </div>
 
         {/* Virtualized 7-Day Week Blocks */}
