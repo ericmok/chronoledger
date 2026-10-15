@@ -565,12 +565,6 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
       {/* Column Headers */}
       <div className="h-7 border-b border-[#E5DFD5] flex items-center bg-[#F7F4EC]/60 shrink-0">
-        <div className="w-10 shrink-0 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold text-center border-r border-[#E5DFD5]">
-          Mo
-        </div>
-        <div className="flex-1 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold pl-3 border-r border-[#E5DFD5]">
-          Monthly Notes
-        </div>
         <div
           className="shrink-0 grid grid-cols-7 pr-2 text-center text-[10px] font-mono font-medium text-[#7E7F85]"
           style={{ width: `${gridWidth + 8}px` }}
@@ -579,9 +573,15 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
             <div key={dh}>{dh}</div>
           ))}
         </div>
+        <div className="w-10 shrink-0 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold text-center border-l border-r border-[#E5DFD5]">
+          Mo
+        </div>
+        <div className="flex-1 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold pl-3">
+          Monthly Notes
+        </div>
       </div>
 
-      {/* Main Continuous Jigsaw Canvas (Left: Vertical Month Gutter, Center: Month Notes, Right: 7-Day Grid) */}
+      {/* Main Continuous Jigsaw Canvas (Left: 7-Day Grid, Center: Vertical Month Gutter, Right: Month Notes) */}
       <div
         ref={gridContainerRef}
         onScroll={handleScroll}
@@ -602,7 +602,20 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           />
         )}
 
-        {/* 1. Left Column: Vertical Month Name Gutter */}
+        {/* 1. Left Column: 7-Day Continuous Radar Grid */}
+        <ContinuousRadarGrid
+          weeks={weeks}
+          svgBoundaries={svgBoundaries}
+          totalWeeksHeight={totalWeeksHeight}
+          cellWidth={CELL_WIDTH}
+          cellHeight={CELL_HEIGHT}
+          onSelectDate={onSelectDate}
+          selectedDateKey={scrollTargetDate?.dateString}
+          onToggleCircleDate={handleToggleCircleDate}
+          onCycleCircleColor={handleCycleCircleColor}
+        />
+
+        {/* 2. Center Column: Vertical Month Name Gutter */}
         <VerticalMonthGutter
           monthMetas={monthMetas}
           totalWeeksHeight={totalWeeksHeight}
@@ -610,7 +623,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           onJumpToMonth={(mKey) => scrollToDateInRadar(mKey + '-01', true)}
         />
 
-        {/* 2. Center Column: Month Notes */}
+        {/* 3. Right Column: Month Notes */}
         <MonthNotesColumn
           monthMetas={monthMetas}
           monthNotesByMonth={monthNotesByMonth}
@@ -626,19 +639,6 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           onReorderMonthNotes={onReorderMonthNotes}
           onMoveMonthNoteToMonth={onMoveMonthNoteToMonth}
           onJumpToMonth={(mKey) => scrollToDateInRadar(mKey + '-01', true)}
-        />
-
-        {/* 3. Right Column: 7-Day Continuous Radar Grid */}
-        <ContinuousRadarGrid
-          weeks={weeks}
-          svgBoundaries={svgBoundaries}
-          totalWeeksHeight={totalWeeksHeight}
-          cellWidth={CELL_WIDTH}
-          cellHeight={CELL_HEIGHT}
-          onSelectDate={onSelectDate}
-          selectedDateKey={scrollTargetDate?.dateString}
-          onToggleCircleDate={handleToggleCircleDate}
-          onCycleCircleColor={handleCycleCircleColor}
         />
       </div>
     </aside>

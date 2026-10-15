@@ -89,7 +89,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
   };
 
   return (
-    <div className="flex-1 border-r border-[#E5DFD5] relative min-w-0" style={{ height: `${totalWeeksHeight}px` }}>
+    <div className="flex-1 relative min-w-0" style={{ height: `${totalWeeksHeight}px` }}>
       {monthMetas.map((meta) => {
         const currentMonthNotes = monthNotesByMonth.get(meta.monthKey) || [];
         const isAdding = quickInputMonth === meta.monthKey;
