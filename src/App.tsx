@@ -29,6 +29,8 @@ export function App() {
     removeDrawing,
     removeDrawings,
     updateSettings,
+    exportBackup,
+    importBackupFile,
   } = useCalendarState();
 
 
@@ -94,6 +96,8 @@ export function App() {
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         onOpenAddNote={() => setIsAddNoteOpen(true)}
+        onExportBackup={exportBackup}
+        onImportBackup={importBackupFile}
       />
 
       {/* Main Container: Infinite Vertical Roll (Left) + Continuous Jigsaw Month Radar (Right) */}

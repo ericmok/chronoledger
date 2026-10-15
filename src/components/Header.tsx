@@ -1,4 +1,4 @@
-import type React from 'react';
+import React, { useRef } from 'react';
 import { 
   Calendar as CalendarIcon, 
   Circle as CircleIcon, 
@@ -8,10 +8,11 @@ import {
   Eraser, 
   Compass, 
   Eye,
-  EyeOff
+  EyeOff,
+  Download,
+  Upload
 } from 'lucide-react';
 import type { CalendarSettings, DrawingTool } from '../types/calendar';
-
 
 interface HeaderProps {
   settings: CalendarSettings;
@@ -20,6 +21,8 @@ interface HeaderProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   onOpenAddNote: () => void;
+  onExportBackup?: () => void;
+  onImportBackup?: (file: File) => Promise<boolean>;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,7 +32,10 @@ export const Header: React.FC<HeaderProps> = ({
   isSidebarOpen,
   onToggleSidebar,
   onOpenAddNote,
+  onExportBackup,
+  onImportBackup,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const tools: { id: DrawingTool; label: string; icon: React.ReactNode; shortcut: string; hint: string }[] = [
     { id: 'select', label: 'Select / Notes', icon: <MousePointer className="w-4 h-4" />, shortcut: 'V', hint: 'Browse and edit typed notes' },
@@ -46,6 +52,19 @@ export const Header: React.FC<HeaderProps> = ({
     { name: 'Amber Marker', hex: '#D97706' },
   ];
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onImportBackup) {
+      const success = await onImportBackup(file);
+      if (success) {
+        alert('Backup successfully restored!');
+      } else {
+        alert('Failed to restore backup. Please verify the JSON file format.');
+      }
+      e.target.value = '';
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-[#E5DFD5] px-4 py-2.5 flex items-center justify-between shadow-xs">
       {/* Left: Branding & Today Button */}
@@ -56,8 +75,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={onJumpToToday}
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border border-[#DDD6C8] transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border border-[#DDD6C8] transition-colors cursor-pointer"
           title="Jump to current date"
         >
           <Compass className="w-3.5 h-3.5 text-[#D23B38]" />
@@ -65,8 +85,9 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={onOpenAddNote}
-          className="px-2.5 py-1 text-xs font-sans font-medium rounded-md bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] transition-colors"
+          className="px-2.5 py-1 text-xs font-sans font-medium rounded-md bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] transition-colors cursor-pointer"
         >
           + New Note
         </button>
@@ -77,8 +98,9 @@ export const Header: React.FC<HeaderProps> = ({
         {tools.map((t) => (
           <button
             key={t.id}
+            type="button"
             onClick={() => onUpdateSettings({ activeTool: t.id })}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
               settings.activeTool === t.id
                 ? 'bg-[#FAF8F5] text-[#2B2C30] shadow-xs border border-[#D5CDC0]'
                 : 'text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50'
@@ -96,8 +118,9 @@ export const Header: React.FC<HeaderProps> = ({
             {inkColors.map((c) => (
               <button
                 key={c.hex}
+                type="button"
                 onClick={() => onUpdateSettings({ inkColor: c.hex })}
-                className={`w-4 h-4 rounded-full transition-transform ${
+                className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
                   settings.inkColor === c.hex ? 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]' : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{ backgroundColor: c.hex }}
@@ -108,12 +131,48 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* Right: Grid View & View Preferences */}
+      {/* Right: Backup/Restore & View Preferences */}
       <div className="flex items-center gap-2">
+        {/* Backup / Export */}
+        {onExportBackup && (
+          <button
+            type="button"
+            onClick={onExportBackup}
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+            title="Download full JSON backup of notes, goals & drawings"
+          >
+            <Download className="w-3 h-3 text-[#A19D94]" />
+            <span className="hidden xl:inline">Export</span>
+          </button>
+        )}
+
+        {/* Restore / Import */}
+        {onImportBackup && (
+          <>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+              title="Import JSON backup file"
+            >
+              <Upload className="w-3 h-3 text-[#A19D94]" />
+              <span className="hidden xl:inline">Import</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </>
+        )}
+
         {/* Toggle Show Struck / Ledger View */}
         <button
+          type="button"
           onClick={() => onUpdateSettings({ showStruckItems: !settings.showStruckItems })}
-          className="p-1.5 text-[#6B6C72] hover:text-[#2B2C30] rounded-md hover:bg-[#F2EDE4] transition-colors"
+          className="p-1.5 text-[#6B6C72] hover:text-[#2B2C30] rounded-md hover:bg-[#F2EDE4] transition-colors cursor-pointer"
           title={settings.showStruckItems ? 'Ledger View (Showing struck items)' : 'Clean View (Hiding struck items)'}
         >
           {settings.showStruckItems ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4 text-[#A19D94]" />}
@@ -121,8 +180,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Week Start Toggle */}
         <button
+          type="button"
           onClick={() => onUpdateSettings({ weekStartsOn: settings.weekStartsOn === 0 ? 1 : 0 })}
-          className="px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] border border-[#E5DFD5] transition-colors"
+          className="px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] border border-[#E5DFD5] transition-colors cursor-pointer"
           title="Toggle week start day (Sunday vs. Monday)"
         >
           {settings.weekStartsOn === 0 ? 'Sun Start' : 'Mon Start'}
@@ -130,8 +190,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Continuous Jigsaw Month Radar Toggle */}
         <button
+          type="button"
           onClick={onToggleSidebar}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
             isSidebarOpen
               ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
               : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
@@ -141,7 +202,6 @@ export const Header: React.FC<HeaderProps> = ({
           <CalendarIcon className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Radar</span>
         </button>
-
       </div>
     </header>
   );

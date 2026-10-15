@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Persistent user calendar data
+data/
+*.tmp.*

@@ -1,218 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { NoteItem, MonthNote, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
-import { formatDateKey, getWeekKey } from '../utils/dateUtils';
-
-const STORAGE_KEY_NOTES = 'chrono_ledger_notes_v1';
-const STORAGE_KEY_WEEK_NOTES = 'chrono_ledger_week_notes_v1';
-const STORAGE_KEY_MONTH_NOTES = 'chrono_ledger_month_notes_v1';
-const STORAGE_KEY_DRAWINGS = 'chrono_ledger_drawings_v1';
-const STORAGE_KEY_SETTINGS = 'chrono_ledger_settings_v1';
-
-// Seed demo data matching user sketch (around October 2026)
-function getInitialNotes(): NoteItem[] {
-  const saved = localStorage.getItem(STORAGE_KEY_NOTES);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-  }
-
-  const today = new Date();
-  const todayStr = formatDateKey(today);
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const tomorrowStr = formatDateKey(tomorrow);
-
-  const dayAfter = new Date(today);
-  dayAfter.setDate(today.getDate() + 2);
-  const dayAfterStr = formatDateKey(dayAfter);
-
-  const nextWeek1 = new Date(today);
-  nextWeek1.setDate(today.getDate() + 5);
-  const nextWeek1Str = formatDateKey(nextWeek1);
-
-  const nextWeek2 = new Date(today);
-  nextWeek2.setDate(today.getDate() + 7);
-  const nextWeek2Str = formatDateKey(nextWeek2);
-
-  return [
-    {
-      id: 'demo-1',
-      originalContent: 'Review quarterly architecture plan',
-      content: 'Review quarterly architecture and security plan with team',
-      parentDates: [todayStr],
-      isStruck: false,
-      colorTag: '#E29578',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'demo-2',
-      content: 'Draft proposal for client team',
-      parentDates: [todayStr],
-      isStruck: true,
-      strikeStyle: 'single',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'demo-3',
-      content: 'Tokyo Design & Engineering Offsite',
-      parentDates: [tomorrowStr, dayAfterStr],
-      isStruck: false,
-      colorTag: '#83C5BE',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'demo-4',
-      content: 'Milestone Preparation & Sync',
-      parentDates: [nextWeek1Str, nextWeek2Str],
-      isStruck: false,
-      colorTag: '#E9C46A',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-}
-
-function getInitialWeekNotes(): WeekNote[] {
-  const saved = localStorage.getItem(STORAGE_KEY_WEEK_NOTES);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-  }
-
-  const today = new Date();
-  const currentWeekKey = getWeekKey(today, 0);
-
-  const nextWeekDate = new Date(today);
-  nextWeekDate.setDate(today.getDate() + 7);
-  const nextWeekKey = getWeekKey(nextWeekDate, 0);
-
-  return [
-    {
-      id: 'wnote-1',
-      content: 'Week 42 Focus: 3-Tier temporal planning (Day → Week → Month)',
-      parentWeeks: [currentWeekKey],
-      isStruck: false,
-      colorTag: '#E29578',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'wnote-2',
-      content: '2-Week Sprint (Spanning W42 – W43)',
-      parentWeeks: [currentWeekKey, nextWeekKey],
-      isStruck: false,
-      colorTag: '#83C5BE',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-}
-
-function getInitialMonthNotes(): MonthNote[] {
-  const saved = localStorage.getItem(STORAGE_KEY_MONTH_NOTES);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-  }
-
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = String(today.getMonth() + 1).padStart(2, '0');
-  const thisMonthKey = `${y}-${m}`;
-
-  const nextMonthDate = new Date(y, today.getMonth() + 1, 1);
-  const nextMonthKey = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
-
-  const monthAfterDate = new Date(y, today.getMonth() + 2, 1);
-  const monthAfterKey = `${monthAfterDate.getFullYear()}-${String(monthAfterDate.getMonth() + 1).padStart(2, '0')}`;
-
-  return [
-    {
-      id: 'mnote-1',
-      content: 'October Focus: Ship continuous jigsaw calendar',
-      parentMonths: [thisMonthKey],
-      isStruck: false,
-      colorTag: '#E29578',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'mnote-2',
-      content: 'Q4 Product Initiative (Spanning Oct – Dec)',
-      parentMonths: [thisMonthKey, nextMonthKey, monthAfterKey],
-      isStruck: false,
-      colorTag: '#83C5BE',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-}
-
-function getInitialDrawings(): DrawingElement[] {
-  const saved = localStorage.getItem(STORAGE_KEY_DRAWINGS);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-  }
-  return [];
-}
-
-function getInitialSettings(): CalendarSettings {
-  const saved = localStorage.getItem(STORAGE_KEY_SETTINGS);
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-  }
-  return {
-    weekStartsOn: 0, // 0 = Sunday start (matches user sketch)
-    showStruckItems: true, // Ledger view by default
-    activeTool: 'select',
-    inkColor: '#2B2C30', // Graphite
-  };
-}
+import { formatDateKey } from '../utils/dateUtils';
+import { storage, downloadJsonFile, readJsonFile, type CalendarBackupData } from '../services/storage';
 
 export function useCalendarState() {
-  const [notes, setNotes] = useState<NoteItem[]>(getInitialNotes);
-  const [weekNotes, setWeekNotes] = useState<WeekNote[]>(getInitialWeekNotes);
-  const [monthNotes, setMonthNotes] = useState<MonthNote[]>(getInitialMonthNotes);
-  const [drawings, setDrawings] = useState<DrawingElement[]>(getInitialDrawings);
-  const [settings, setSettings] = useState<CalendarSettings>(getInitialSettings);
+  const [notes, setNotes] = useState<NoteItem[]>(() => storage.loadNotes());
+  const [weekNotes, setWeekNotes] = useState<WeekNote[]>(() => storage.loadWeekNotes());
+  const [monthNotes, setMonthNotes] = useState<MonthNote[]>(() => storage.loadMonthNotes());
+  const [drawings, setDrawings] = useState<DrawingElement[]>(() => storage.loadDrawings());
+  const [settings, setSettings] = useState<CalendarSettings>(() => storage.loadSettings());
 
-  // Sync to local storage
+  // Storage synchronization via storage service
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_NOTES, JSON.stringify(notes));
+    storage.saveNotes(notes);
   }, [notes]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_WEEK_NOTES, JSON.stringify(weekNotes));
+    storage.saveWeekNotes(weekNotes);
   }, [weekNotes]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_MONTH_NOTES, JSON.stringify(monthNotes));
+    storage.saveMonthNotes(monthNotes);
   }, [monthNotes]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_DRAWINGS, JSON.stringify(drawings));
+    storage.saveDrawings(drawings);
   }, [drawings]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+    storage.saveSettings(settings);
   }, [settings]);
 
   // Date notes
-  const addNote = (content: string, parentDates: string[], colorTag?: string) => {
+  const addNote = useCallback((content: string, parentDates: string[], colorTag?: string) => {
     const newNote: NoteItem = {
       id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       content: content.trim(),
@@ -223,28 +43,19 @@ export function useCalendarState() {
     };
     setNotes((prev) => [newNote, ...prev]);
     return newNote;
-  };
+  }, []);
 
-  const toggleStrikeNote = (noteId: string) => {
+  const toggleStrikeNote = useCallback((noteId: string) => {
     setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id === noteId) {
-          return {
-            ...n,
-            isStruck: !n.isStruck,
-            strikeStyle: n.isStruck ? undefined : 'single',
-          };
-        }
-        return n;
-      })
+      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
     );
-  };
+  }, []);
 
-  const removeNote = (noteId: string) => {
+  const removeNote = useCallback((noteId: string) => {
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
-  };
+  }, []);
 
-  const updateNote = (noteId: string, newContent: string) => {
+  const updateNote = useCallback((noteId: string, newContent: string) => {
     setNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
@@ -260,10 +71,10 @@ export function useCalendarState() {
         return n;
       })
     );
-  };
+  }, []);
 
   // Week notes
-  const addWeekNote = (content: string, parentWeeks: string[], colorTag?: string) => {
+  const addWeekNote = useCallback((content: string, parentWeeks: string[], colorTag?: string) => {
     const newNote: WeekNote = {
       id: `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       content: content.trim(),
@@ -274,19 +85,19 @@ export function useCalendarState() {
     };
     setWeekNotes((prev) => [newNote, ...prev]);
     return newNote;
-  };
+  }, []);
 
-  const toggleStrikeWeekNote = (noteId: string) => {
+  const toggleStrikeWeekNote = useCallback((noteId: string) => {
     setWeekNotes((prev) =>
       prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
     );
-  };
+  }, []);
 
-  const removeWeekNote = (noteId: string) => {
+  const removeWeekNote = useCallback((noteId: string) => {
     setWeekNotes((prev) => prev.filter((n) => n.id !== noteId));
-  };
+  }, []);
 
-  const updateWeekNote = (noteId: string, newContent: string) => {
+  const updateWeekNote = useCallback((noteId: string, newContent: string) => {
     setWeekNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
@@ -302,10 +113,10 @@ export function useCalendarState() {
         return n;
       })
     );
-  };
+  }, []);
 
   // Month notes
-  const addMonthNote = (content: string, parentMonths: string[], colorTag?: string) => {
+  const addMonthNote = useCallback((content: string, parentMonths: string[], colorTag?: string) => {
     const newNote: MonthNote = {
       id: `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       content: content.trim(),
@@ -316,19 +127,19 @@ export function useCalendarState() {
     };
     setMonthNotes((prev) => [newNote, ...prev]);
     return newNote;
-  };
+  }, []);
 
-  const toggleStrikeMonthNote = (noteId: string) => {
+  const toggleStrikeMonthNote = useCallback((noteId: string) => {
     setMonthNotes((prev) =>
       prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
     );
-  };
+  }, []);
 
-  const removeMonthNote = (noteId: string) => {
+  const removeMonthNote = useCallback((noteId: string) => {
     setMonthNotes((prev) => prev.filter((n) => n.id !== noteId));
-  };
+  }, []);
 
-  const updateMonthNote = (noteId: string, newContent: string) => {
+  const updateMonthNote = useCallback((noteId: string, newContent: string) => {
     setMonthNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
@@ -344,10 +155,10 @@ export function useCalendarState() {
         return n;
       })
     );
-  };
+  }, []);
 
   // Drawings
-  const addDrawing = (drawingData: Omit<DrawingElement, 'id' | 'createdAt'>) => {
+  const addDrawing = useCallback((drawingData: Omit<DrawingElement, 'id' | 'createdAt'>) => {
     const newDrawing: DrawingElement = {
       ...drawingData,
       id: `draw-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -355,25 +166,48 @@ export function useCalendarState() {
     };
     setDrawings((prev) => [...prev, newDrawing]);
     return newDrawing;
-  };
+  }, []);
 
-  const removeDrawing = (drawingId: string) => {
+  const removeDrawing = useCallback((drawingId: string) => {
     setDrawings((prev) => prev.filter((d) => d.id !== drawingId));
-  };
+  }, []);
 
-  const removeDrawings = (drawingIds: string[]) => {
+  const removeDrawings = useCallback((drawingIds: string[]) => {
     if (drawingIds.length === 0) return;
     const idSet = new Set(drawingIds);
     setDrawings((prev) => prev.filter((d) => !idSet.has(d.id)));
-  };
+  }, []);
 
-  const clearAllDrawings = () => {
+  const clearAllDrawings = useCallback(() => {
     setDrawings([]);
-  };
+  }, []);
 
-  const updateSettings = (partial: Partial<CalendarSettings>) => {
+  const updateSettings = useCallback((partial: Partial<CalendarSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }));
-  };
+  }, []);
+
+  // Backup & Restore
+  const exportBackup = useCallback(() => {
+    const json = storage.exportBackup();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadJsonFile(json, `chrono-ledger-backup-${dateStr}.json`);
+  }, []);
+
+  const importBackupFile = useCallback(async (file: File): Promise<boolean> => {
+    try {
+      const text = await readJsonFile(file);
+      const data: CalendarBackupData = storage.importBackup(text);
+      setNotes(data.notes);
+      setWeekNotes(data.weekNotes);
+      setMonthNotes(data.monthNotes);
+      setDrawings(data.drawings);
+      setSettings(data.settings);
+      return true;
+    } catch (err) {
+      console.error('Failed to import backup:', err);
+      return false;
+    }
+  }, []);
 
   return {
     notes,
@@ -398,5 +232,7 @@ export function useCalendarState() {
     removeDrawings,
     clearAllDrawings,
     updateSettings,
+    exportBackup,
+    importBackupFile,
   };
 }
