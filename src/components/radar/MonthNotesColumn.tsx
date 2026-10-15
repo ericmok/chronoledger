@@ -23,7 +23,7 @@ export interface MonthNotesColumnProps {
   monthMetas: MonthMeta[];
   monthNotesByMonth: Map<string, MonthNote[]>;
   totalWeeksHeight: number;
-  todayKey: string;
+  todayKey?: string;
   quickInputMonth: string | null;
   onStartQuickAddMonth: (monthKey: string) => void;
   onCancelQuickAddMonth: () => void;
@@ -40,7 +40,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
   monthMetas,
   monthNotesByMonth,
   totalWeeksHeight,
-  todayKey,
+  todayKey: _todayKey,
   quickInputMonth,
   onStartQuickAddMonth,
   onCancelQuickAddMonth,
@@ -93,7 +93,6 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
       {monthMetas.map((meta) => {
         const currentMonthNotes = monthNotesByMonth.get(meta.monthKey) || [];
         const isAdding = quickInputMonth === meta.monthKey;
-        const isCurrentMonth = meta.monthKey === todayKey.slice(0, 7);
         const seasonalColor = getSeasonalColor(meta.monthIndex);
 
         return (
@@ -113,32 +112,6 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
               borderBottomColor: seasonalColor.notesBorder,
             }}
           >
-            {/* Month Notes Header */}
-            <div
-              className="flex items-center justify-between pb-1 mb-1 border-b shrink-0"
-              style={{ borderBottomColor: `${seasonalColor.notesBorder}99` }}
-            >
-              <span
-                className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border flex items-center gap-1.5 shadow-2xs ${
-                  isCurrentMonth
-                    ? 'bg-[#D23B38] text-white border-[#D23B38]'
-                    : ''
-                }`}
-                style={
-                  !isCurrentMonth
-                    ? {
-                        backgroundColor: seasonalColor.cellBg,
-                        borderColor: seasonalColor.notesBorder,
-                        color: seasonalColor.accentTag,
-                      }
-                    : undefined
-                }
-              >
-                <span>{meta.name} Notes</span>
-                {isCurrentMonth && <span className="text-[8px] uppercase bg-white/20 px-1 rounded">Focus</span>}
-              </span>
-            </div>
-
             {/* Notes List for this month */}
             <div
               onDragOver={(e) => {
