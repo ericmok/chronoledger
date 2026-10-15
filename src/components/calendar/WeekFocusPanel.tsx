@@ -132,7 +132,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
               setActiveDragId(null);
             }
           }}
-          className={`flex-1 space-y-1 overflow-y-auto pr-0.5 rounded-lg transition-colors ${
+          className={`flex-1 overflow-y-auto pr-0.5 transition-colors ${
             isWeekDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
           }`}
         >
@@ -223,6 +223,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 colorTag={wn.colorTag}
                 badge={multiBadge}
                 density="compact"
+                variant="minimal"
                 onToggleStrike={onToggleStrikeWeekNote}
                 onRemove={onRemoveWeekNote}
                 onStartEdit={() => setEditingNoteId(wn.id)}
@@ -263,7 +264,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
 
       {/* Add Week Note Form / Button */}
       {(isAddingWeekNote || currentWeekNotes.length > 0) && (
-        <div className="pt-1.5 border-t border-[#E5DFD5]/60 mt-1.5 shrink-0">
+        <div className="pt-1 mt-0.5 shrink-0">
           {isAddingWeekNote ? (
             <WeekNoteInlineForm
               currentWeekKey={weekBlock.weekKey}
@@ -279,7 +280,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
             <button
               type="button"
               onClick={() => onStartAddWeekNote(weekBlock.weekKey)}
-              className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1 rounded-md border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/40 bg-white/50 hover:bg-white transition-all shadow-2xs cursor-pointer"
+              className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] hover:bg-[#F2EDE4]/60 flex items-center justify-center gap-1 w-full py-1.5 rounded transition-all cursor-pointer"
               title="Add another weekly note"
             >
               <Plus className="w-3 h-3 text-[#D23B38]" />

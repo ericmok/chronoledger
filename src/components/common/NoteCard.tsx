@@ -14,6 +14,7 @@ export interface NoteCardProps {
   onUpdate?: (id: string, newContent: string) => void;
   onStartEdit?: (id: string) => void;
   density?: 'comfortable' | 'compact';
+  variant?: 'card' | 'minimal';
   className?: string;
 
   // Drag and drop reordering
@@ -39,6 +40,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onUpdate,
   onStartEdit,
   density = 'comfortable',
+  variant = 'card',
   className = '',
   isDraggable = true,
   onDragStart,
@@ -57,6 +59,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
   const activeDropIndicator = dropIndicator !== undefined ? dropIndicator : localDropIndicator;
 
+  const isMinimal = variant === 'minimal';
   const isComfortable = density === 'comfortable';
   const hasEdits = Boolean(originalContent && originalContent !== content);
 
@@ -188,13 +191,19 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         setLocalDropIndicator(null);
         onDrop?.(e, id, pos);
       }}
-      className={`group relative flex items-start gap-1.5 rounded-md transition-all duration-150 cursor-pointer ${
-        isComfortable ? 'py-1 px-2 text-sm' : 'p-1 text-xs'
+      className={`group relative flex items-start gap-1.5 transition-all duration-150 cursor-pointer ${
+        isMinimal
+          ? 'py-1.5 px-0.5 text-xs border-b border-[#E5DFD5]/80'
+          : isComfortable
+          ? 'rounded-md py-1 px-2 text-sm'
+          : 'rounded-md p-1 text-xs'
       } ${
         isBeingDragged || isDraggingSelf
           ? 'opacity-35 border border-dashed border-[#D23B38]/60 bg-[#FAF8F5]'
           : isStruck
           ? 'bg-transparent text-[#8E8F95]'
+          : isMinimal
+          ? 'text-[#2B2C30] hover:bg-[#F2EDE4]/40'
           : isComfortable
           ? 'hover:bg-[#F2EDE4]/70 text-[#2B2C30]'
           : 'text-[#2B2C30] bg-[#FAF8F5]/80 hover:bg-white shadow-2xs'
@@ -203,14 +212,22 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     >
       {/* Drop Target Indicator: Before */}
       {activeDropIndicator === 'before' && (
-        <div className="absolute -top-1 left-1 right-1 h-[2px] bg-[#D23B38] z-30 pointer-events-none rounded-full flex items-center shadow-xs">
+        <div
+          className={`absolute -top-[1px] ${
+            isMinimal ? 'left-0 right-0' : 'left-1 right-1'
+          } h-[2px] bg-[#D23B38] z-30 pointer-events-none rounded-full flex items-center shadow-xs`}
+        >
           <div className="w-1.5 h-1.5 rounded-full bg-[#D23B38] -ml-0.5" />
         </div>
       )}
 
       {/* Drop Target Indicator: After */}
       {activeDropIndicator === 'after' && (
-        <div className="absolute -bottom-1 left-1 right-1 h-[2px] bg-[#D23B38] z-30 pointer-events-none rounded-full flex items-center shadow-xs">
+        <div
+          className={`absolute -bottom-[1px] ${
+            isMinimal ? 'left-0 right-0' : 'left-1 right-1'
+          } h-[2px] bg-[#D23B38] z-30 pointer-events-none rounded-full flex items-center shadow-xs`}
+        >
           <div className="w-1.5 h-1.5 rounded-full bg-[#D23B38] -ml-0.5" />
         </div>
       )}
