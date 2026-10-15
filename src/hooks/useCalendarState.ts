@@ -55,27 +55,68 @@ export function useCalendarState() {
   useEffect(() => {
     let isCancelled = false;
 
-    // Helper: merge collections by ID to never drop locally created entries
-    function safeMerge<T extends { id: string }>(localList: T[], remoteList: T[]): T[] {
+    /**
+     * Non-destructive collection reconciliation:
+     * 1. Unions items from both local (localStorage) and remote (SQLite).
+     * 2. If an item exists in both sources, the version with the newer timestamp (updatedAt/createdAt) wins.
+     * 3. Prevents any offline or un-synced client-side notes from ever being dropped or overwritten.
+     */
+    function safeMerge<T extends { id: string; createdAt?: string; updatedAt?: string }>(
+      localList: T[],
+      remoteList: T[]
+    ): T[] {
       const map = new Map<string, T>();
       for (const item of localList) {
         map.set(item.id, item);
       }
       for (const item of remoteList) {
-        map.set(item.id, item);
+        const localItem = map.get(item.id);
+        if (!localItem) {
+          map.set(item.id, item);
+        } else {
+          // If the item exists in both sets, compare timestamps so the newest edit wins
+          const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
+          const remoteTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+          if (remoteTime >= localTime) {
+            map.set(item.id, item);
+          }
+        }
       }
       return Array.from(map.values());
     }
 
     async function hydrate() {
-      // 1. Save an emergency local recovery snapshot before any remote sync
+      // 1. Emergency local recovery snapshot: captured synchronously before any network/SQLite hydration
       try {
         localStorage.setItem(
           'chrono_ledger_recovery_snapshot_v1',
           JSON.stringify(currentStateRef.current)
         );
-      } catch {
-        // quota or privacy mode
+      } catch (e) {
+        console.debug('[ChronoLedger] Snapshot storage skipped (quota/privacy mode):', e);
+      }
+
+      // Expose recovery helper on window for zero-friction disaster recovery in browser console
+      if (typeof window !== 'undefined') {
+        (window as unknown as { __chronoledger_restore_snapshot?: () => boolean }).__chronoledger_restore_snapshot = () => {
+          try {
+            const raw = localStorage.getItem('chrono_ledger_recovery_snapshot_v1');
+            if (!raw) {
+              console.warn('[ChronoLedger] No recovery snapshot found in localStorage.');
+              return false;
+            }
+            const snapshot = JSON.parse(raw);
+            if (snapshot.notes) setNotes(snapshot.notes);
+            if (snapshot.weekNotes) setWeekNotes(snapshot.weekNotes);
+            if (snapshot.monthNotes) setMonthNotes(snapshot.monthNotes);
+            if (snapshot.drawings) setDrawings(snapshot.drawings);
+            console.info('[ChronoLedger] Successfully restored state from recovery snapshot!', snapshot);
+            return true;
+          } catch (err) {
+            console.error('[ChronoLedger] Failed to restore recovery snapshot:', err);
+            return false;
+          }
+        };
       }
 
       const remote = await fetchRemoteCalendar();

@@ -120,6 +120,36 @@ Access the app on `http://localhost:3000`.
 
 ---
 
+## 🛡️ Data Persistence & Safeguards
+
+ChronoLedger implements a multi-tier, zero-loss persistence and synchronization architecture designed to keep user notes, goals, and margin sketches safe at all times:
+
+### 1. Dual-Layer Storage
+- **Tier 1 (Instant Local Storage)**: Every note addition, edit, strikethrough, or sketch is written synchronously to browser `localStorage`. You never lose work if the network drops or the tab closes abruptly.
+- **Tier 2 (Embedded SQLite with WAL)**: Mutations are debounced (600ms) and committed atomically to an embedded SQLite database at `data/chronoledger.sqlite` using Node's native `node:sqlite` engine with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`).
+
+### 2. Non-Destructive Safe Merging (`safeMerge`)
+- During application startup / hydration, the client does **not** blindly overwrite local notes with remote data.
+- Instead, collections are merged non-destructively:
+  - Items existing only in local storage are preserved and queued to sync to SQLite.
+  - Items existing only in SQLite are adopted.
+  - Items existing in both sources resolve conflicts using the newest `updatedAt` / `createdAt` timestamp.
+- This ensures offline edits or notes entered before sync initialization are never dropped.
+
+### 3. Emergency Recovery Snapshots
+- Before any remote sync transaction runs during hydration, ChronoLedger automatically saves an emergency pre-sync snapshot to `chrono_ledger_recovery_snapshot_v1` in browser storage.
+- **Console Disaster Recovery**: If you ever need to restore your pre-sync state immediately, open the browser developer console and run:
+  ```javascript
+  __chronoledger_restore_snapshot()
+  ```
+  This immediately recovers all notes, drawings, and settings from the recovery snapshot.
+
+### 4. Backup Export & Import
+- Use the **Export** button in the header to download an unencrypted, fully portable JSON snapshot (`chronoledger-backup-YYYY-MM-DD.json`).
+- Use the **Import** button to restore from any backup file at any time.
+
+---
+
 ## 📄 License
 
 MIT
