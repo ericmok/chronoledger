@@ -1,12 +1,13 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type React from 'react';
 import { ChevronLeft, ChevronRight, Compass, Plus } from 'lucide-react';
-import type { NoteItem, MonthNote, DrawingElement, WeekStartDay } from '../types/calendar';
+import type { NoteItem, MonthNote, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
 import { formatDateKey, MONTH_NAMES, FULL_MONTH_NAMES } from '../utils/dateUtils';
 import { MonthNotesColumn, type MonthMeta } from './radar/MonthNotesColumn';
 import { ContinuousRadarGrid, type JigsawCell, type SvgBoundary } from './radar/ContinuousRadarGrid';
 import { VerticalMonthGutter } from './radar/VerticalMonthGutter';
 import { MultiMonthNoteModal } from './radar/MultiMonthNoteModal';
+import { RadarDrawingOverlay } from './radar/RadarDrawingOverlay';
 
 interface JigsawMonthGridProps {
   onSelectDate: (dateKey: string) => void;
@@ -22,16 +23,20 @@ interface JigsawMonthGridProps {
   scrollTargetDate?: { dateString: string; key: number } | null;
   onAddDrawing: (d: Omit<DrawingElement, 'id' | 'createdAt'>) => DrawingElement;
   onRemoveDrawing: (id: string) => void;
+  onRemoveDrawings?: (ids: string[]) => void;
   onUpdateDrawing?: (id: string, partial: Partial<DrawingElement>) => void;
+  settings?: CalendarSettings;
 }
 
-export const RADAR_CIRCLE_COLORS = [
+const RADAR_CIRCLE_COLORS = [
   '#D23B38', // 1. Red Pencil (Deadlines / Milestones)
   '#2A9D8F', // 2. Pine / Sage (Completed / Events)
   '#E9C46A', // 3. Warm Ochre (Special dates / Highlights)
 ];
 
-const CELL_SIZE = 34; // Square 34x34px cells
+// Squarish, slightly taller cells with generous vertical height for monthly notes
+const CELL_WIDTH = 38; // 38px wide
+const CELL_HEIGHT = 48; // 48px tall (+41% vertical space for monthly notes)
 
 export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onSelectDate,
@@ -47,7 +52,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   scrollTargetDate,
   onAddDrawing,
   onRemoveDrawing,
+  onRemoveDrawings,
   onUpdateDrawing,
+  settings,
 }) => {
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [quickInputMonth, setQuickInputMonth] = useState<string | null>(null);
@@ -108,7 +115,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     return map;
   }, [monthNotes]);
 
-  // Generate 5 months window centered on anchorDate
+  // 6 months window: past month, current month, and next 4 months (fills viewport without awkward gap)
   const targetMonths = useMemo(() => {
     const y = anchorDate.getFullYear();
     const m = anchorDate.getMonth();
@@ -118,6 +125,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       new Date(y, m + 1, 1),
       new Date(y, m + 2, 1),
       new Date(y, m + 3, 1),
+      new Date(y, m + 4, 1),
     ];
   }, [anchorDate]);
 
@@ -179,7 +187,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       weekRows.push(allCells.slice(i, i + 7));
     }
 
-    // Compute month metas
+    // Compute month metas with expanded vertical heights
     const metas: MonthMeta[] = [];
     targetMonths.forEach((tm) => {
       const y = tm.getFullYear();
@@ -208,8 +216,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           startRow,
           endRow,
           totalRows,
-          topPx: startRow * CELL_SIZE,
-          heightPx: totalRows * CELL_SIZE,
+          topPx: startRow * CELL_HEIGHT,
+          heightPx: totalRows * CELL_HEIGHT,
         });
       }
     });
@@ -225,10 +233,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           const belowCell = weekRows[r + 1][c];
           if (currentCell.monthKey !== belowCell.monthKey) {
             boundaries.push({
-              x1: c * CELL_SIZE,
-              y1: (r + 1) * CELL_SIZE,
-              x2: (c + 1) * CELL_SIZE,
-              y2: (r + 1) * CELL_SIZE,
+              x1: c * CELL_WIDTH,
+              y1: (r + 1) * CELL_HEIGHT,
+              x2: (c + 1) * CELL_WIDTH,
+              y2: (r + 1) * CELL_HEIGHT,
             });
           }
         }
@@ -238,10 +246,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           const rightCell = weekRows[r][c + 1];
           if (currentCell.monthKey !== rightCell.monthKey) {
             boundaries.push({
-              x1: (c + 1) * CELL_SIZE,
-              y1: r * CELL_SIZE,
-              x2: (c + 1) * CELL_SIZE,
-              y2: (r + 1) * CELL_SIZE,
+              x1: (c + 1) * CELL_WIDTH,
+              y1: r * CELL_HEIGHT,
+              x2: (c + 1) * CELL_WIDTH,
+              y2: (r + 1) * CELL_HEIGHT,
             });
           }
         }
@@ -251,7 +259,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     return {
       weeks: weekRows,
       monthMetas: metas,
-      totalWeeksHeight: weekRows.length * CELL_SIZE,
+      totalWeeksHeight: weekRows.length * CELL_HEIGHT,
       svgBoundaries: boundaries,
     };
   }, [targetMonths, weekStartsOn, todayKey, notesCountMap, circledDatesMap]);
@@ -266,9 +274,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       );
 
       if (targetRowIndex !== -1) {
-        const rowTop = targetRowIndex * CELL_SIZE;
+        const rowTop = targetRowIndex * CELL_HEIGHT;
         const containerHeight = gridContainerRef.current.clientHeight || 500;
-        const targetScrollTop = Math.max(0, rowTop - containerHeight / 2 + CELL_SIZE / 2);
+        const targetScrollTop = Math.max(0, rowTop - containerHeight / 2 + CELL_HEIGHT / 2);
 
         gridContainerRef.current.scrollTo({
           top: targetScrollTop,
@@ -377,8 +385,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     ? ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
     : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
+  const gridWidth = 7 * CELL_WIDTH; // 266px
+
   return (
-    <aside className="w-[520px] shrink-0 border-l border-[#E5DFD5] bg-[#FAF8F5] flex flex-col h-full select-none relative z-20 shadow-xs">
+    <aside className="w-[580px] shrink-0 border-l border-[#E5DFD5] bg-[#FAF8F5] flex flex-col h-full select-none relative z-20 shadow-xs">
       {/* Top Header Bar */}
       <div className="h-11 border-b border-[#E5DFD5] px-3 flex items-center justify-between bg-[#FAF8F5]/90 shrink-0">
         <div className="flex items-center gap-1.5">
@@ -431,7 +441,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         <div className="flex-1 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold pl-3">
           Monthly Focus & Goals
         </div>
-        <div className="w-[238px] shrink-0 grid grid-cols-7 pr-2 text-center text-[10px] font-mono font-medium text-[#7E7F85]">
+        <div
+          className="shrink-0 grid grid-cols-7 pr-2 text-center text-[10px] font-mono font-medium text-[#7E7F85]"
+          style={{ width: `${gridWidth + 8}px` }}
+        >
           {dayHeaders.map((dh) => (
             <div key={dh}>{dh}</div>
           ))}
@@ -443,6 +456,21 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
       {/* Main Continuous Jigsaw Canvas (Left: Month Notes, Center: 7-Day Grid, Right: Vertical Month Gutter) */}
       <div ref={gridContainerRef} className="flex-1 overflow-y-auto relative flex">
+        {/* Interactive Radar Drawing Overlay for Pencil, Arrow, Eraser */}
+        {settings && (
+          <RadarDrawingOverlay
+            tool={settings.activeTool}
+            inkColor={settings.inkColor}
+            drawings={drawings}
+            onAddDrawing={onAddDrawing}
+            onRemoveDrawing={onRemoveDrawing}
+            onRemoveDrawings={onRemoveDrawings}
+            totalWeeksHeight={totalWeeksHeight}
+            cellHeight={CELL_HEIGHT}
+            weeks={weeks}
+          />
+        )}
+
         {/* 1. Left Column: Month Notes */}
         <MonthNotesColumn
           monthMetas={monthMetas}
@@ -468,7 +496,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           weeks={weeks}
           svgBoundaries={svgBoundaries}
           totalWeeksHeight={totalWeeksHeight}
-          cellSize={CELL_SIZE}
+          cellWidth={CELL_WIDTH}
+          cellHeight={CELL_HEIGHT}
           onSelectDate={onSelectDate}
           selectedDateKey={scrollTargetDate?.dateString}
           onToggleCircleDate={handleToggleCircleDate}

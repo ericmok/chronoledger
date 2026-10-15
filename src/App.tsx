@@ -183,7 +183,9 @@ export function App() {
             scrollTargetDate={scrollTargetDate}
             onAddDrawing={addDrawing}
             onRemoveDrawing={removeDrawing}
+            onRemoveDrawings={removeDrawings}
             onUpdateDrawing={updateDrawing}
+            settings={settings}
           />
         )}
       </div>

@@ -50,6 +50,7 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
     const hitIds: string[] = [];
 
     for (const d of drawings) {
+      if (d.anchorStartDate?.startsWith('radar:')) continue;
       const anchorY = getYForDate(d.anchorStartDate);
       if (anchorY === null) continue;
 
@@ -220,6 +221,7 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
   // Render individual drawings anchored to dates
   const renderDrawings = () => {
     return drawings.map((d) => {
+      if (d.anchorStartDate?.startsWith('radar:')) return null;
       const anchorY = getYForDate(d.anchorStartDate);
       if (anchorY === null) return null;
 

@@ -25,7 +25,8 @@ export interface ContinuousRadarGridProps {
   weeks: JigsawCell[][];
   svgBoundaries: SvgBoundary[];
   totalWeeksHeight: number;
-  cellSize: number;
+  cellWidth: number;
+  cellHeight: number;
   onSelectDate: (dateKey: string) => void;
   onToggleCircleDate?: (dateKey: string) => void;
   onCycleCircleColor?: (dateKey: string) => void;
@@ -36,14 +37,20 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
   weeks,
   svgBoundaries,
   totalWeeksHeight,
-  cellSize,
+  cellWidth,
+  cellHeight,
   onSelectDate,
   onToggleCircleDate,
   onCycleCircleColor,
   selectedDateKey,
 }) => {
+  const gridWidth = 7 * cellWidth;
+
   return (
-    <div className="w-[238px] shrink-0 relative pr-2" style={{ height: `${totalWeeksHeight}px` }}>
+    <div
+      className="shrink-0 relative pr-2"
+      style={{ width: `${gridWidth + 8}px`, height: `${totalWeeksHeight}px` }}
+    >
       {/* Continuous Grid Weeks */}
       {weeks.map((week, rIdx) => {
         const isCurrentWeekRow = week.some((c) => c.isToday);
@@ -52,15 +59,15 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
           <div
             key={rIdx}
             className="grid grid-cols-7 relative transition-colors"
-            style={{ height: `${cellSize}px` }}
+            style={{ height: `${cellHeight}px`, width: `${gridWidth}px` }}
           >
             {/* Solid color rectangle highlighting the current week */}
             {isCurrentWeekRow && (
               <div
                 className="absolute inset-0 bg-[#FCE7D2] pointer-events-none"
                 style={{
-                  width: `${7 * cellSize}px`,
-                  height: `${cellSize}px`,
+                  width: `${gridWidth}px`,
+                  height: `${cellHeight}px`,
                 }}
                 title="Current Week"
               />
@@ -78,7 +85,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                     e.stopPropagation();
                     onToggleCircleDate?.(cell.dateKey);
                   }}
-                  className={`relative w-[34px] h-[34px] flex flex-col items-center justify-center text-[11px] font-mono transition-transform hover:z-10 group cursor-pointer ${
+                  className={`relative flex flex-col items-center justify-center text-[11px] font-mono transition-transform hover:z-10 group cursor-pointer ${
                     isCurrentWeekRow
                       ? 'bg-transparent'
                       : cell.isToday
@@ -88,6 +95,8 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                       : 'bg-[#F2ECE1]/65'
                   }`}
                   style={{
+                    width: `${cellWidth}px`,
+                    height: `${cellHeight}px`,
                     boxShadow: 'inset 0 0 0 0.5px rgba(229, 223, 213, 0.45)',
                   }}
                   title={`${cell.monthKey} - ${cell.dayNumber}${
@@ -98,7 +107,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                 >
                   {/* Day Number */}
                   <span
-                    className={`inline-flex items-center justify-center w-5 h-5 rounded-full transition-all group-hover:scale-110 ${
+                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all group-hover:scale-110 ${
                       cell.isToday
                         ? 'bg-[#D23B38] text-white font-black shadow-md ring-3 ring-[#D23B38]/35 scale-105'
                         : selectedDateKey === cell.dateKey
@@ -127,24 +136,25 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                         e.stopPropagation();
                         onToggleCircleDate?.(cell.dateKey);
                       }}
-                      className="absolute inset-[3px] rounded-full pointer-events-auto cursor-pointer hover:scale-110 transition-transform flex items-center justify-center z-10"
+                      className="absolute inset-[4px] rounded-full pointer-events-auto cursor-pointer hover:scale-110 transition-transform flex items-center justify-center z-10"
                       title="Click circle to cycle color (Red → Sage → Ochre) • Double-click to remove"
                     >
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 28 28">
-                        <circle
-                          cx="14"
-                          cy="14"
-                          r="11.5"
+                      <svg className="w-full h-full overflow-visible" viewBox="0 0 32 38">
+                        <ellipse
+                          cx="16"
+                          cy="19"
+                          rx="13.5"
+                          ry="15.5"
                           fill="none"
                           stroke={cell.circleColor || '#D23B38'}
                           strokeWidth="2.2"
-                          strokeDasharray="80"
+                          strokeDasharray="90"
                           strokeDashoffset="2"
                           strokeLinecap="round"
                           className="transition-colors duration-150"
                           style={{
                             filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))',
-                            transform: 'rotate(-12deg)',
+                            transform: 'rotate(-10deg)',
                             transformOrigin: 'center',
                           }}
                         />
@@ -154,7 +164,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
 
                   {/* Has Notes Pip */}
                   {cell.hasNotes && (
-                    <span className="w-1 h-1 rounded-full bg-[#E29578] mt-[-2px]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#E29578] mt-0.5" />
                   )}
                 </button>
               );
@@ -166,7 +176,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
       {/* GAPLESS CONTINUOUS SVG JIGSAW BOUNDARIES */}
       <svg
         className="absolute inset-0 pointer-events-none z-10"
-        style={{ width: `${7 * cellSize}px`, height: `${totalWeeksHeight}px` }}
+        style={{ width: `${gridWidth}px`, height: `${totalWeeksHeight}px` }}
       >
         {svgBoundaries.map((b, idx) => (
           <line
