@@ -24,8 +24,9 @@ export interface DayRowProps {
 
 export const DayRow: React.FC<DayRowProps> = ({
   dateItem,
-  dayIdx: _dayIdx,
+  dayIdx,
   dayNotes,
+  isMonthFocus,
   isQuickAdding,
   onStartQuickAdd,
   onCancelQuickAdd,
@@ -82,6 +83,35 @@ export const DayRow: React.FC<DayRowProps> = ({
           : 'hover:bg-[#F2EDE4]/30'
       }`}
     >
+      {/* Month Indicator (Compact) */}
+      <div className="w-9 sm:w-10 shrink-0 text-right pr-1.5 pt-1 select-none">
+        {dateItem.isFirstDayOfMonth ? (
+          <span
+            className={`font-serif text-xs font-bold tracking-tight ${
+              isMonthFocus ? 'text-[#D23B38]' : 'text-[#2B2C30]'
+            }`}
+          >
+            {dateItem.monthName}
+          </span>
+        ) : dateItem.dayOfMonth === 15 ? (
+          <span
+            className={`font-serif text-[10px] uppercase tracking-wider ${
+              isMonthFocus ? 'text-[#D23B38]/85 font-semibold' : 'text-[#8E8F95]/60'
+            }`}
+          >
+            {dateItem.monthName}
+          </span>
+        ) : dayIdx === 0 ? (
+          <span
+            className={`font-serif text-[10px] uppercase tracking-wider ${
+              isMonthFocus ? 'text-[#D23B38]/80 font-semibold' : 'text-[#A19D94]/50'
+            }`}
+          >
+            {dateItem.monthName}
+          </span>
+        ) : null}
+      </div>
+
       {/* Date & Day of Week */}
       <div
         data-date-gutter="true"
