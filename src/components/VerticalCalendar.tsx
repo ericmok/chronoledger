@@ -5,7 +5,7 @@ import type { DateItem, NoteItem, WeekNote, DrawingElement, CalendarSettings } f
 import { DrawingOverlay } from './DrawingOverlay';
 import { DayRow } from './calendar/DayRow';
 import { WeekFocusPanel } from './calendar/WeekFocusPanel';
-import { groupDatesIntoWeeks, formatDateKey } from '../utils/dateUtils';
+import { groupDatesIntoWeeks } from '../utils/dateUtils';
 
 interface VerticalCalendarProps {
   dates: DateItem[];
@@ -62,9 +62,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
 }) => {
   const [quickInputDate, setQuickInputDate] = useState<string | null>(null);
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
-
-  const todayKey = useMemo(() => formatDateKey(new Date()), []);
-  const currentMonthKey = useMemo(() => todayKey.slice(0, 7), [todayKey]);
 
   // Map notes to their dates
   const notesByDate = useMemo(() => {
@@ -231,9 +228,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
 
         {/* Column Headers for 3-Tier Layout */}
         <div className="flex items-center text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] pb-2 border-b border-[#E5DFD5] mb-2 px-2">
-          <div className="w-14 sm:w-18 shrink-0 text-right pr-3 font-semibold">Month</div>
-          <div className="w-16 sm:w-20 shrink-0 font-semibold pl-1">Date</div>
-          <div className="flex-1 font-semibold pl-2">Daily Notes & Tasks</div>
+          <div className="w-12 shrink-0 font-semibold text-center">Date</div>
+          <div className="flex-1 font-semibold pl-1.5">Daily Notes & Tasks</div>
           <div className="w-64 sm:w-72 shrink-0 font-semibold pl-4 border-l border-[#E5DFD5]">Weekly Notes</div>
         </div>
 
@@ -274,7 +270,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       dateItem={dateItem}
                       dayIdx={dayIdx}
                       dayNotes={notesByDate.get(dateItem.dateString) || []}
-                      isMonthFocus={dateItem.dateString.slice(0, 7) === currentMonthKey}
                       isQuickAdding={quickInputDate === dateItem.dateString}
                       onStartQuickAdd={(d) => setQuickInputDate(d)}
                       onCancelQuickAdd={() => setQuickInputDate(null)}

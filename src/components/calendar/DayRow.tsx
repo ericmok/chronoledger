@@ -7,9 +7,9 @@ import { Plus } from 'lucide-react';
 
 export interface DayRowProps {
   dateItem: DateItem;
-  dayIdx: number;
+  dayIdx?: number;
   dayNotes: NoteItem[];
-  isMonthFocus: boolean;
+  isMonthFocus?: boolean;
   isQuickAdding: boolean;
   onStartQuickAdd: (dateString: string) => void;
   onCancelQuickAdd: () => void;
@@ -24,9 +24,8 @@ export interface DayRowProps {
 
 export const DayRow: React.FC<DayRowProps> = ({
   dateItem,
-  dayIdx,
+  dayIdx: _dayIdx,
   dayNotes,
-  isMonthFocus,
   isQuickAdding,
   onStartQuickAdd,
   onCancelQuickAdd,
@@ -76,100 +75,63 @@ export const DayRow: React.FC<DayRowProps> = ({
         if (target.closest('button, input, form, textarea, select')) return;
         onStartQuickAdd(dateItem.dateString);
       }}
+      title={`${dateItem.monthName} ${dateItem.dayOfMonth}, ${dateItem.year} — double-click to write note`}
       className={`flex items-start min-h-[48px] group/row py-1 transition-colors ${
         dateItem.isToday
           ? 'bg-[#FAF3EA] border-l-[4px] border-l-[#D23B38] -ml-[4px] shadow-xs relative z-10'
           : 'hover:bg-[#F2EDE4]/30'
       }`}
-      title="Double-click day to write note"
     >
-      {/* Month Indicator */}
-      <div className="w-14 sm:w-18 shrink-0 text-right pr-3 pt-1">
-        {dateItem.isFirstDayOfMonth ? (
-          <div className="flex flex-col items-end">
-            <span
-              className={`font-serif text-sm sm:text-base font-bold tracking-tight ${
-                isMonthFocus ? 'text-[#D23B38] font-black' : 'text-[#2B2C30]'
-              }`}
-            >
-              {dateItem.monthName}
-            </span>
-            {isMonthFocus && (
-              <span className="text-[8px] font-mono text-[#D23B38] uppercase font-bold tracking-widest bg-[#D23B38]/10 px-1 rounded mt-0.5">
-                Current
-              </span>
-            )}
-          </div>
-        ) : dateItem.dayOfMonth === 15 ? (
-          <div className="flex flex-col items-end">
-            <span
-              className={`font-serif text-xs uppercase tracking-widest ${
-                isMonthFocus ? 'text-[#D23B38] font-bold opacity-90' : 'text-[#8E8F95] opacity-60'
-              }`}
-            >
-              {dateItem.monthName}
-            </span>
-          </div>
-        ) : dayIdx === 0 ? (
-          <div className="flex flex-col items-end">
-            <span
-              className={`font-serif text-[11px] uppercase tracking-wider ${
-                isMonthFocus ? 'text-[#D23B38] font-bold opacity-80' : 'text-[#A19D94] opacity-45'
-              }`}
-            >
-              {dateItem.monthName}
-            </span>
-          </div>
-        ) : null}
-      </div>
-
       {/* Date & Day of Week */}
       <div
         data-date-gutter="true"
-        className="w-16 sm:w-22 shrink-0 flex items-center justify-start gap-1.5 pt-1 font-mono text-sm sm:text-base"
+        className="w-12 shrink-0 flex flex-col items-center justify-start pt-1 font-mono select-none"
       >
-        <span
-          className={`inline-flex items-center justify-center min-w-6 px-1 h-6 rounded-md text-xs sm:text-sm font-medium ${
-            dateItem.isToday
-              ? 'text-[#FAF8F5] bg-[#2B2C30] font-bold shadow-xs'
-              : 'text-[#2B2C30]'
-          }`}
-        >
-          {dateItem.dayOfMonth}
-        </span>
-        <span
-          className={`font-semibold text-xs sm:text-sm ${
-            dateItem.isToday
-              ? 'text-[#D23B38] font-bold'
-              : dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
-              ? 'text-[#D23B38]'
-              : 'text-[#63666A]'
-          }`}
-        >
-          {dateItem.dayOfWeekLetter}
-        </span>
+        <div className="flex items-center justify-center gap-1 leading-none">
+          <span
+            className={`inline-flex items-center justify-center min-w-[20px] h-5 px-0.5 rounded text-xs sm:text-sm font-medium ${
+              dateItem.isToday
+                ? 'text-[#FAF8F5] bg-[#2B2C30] font-bold shadow-xs'
+                : 'text-[#2B2C30]'
+            }`}
+          >
+            {dateItem.dayOfMonth}
+          </span>
+          <span
+            className={`font-semibold text-xs sm:text-sm ${
+              dateItem.isToday
+                ? 'text-[#D23B38] font-bold'
+                : dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
+                ? 'text-[#D23B38]'
+                : 'text-[#63666A]'
+            }`}
+          >
+            {dateItem.dayOfWeekLetter}
+          </span>
+          {/* Small Dot Indicator if day has notes */}
+          {dayNotes.length > 0 && !dateItem.isToday && (
+            <span className="w-1.5 h-1.5 rounded-full bg-[#E29578] -ml-0.5" />
+          )}
+        </div>
+
+        {/* TODAY badge at the bottom of the date number */}
         {dateItem.isToday && (
-          <span className="text-[8px] font-mono font-black uppercase tracking-wider bg-[#D23B38] text-white px-1 py-0.5 rounded shadow-2xs">
+          <span className="text-[7.5px] font-mono font-black uppercase tracking-wider bg-[#D23B38] text-white px-1 py-0.5 rounded shadow-2xs mt-1">
             TODAY
           </span>
         )}
-
-        {/* Small Dot Indicator if day has notes */}
-        {dayNotes.length > 0 && !dateItem.isToday && (
-          <span className="w-1.5 h-1.5 rounded-full bg-[#E29578] ml-0.5" />
-        )}
       </div>
 
-      {/* Spanning Rail */}
-      <div className="w-3 shrink-0 flex justify-center pt-2">
-        {contiguousSpansStartingHere.length > 0 && (
+      {/* Spanning Rail (only takes space when there is a spanning note) */}
+      {contiguousSpansStartingHere.length > 0 && (
+        <div className="w-1.5 shrink-0 flex justify-center pt-2 -ml-0.5 mr-0.5">
           <div
             className="w-1 h-3 rounded-full"
             style={{ backgroundColor: contiguousSpansStartingHere[0].colorTag || '#83C5BE' }}
             title="Starts contiguous span"
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Daily Notes Area */}
       <div
