@@ -17,7 +17,7 @@ export const VerticalMonthGutter: React.FC<VerticalMonthGutterProps> = ({
 }) => {
   return (
     <div
-      className="w-10 shrink-0 border-l border-r border-[#E5DFD5] relative bg-[#F7F4EC]/40"
+      className="w-10 shrink-0 border-l border-[#E5DFD5] border-r-[2.5px] border-r-[#2B2C30] relative bg-[#F7F4EC]/40"
       style={{ height: `${totalWeeksHeight}px` }}
     >
       {monthMetas.map((meta) => {

@@ -573,7 +573,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
             <div key={dh}>{dh}</div>
           ))}
         </div>
-        <div className="w-10 shrink-0 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold text-center border-l border-r border-[#E5DFD5]">
+        <div className="w-10 shrink-0 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold text-center border-l border-[#E5DFD5] border-r-[2.5px] border-r-[#2B2C30]">
           Mo
         </div>
         <div className="flex-1 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold pl-3">
