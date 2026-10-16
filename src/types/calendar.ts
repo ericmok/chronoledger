@@ -18,14 +18,26 @@ export interface DateItem {
 }
 
 export const CIRCLE_DATE_COLORS = [
-  '#D23B38', // Terracotta / Crimson (Default)
-  '#83C5BE', // Sage / Aqua
-  '#E9C46A', // Warm Ochre
-  '#9B5DE5', // Lavender / Purple
-  '#457B9D', // Slate / Steel Blue
+  '#9CA3AF', // Light Gray
+  '#D23B38', // Red
+  '#F48C06', // Yellow-Orange
+  '#E5A93C', // Golden Yellow
+  '#9B5DE5', // Purple
+  '#2E8540', // Green
+  '#3B82F6', // Blue
 ] as const;
 
 export type CircleDateColor = typeof CIRCLE_DATE_COLORS[number];
+
+export const CIRCLE_DATE_COLOR_NAMES: Record<CircleDateColor, string> = {
+  '#9CA3AF': 'Light Gray',
+  '#D23B38': 'Red',
+  '#F48C06': 'Yellow-Orange',
+  '#E5A93C': 'Golden Yellow',
+  '#9B5DE5': 'Purple',
+  '#2E8540': 'Green',
+  '#3B82F6': 'Blue',
+};
 
 export interface CircledDate {
   dateKey: string; // ISO "YYYY-MM-DD"

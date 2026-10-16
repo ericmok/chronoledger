@@ -4,13 +4,13 @@ import rough from 'roughjs';
 export interface RoughCircledRingProps {
   /** ISO date key (e.g. "2026-10-18") used for deterministic seeding */
   dateKey: string;
-  /** Ink stroke color, e.g. '#D23B38' (Terracotta), '#83C5BE' (Sage), etc. */
+  /** Ink stroke color, e.g. '#9CA3AF' (Light Gray), '#D23B38' (Red), etc. */
   color?: string;
   /**
    * Visual variant:
-   * - 'day': standard day number in DayRow (~28x28 viewBox, organic ellipse)
-   * - 'today': dark today badge in DayRow (~44x38 viewBox, organic rounded rectangle)
-   * - 'radar': month continuous radar cell (~32x38 viewBox, organic ellipse)
+   * - 'day': standard day number in DayRow (~46x40 viewBox, organic ellipse)
+   * - 'today': dark today badge in DayRow (~54x48 viewBox, organic rounded rectangle)
+   * - 'radar': month continuous radar cell (~36x42 viewBox, organic ellipse)
    */
   variant?: 'day' | 'today' | 'radar';
   /** Optional additional class names for styling or layout */
@@ -42,7 +42,7 @@ const generator = rough.generator();
  */
 export const RoughCircledRing: React.FC<RoughCircledRingProps> = ({
   dateKey,
-  color = '#D23B38',
+  color = '#9CA3AF',
   variant = 'day',
   className = '',
 }) => {

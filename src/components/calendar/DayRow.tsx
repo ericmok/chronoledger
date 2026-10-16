@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import type { DateItem, NoteItem, DrawingTool } from '../../types/calendar';
+import type { DateItem, NoteItem, DrawingTool, CircleDateColor } from '../../types/calendar';
+import { CIRCLE_DATE_COLOR_NAMES } from '../../types/calendar';
 import { analyzeDateSpan } from '../../utils/dateUtils';
 import { getGutterDotsForNotes } from '../../utils/annotationUtils';
 import { NoteItemComponent } from '../NoteItemComponent';
@@ -84,6 +85,10 @@ export const DayRow: React.FC<DayRowProps> = ({
     [dayNotes]
   );
 
+  const circleColorName = circleColor
+    ? CIRCLE_DATE_COLOR_NAMES[circleColor as CircleDateColor] || 'Circled'
+    : 'Circled';
+
   return (
     <div
       data-day-row="true"
@@ -132,7 +137,7 @@ export const DayRow: React.FC<DayRowProps> = ({
             className="relative flex flex-col items-center justify-center bg-[#2B2C30] text-[#FAF8F5] rounded-md px-1.5 py-1 shadow-xs min-w-[36px] cursor-pointer hover:brightness-110 transition-all"
             title={
               isCircled
-                ? 'Today (Circled - click to cycle color, double-click to remove)'
+                ? `Today (${circleColorName} - click to cycle color, double-click to remove)`
                 : 'Today (Double-click to circle)'
             }
             onDoubleClick={(e) => {
@@ -170,7 +175,7 @@ export const DayRow: React.FC<DayRowProps> = ({
               >
                 <RoughCircledRing
                   dateKey={dateItem.dateString}
-                  color={circleColor || '#E29578'}
+                  color={circleColor || '#9CA3AF'}
                   variant="today"
                 />
               </span>
@@ -182,7 +187,7 @@ export const DayRow: React.FC<DayRowProps> = ({
               className="relative inline-flex items-center justify-center min-w-[20px] h-5 px-0.5 rounded text-xs sm:text-sm font-medium text-[#2B2C30] cursor-pointer hover:bg-black/5 transition-colors"
               title={
                 isCircled
-                  ? `${dateItem.monthName} ${dateItem.dayOfMonth} (Circled - click to cycle color, double-click to remove)`
+                  ? `${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`
                   : `${dateItem.monthName} ${dateItem.dayOfMonth} (Double-click to circle)`
               }
               onDoubleClick={(e) => {
@@ -220,11 +225,11 @@ export const DayRow: React.FC<DayRowProps> = ({
                     onToggleCircleDate?.(dateItem.dateString);
                   }}
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[40px] pointer-events-auto cursor-pointer flex items-center justify-center z-10 hover:scale-105 transition-transform"
-                  title={`${dateItem.monthName} ${dateItem.dayOfMonth} (Circled - click to cycle color, double-click to remove)`}
+                  title={`${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`}
                 >
                   <RoughCircledRing
                     dateKey={dateItem.dateString}
-                    color={circleColor || '#D23B38'}
+                    color={circleColor || '#9CA3AF'}
                     variant="day"
                   />
                 </span>

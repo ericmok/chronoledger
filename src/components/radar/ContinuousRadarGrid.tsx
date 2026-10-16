@@ -1,6 +1,7 @@
 import React from 'react';
 import { getSeasonalColor } from '../../utils/seasonalColors';
 import { RoughCircledRing } from '../common/RoughCircledRing';
+import { CIRCLE_DATE_COLOR_NAMES, type CircleDateColor } from '../../types/calendar';
 
 export interface JigsawCell {
   date: Date;
@@ -141,11 +142,11 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                         onToggleCircleDate?.(cell.dateKey);
                       }}
                       className="absolute inset-[1.5px] rounded-full pointer-events-auto cursor-pointer hover:scale-105 transition-transform flex items-center justify-center z-10"
-                      title="Click circle to cycle color • Double-click to remove"
+                      title={`Click circle to cycle color (${CIRCLE_DATE_COLOR_NAMES[cell.circleColor as CircleDateColor] || 'Circled'}) • Double-click to remove`}
                     >
                       <RoughCircledRing
                         dateKey={cell.dateKey}
-                        color={cell.circleColor || '#D23B38'}
+                        color={cell.circleColor || '#9CA3AF'}
                         variant="radar"
                       />
                     </span>

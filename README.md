@@ -39,7 +39,7 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
   - **Continuous Painting Eraser (`E`)**: Real-time hit-testing eraser that lets you brush naturally over strokes to remove them.
 - **First-Class Circled Dates**:
   - Double-click any day number on the vertical timeline or radar grid to circle it with an authentic Rough.js hand-drawn ink ring.
-  - Single-click an existing circle to cycle through the color palette (`#D23B38` Terracotta → `#83C5BE` Sage → `#E9C46A` Ochre → `#9B5DE5` Lavender → `#457B9D` Slate Blue).
+  - Single-click an existing circle to cycle through the color palette (Light Gray → Red → Yellow-Orange → Golden Yellow → Purple → Green → Blue).
   - Deterministically seeded so sketchy pen lines never jitter or re-randomize across re-renders or window resizes.
 - **Full History Engine (Undo / Redo)**:
   - `⌘Z` / `Ctrl+Z` to undo actions (note deletions, edits, strikethroughs, circled dates, sketches, erasures, reordering).
