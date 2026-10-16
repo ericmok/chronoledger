@@ -1,5 +1,6 @@
 import React from 'react';
 import { getSeasonalColor } from '../../utils/seasonalColors';
+import { RoughCircledRing } from '../common/RoughCircledRing';
 
 export interface JigsawCell {
   date: Date;
@@ -142,26 +143,11 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                       className="absolute inset-[4px] rounded-full pointer-events-auto cursor-pointer hover:scale-110 transition-transform flex items-center justify-center z-10"
                       title="Click circle to cycle color • Double-click to remove"
                     >
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 32 38">
-                        <ellipse
-                          cx="16"
-                          cy="19"
-                          rx="13.5"
-                          ry="15.5"
-                          fill="none"
-                          stroke={cell.circleColor || '#D23B38'}
-                          strokeWidth="2.2"
-                          strokeDasharray="90"
-                          strokeDashoffset="2"
-                          strokeLinecap="round"
-                          className="transition-colors duration-150"
-                          style={{
-                            filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))',
-                            transform: 'rotate(-10deg)',
-                            transformOrigin: 'center',
-                          }}
-                        />
-                      </svg>
+                      <RoughCircledRing
+                        dateKey={cell.dateKey}
+                        color={cell.circleColor || '#D23B38'}
+                        variant="radar"
+                      />
                     </span>
                   )}
 

@@ -4,6 +4,7 @@ import { analyzeDateSpan } from '../../utils/dateUtils';
 import { getGutterDotsForNotes } from '../../utils/annotationUtils';
 import { NoteItemComponent } from '../NoteItemComponent';
 import { DayNoteInlineForm } from './DayNoteInlineForm';
+import { RoughCircledRing } from '../common/RoughCircledRing';
 import { Plus } from 'lucide-react';
 
 export interface DayRowProps {
@@ -167,25 +168,11 @@ export const DayRow: React.FC<DayRowProps> = ({
                 className="absolute -inset-[3.5px] pointer-events-none flex items-center justify-center z-10"
                 aria-hidden="true"
               >
-                <svg className="w-full h-full overflow-visible" viewBox="0 0 44 38">
-                  <rect
-                    x="1.5"
-                    y="1.5"
-                    width="41"
-                    height="35"
-                    rx="8"
-                    fill="none"
-                    stroke={circleColor || '#E29578'}
-                    strokeWidth="2.2"
-                    strokeDasharray="145"
-                    strokeDashoffset="2"
-                    strokeLinecap="round"
-                    className="transition-colors duration-150"
-                    style={{
-                      filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-                    }}
-                  />
-                </svg>
+                <RoughCircledRing
+                  dateKey={dateItem.dateString}
+                  color={circleColor || '#E29578'}
+                  variant="today"
+                />
               </span>
             )}
           </div>
@@ -221,25 +208,11 @@ export const DayRow: React.FC<DayRowProps> = ({
                   className="absolute -inset-[3px] pointer-events-none flex items-center justify-center z-10"
                   aria-hidden="true"
                 >
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 28 28">
-                    <ellipse
-                      cx="14"
-                      cy="14"
-                      rx="12"
-                      ry="11"
-                      fill="none"
-                      stroke={circleColor || '#D23B38'}
-                      strokeWidth="2"
-                      strokeDasharray="75"
-                      strokeDashoffset="1.5"
-                      strokeLinecap="round"
-                      className="transition-colors duration-150"
-                      style={{
-                        filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))',
-                        transform: 'rotate(-8deg)',
-                      }}
-                    />
-                  </svg>
+                  <RoughCircledRing
+                    dateKey={dateItem.dateString}
+                    color={circleColor || '#D23B38'}
+                    variant="day"
+                  />
                 </span>
               )}
             </span>
