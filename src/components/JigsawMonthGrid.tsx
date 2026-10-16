@@ -40,6 +40,30 @@ const RADAR_CIRCLE_COLORS = [
 const CELL_WIDTH = 38; // 38px wide
 const CELL_HEIGHT = 48; // 48px tall (+41% vertical space for monthly notes)
 
+/**
+ * JigsawMonthGrid Architecture:
+ * 
+ * 1. Hybrid DOM + SVG Layout:
+ *    - Interactive elements (cells, day numbers, note pips, buttons) are standard HTML/DOM elements
+ *      inside `ContinuousRadarGrid` for full native web accessibility, keyboard navigation, and event handling.
+ *    - The interlocking stepped boundaries between adjacent months are drawn using an SVG overlay
+ *      (`<svg>` with `<line>` elements) positioned directly over the HTML calendar grid.
+ * 
+ * 2. Continuous 3-Column Visual Flow:
+ *    - Left: `VerticalMonthGutter` (Month Names) spans through the row containing the LAST day of the month.
+ *      Its bottom black CSS border aligns horizontally with the bottom horizontal jigsaw line under the month.
+ *    - Center: `ContinuousRadarGrid` (7-Day Grid) renders the calendar cells and the SVG boundary overlay.
+ *      The boundary line steps vertically between the previous month's end and the new month's beginning.
+ *    - Right: `MonthNotesColumn` (Monthly Notes) begins at the row containing the 1ST day of the month.
+ *      Its top dividing line connects with the top horizontal jigsaw line above the new month.
+ * 
+ * 3. Subpixel Alignment Math:
+ *    - CSS `border-bottom: 2.5px solid #2B2C30` with `box-sizing: border-box` is rendered INSIDE the element,
+ *      occupying pixels [Y - 2.5, Y] with its center at Y - 1.25.
+ *    - SVG `<line>` with `stroke-width="2.5"` centers its stroke ON the coordinate line [Y - 1.25, Y + 1.25].
+ *    - Therefore, horizontal SVG boundary lines are offset by -1.25px (Y - 1.25) so that the SVG stroke
+ *      and CSS borders share the exact same pixel band [Y - 2.5, Y], eliminating vertical misalignments.
+ */
 export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onSelectDate,
   notes,

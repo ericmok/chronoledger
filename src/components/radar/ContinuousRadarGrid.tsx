@@ -185,7 +185,10 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
         );
       })}
 
-      {/* GAPLESS CONTINUOUS SVG JIGSAW BOUNDARIES */}
+      {/* GAPLESS CONTINUOUS SVG JIGSAW BOUNDARIES:
+          Drawn via an SVG overlay on top of the interactive DOM grid cells.
+          Coordinates are pre-offset by -1.25px in JigsawMonthGrid to align with
+          subpixel precision to the adjacent CSS borders in the gutter and notes columns. */}
       <svg
         className="absolute inset-0 pointer-events-none z-10 overflow-visible"
         style={{ width: `${gridWidth}px`, height: `${totalWeeksHeight}px` }}
