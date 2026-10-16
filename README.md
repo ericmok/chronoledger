@@ -35,11 +35,14 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
   - Completely emptied notes display as crossed-out tasks with an `EDITED` / `DELETED` status tag.
 - **Freeform Margin & Markup Tools**:
   - **Pencil (`P`)**: Natural pressure-sensitive freehand sketching in margins and across days using RoughJS and Perfect-Freehand.
-  - **Circle Date (`C`)**: Hand-drawn style circular highlights to ring milestone dates.
   - **Timeline Arrow (`A`)**: Drag between two dates across days or weeks to visually link projects and deadlines.
   - **Continuous Painting Eraser (`E`)**: Real-time hit-testing eraser that lets you brush naturally over strokes to remove them.
+- **First-Class Circled Dates**:
+  - Double-click any day number on the vertical timeline or radar grid to circle it with an authentic Rough.js hand-drawn ink ring.
+  - Single-click an existing circle to cycle through the color palette (`#D23B38` Terracotta → `#83C5BE` Sage → `#E9C46A` Ochre → `#9B5DE5` Lavender → `#457B9D` Slate Blue).
+  - Deterministically seeded so sketchy pen lines never jitter or re-randomize across re-renders or window resizes.
 - **Full History Engine (Undo / Redo)**:
-  - `⌘Z` / `Ctrl+Z` to undo actions (note deletions, edits, strikethroughs, sketches, erasures, reordering).
+  - `⌘Z` / `Ctrl+Z` to undo actions (note deletions, edits, strikethroughs, circled dates, sketches, erasures, reordering).
   - `⌘⇧Z` / `Ctrl+Shift+Z` / `Ctrl+Y` to redo.
   - Native browser undo is fully preserved when typing inside text boxes.
 - **Embedded SQLite Database Auto-Sync (`data/chronoledger.sqlite`)**:
@@ -58,13 +61,12 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
 
 | Shortcut | Action |
 | :--- | :--- |
-| `⌘Z` / `Ctrl+Z` | Undo last action (delete, edit, strike, drawing) |
+| `⌘Z` / `Ctrl+Z` | Undo last action (delete, edit, strike, circle, drawing) |
 | `⌘⇧Z` / `Ctrl+Shift+Z` / `Ctrl+Y` | Redo action |
 | `T` | Jump to Today |
 | `M` | Toggle Month Radar Sidebar |
 | `V` | Select / Note Pointer Tool |
 | `P` | Pencil Sketching Tool |
-| `C` | Circle Date Tool |
 | `A` | Timeline Arrow Tool |
 | `E` | Continuous Painting Eraser |
 
