@@ -187,7 +187,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
 
       {/* GAPLESS CONTINUOUS SVG JIGSAW BOUNDARIES */}
       <svg
-        className="absolute inset-0 pointer-events-none z-10"
+        className="absolute inset-0 pointer-events-none z-10 overflow-visible"
         style={{ width: `${gridWidth}px`, height: `${totalWeeksHeight}px` }}
       >
         {svgBoundaries.map((b, idx) => (

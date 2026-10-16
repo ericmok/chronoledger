@@ -319,15 +319,17 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       for (let c = 0; c < 7; c++) {
         const currentCell = weekRows[r][c];
 
-        // Horizontal boundary with cell below
+        // Horizontal boundary with cell below:
+        // Offset Y by -1.25px (half of 2.5px strokeWidth) so the center-stroked SVG line
+        // aligns with subpixel precision to the CSS border-bottom in VerticalMonthGutter and MonthNotesColumn.
         if (r < weekRows.length - 1) {
           const belowCell = weekRows[r + 1][c];
           if (currentCell.monthKey !== belowCell.monthKey) {
             boundaries.push({
               x1: c * CELL_WIDTH,
-              y1: (r + 1) * CELL_HEIGHT,
+              y1: (r + 1) * CELL_HEIGHT - 1.25,
               x2: (c + 1) * CELL_WIDTH,
-              y2: (r + 1) * CELL_HEIGHT,
+              y2: (r + 1) * CELL_HEIGHT - 1.25,
             });
           }
         }
@@ -338,9 +340,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           if (currentCell.monthKey !== rightCell.monthKey) {
             boundaries.push({
               x1: (c + 1) * CELL_WIDTH,
-              y1: r * CELL_HEIGHT,
+              y1: r * CELL_HEIGHT - 1.25,
               x2: (c + 1) * CELL_WIDTH,
-              y2: (r + 1) * CELL_HEIGHT,
+              y2: (r + 1) * CELL_HEIGHT - 1.25,
             });
           }
         }
