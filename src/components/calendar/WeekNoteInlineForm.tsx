@@ -2,6 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { Check } from 'lucide-react';
 import { analyzeWeekSpan } from '../../utils/dateUtils';
 import { NOTE_ACCENT_COLORS } from '../../types/calendar';
+import { SUGGESTED_TAGS } from '../../utils/annotationUtils';
+import { useAnnotationInput } from '../../hooks/useAnnotationInput';
+import { AnnotationAutocomplete } from '../common/AnnotationAutocomplete';
 
 export interface WeekOption {
   weekKey: string;
@@ -94,7 +97,12 @@ export const WeekNoteInlineForm: React.FC<WeekNoteInlineFormProps> = ({
     onSubmit(trimmed, targetWeeks, colorTag);
   };
 
+  const annotationInput = useAnnotationInput(content, setContent);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (annotationInput.isOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) {
+      return; // Handled by AnnotationAutocomplete
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -111,16 +119,52 @@ export const WeekNoteInlineForm: React.FC<WeekNoteInlineFormProps> = ({
       onDoubleClick={(e) => e.stopPropagation()}
       className="p-2.5 bg-white border border-[#2B2C30]/80 rounded-lg shadow-sm space-y-2 text-xs font-sans animate-in fade-in duration-100"
     >
-      {/* Note Content Textarea */}
-      <textarea
-        autoFocus
-        rows={2}
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Weekly note / objective... (Enter to save)"
-        className="w-full px-2.5 py-1.5 text-xs bg-[#FAF8F5] border border-[#DDD6C8] rounded focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#2B2C30] placeholder:text-[#A19D94] resize-none"
-      />
+      {/* Note Content Textarea with Autocomplete */}
+      <div className="relative">
+        <textarea
+          autoFocus
+          rows={2}
+          value={content}
+          onChange={(e) => {
+            setContent(e.target.value);
+            annotationInput.updateCursor(e.target.value, e.target.selectionStart || 0);
+          }}
+          onKeyUp={(e) => {
+            annotationInput.updateCursor(content, (e.target as HTMLTextAreaElement).selectionStart || 0);
+          }}
+          onClick={(e) => {
+            annotationInput.updateCursor(content, (e.target as HTMLTextAreaElement).selectionStart || 0);
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder="Weekly note... (type @ for tags: @important, @wait, @explore...)"
+          className="w-full px-2.5 py-1.5 text-xs bg-[#FAF8F5] border border-[#DDD6C8] rounded focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#2B2C30] placeholder:text-[#A19D94] resize-none"
+        />
+
+        <AnnotationAutocomplete
+          isOpen={annotationInput.isOpen}
+          query={annotationInput.query}
+          onSelectTag={annotationInput.selectTag}
+          onClose={annotationInput.close}
+          className="top-full left-0 mt-1"
+        />
+      </div>
+
+      {/* Quick Annotation Helper Bar */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-[10px] font-mono text-[#8E8F95] uppercase tracking-wider">Tags:</span>
+        {SUGGESTED_TAGS.slice(0, 7).map((opt) => (
+          <button
+            key={opt.tag}
+            type="button"
+            onClick={() => annotationInput.insertTagDirectly(opt.tag)}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono border border-[#DDD6C8] bg-[#FAF8F5] hover:bg-[#EAE3D6] text-[#2B2C30] transition-colors cursor-pointer"
+            title={opt.description}
+          >
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />
+            <span>{opt.label}</span>
+          </button>
+        ))}
+      </div>
 
       {/* Scope Mode Selector */}
       <div className="grid grid-cols-3 gap-0.5 p-0.5 bg-[#F2EDE4] rounded text-[10px] font-mono font-medium">

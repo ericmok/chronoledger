@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { formatDateKey, parseDateKey } from '../utils/dateUtils';
 import { NOTE_ACCENT_COLORS } from '../types/calendar';
+import { SUGGESTED_TAGS } from '../utils/annotationUtils';
+import { useAnnotationInput } from '../hooks/useAnnotationInput';
+import { AnnotationAutocomplete } from './common/AnnotationAutocomplete';
 
 interface AddNoteModalProps {
   initialDate?: string;
@@ -24,6 +27,8 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
   const [customDates, setCustomDates] = useState<string[]>([defaultDate]);
   const [newDateInput, setNewDateInput] = useState('');
   const [colorTag, setColorTag] = useState<string | undefined>('#E29578');
+
+  const annotationInput = useAnnotationInput(content, setContent);
 
   if (!isOpen) return null;
 
@@ -85,18 +90,58 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Note content */}
           <div>
-            <label className="block text-xs font-mono text-[#7E7F85] uppercase tracking-wider mb-1">
-              Note or Task
-            </label>
-            <textarea
-              autoFocus
-              required
-              rows={3}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="e.g. Flight to Tokyo, Weekly Design Sync..."
-              className="w-full px-3 py-2 text-sm bg-white border border-[#DDD6C8] rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#2B2C30]/20 focus:border-[#2B2C30] placeholder-[#BBB6AC]"
-            />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-mono text-[#7E7F85] uppercase tracking-wider">
+                Note or Task
+              </label>
+              <span className="text-[10px] font-mono text-[#A19D94]">type @ for tags</span>
+            </div>
+
+            <div className="relative">
+              <textarea
+                autoFocus
+                required
+                rows={3}
+                value={content}
+                onChange={(e) => {
+                  setContent(e.target.value);
+                  annotationInput.updateCursor(e.target.value, e.target.selectionStart || 0);
+                }}
+                onKeyUp={(e) => {
+                  annotationInput.updateCursor(content, (e.target as HTMLTextAreaElement).selectionStart || 0);
+                }}
+                onClick={(e) => {
+                  annotationInput.updateCursor(content, (e.target as HTMLTextAreaElement).selectionStart || 0);
+                }}
+                placeholder="e.g. Flight to Tokyo @4:00pm, Review architecture @important..."
+                className="w-full px-3 py-2 text-sm bg-white border border-[#DDD6C8] rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#2B2C30]/20 focus:border-[#2B2C30] placeholder-[#BBB6AC]"
+              />
+
+              <AnnotationAutocomplete
+                isOpen={annotationInput.isOpen}
+                query={annotationInput.query}
+                onSelectTag={annotationInput.selectTag}
+                onClose={annotationInput.close}
+                className="top-full left-0 mt-1"
+              />
+            </div>
+
+            {/* Quick Tag Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+              <span className="text-[10px] font-mono text-[#8E8F95] uppercase">Quick tags:</span>
+              {SUGGESTED_TAGS.slice(0, 7).map((opt) => (
+                <button
+                  key={opt.tag}
+                  type="button"
+                  onClick={() => annotationInput.insertTagDirectly(opt.tag)}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono border border-[#DDD6C8] bg-white hover:bg-[#EAE3D6] text-[#2B2C30] transition-colors cursor-pointer"
+                  title={opt.description}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Span Type Selector */}
