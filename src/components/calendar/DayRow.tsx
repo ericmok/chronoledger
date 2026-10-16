@@ -79,7 +79,7 @@ export const DayRow: React.FC<DayRowProps> = ({
       title={`${dateItem.monthName} ${dateItem.dayOfMonth}, ${dateItem.year} — double-click to write note`}
       className={`flex items-start min-h-[48px] group/row py-1 transition-colors ${
         dateItem.isToday
-          ? 'bg-[#FAF3EA] border-l-[4px] border-l-[#D23B38] -ml-[4px] shadow-xs relative z-10'
+          ? 'bg-[#FAF0E4]/90 hover:bg-[#F5E8D6] relative z-10'
           : 'hover:bg-[#F2EDE4]/30'
       }`}
     >

@@ -252,18 +252,17 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {/* Top Colored Thick Border for Current Week or First Week */}
-              {weekBlock.containsToday ? (
-                <div className="w-full h-[3.5px] bg-[#D23B38] shadow-xs z-30 shrink-0" />
-              ) : virtualRow.index === 0 ? (
+              {/* Top Week Divider for First Row (if not current week) */}
+              {virtualRow.index === 0 && !weekBlock.containsToday ? (
                 <div className="w-full h-[2px] bg-[#8E8F95] shrink-0" />
               ) : null}
 
               <div
-                className={`flex items-stretch border-x border-[#E5DFD5] bg-[#FAF8F5] transition-colors ${weekBlock.containsToday
-                    ? 'border-l-[4px] border-l-[#D23B38] -ml-[3px]'
-                    : ''
-                  }`}
+                className={`flex items-stretch transition-colors ${
+                  weekBlock.containsToday
+                    ? 'border-2 border-[#D23B38] bg-[#FAF7F2] shadow-xs relative z-20'
+                    : 'border-x border-[#E5DFD5] bg-[#FAF8F5]'
+                }`}
               >
                 {/* TIER 1: Daily Timeline (7 Days) */}
                 <div className="flex-1 flex flex-col divide-y divide-[#D5CDC0] min-w-0">
@@ -313,11 +312,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                 />
               </div>
 
-              {/* Bottom Colored Thick Border for Current Week */}
-              {weekBlock.containsToday ? (
-                <div className="w-full h-[3.5px] bg-[#D23B38] shadow-xs z-30 shrink-0" />
-              ) : (
-                /* Integrated Solid Week Separator Line (Zero margin, continuous paper roll) */
+              {/* Integrated Solid Week Separator Line: rendered between normal weeks, omitted when adjacent to current week frame */}
+              {!weekBlock.containsToday && !weekBlocks[virtualRow.index + 1]?.containsToday && (
                 <div className="w-full h-[2px] bg-[#8E8F95] shrink-0" />
               )}
             </div>
