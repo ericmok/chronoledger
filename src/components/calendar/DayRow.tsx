@@ -147,21 +147,23 @@ export const DayRow: React.FC<DayRowProps> = ({
           </span>
         )}
 
-        {/* Note Dots: Show a dot per note */}
-        {dayNotes.length > 0 && (
+        {/* Horizontal Dots: Only for notes that are explicitly colored */}
+        {dayNotes.some((n) => Boolean(n.colorTag)) && (
           <div
             className="flex items-center justify-center gap-1 mt-1 flex-wrap max-w-[36px]"
-            title={`${dayNotes.length} ${dayNotes.length === 1 ? 'note' : 'notes'}`}
+            title={`${dayNotes.filter((n) => Boolean(n.colorTag)).length} colored note annotation(s)`}
           >
-            {dayNotes.map((note) => (
-              <span
-                key={note.id}
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  note.isStruck ? 'opacity-35' : ''
-                }`}
-                style={{ backgroundColor: note.colorTag || '#E29578' }}
-              />
-            ))}
+            {dayNotes
+              .filter((note) => Boolean(note.colorTag))
+              .map((note) => (
+                <span
+                  key={note.id}
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    note.isStruck ? 'opacity-35' : ''
+                  }`}
+                  style={{ backgroundColor: note.colorTag }}
+                />
+              ))}
           </div>
         )}
       </div>

@@ -195,6 +195,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
       const circleInfo = circledDatesMap.get(dKey);
       const cellNotes = notesByDateMap.get(dKey) || [];
+      const explicitlyColoredNotes = cellNotes.filter((n) => Boolean(n.colorTag));
 
       allCells.push({
         date: new Date(curr),
@@ -206,7 +207,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         isToday: dKey === todayKey,
         hasNotes: cellNotes.length > 0,
         noteCount: cellNotes.length,
-        noteColors: cellNotes.map((n) => n.colorTag || '#E29578'),
+        noteColors: explicitlyColoredNotes.map((n) => n.colorTag!),
         isCircled: Boolean(circleInfo),
         circleColor: circleInfo?.color,
         isOutsideTargetRange: isOutside,
