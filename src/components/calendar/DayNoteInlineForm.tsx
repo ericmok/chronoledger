@@ -148,7 +148,7 @@ export const DayNoteInlineForm: React.FC<DayNoteInlineFormProps> = ({
       {/* Quick Annotation Helper Bar */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <span className="text-[10px] font-mono text-[#8E8F95] uppercase tracking-wider">Tags:</span>
-        {SUGGESTED_TAGS.slice(0, 7).map((opt) => (
+        {SUGGESTED_TAGS.map((opt) => (
           <button
             key={opt.tag}
             type="button"

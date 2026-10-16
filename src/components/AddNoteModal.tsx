@@ -129,7 +129,7 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
             {/* Quick Tag Pills */}
             <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
               <span className="text-[10px] font-mono text-[#8E8F95] uppercase">Quick tags:</span>
-              {SUGGESTED_TAGS.slice(0, 7).map((opt) => (
+              {SUGGESTED_TAGS.map((opt) => (
                 <button
                   key={opt.tag}
                   type="button"

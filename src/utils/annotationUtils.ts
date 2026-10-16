@@ -36,6 +36,7 @@ export type AnnotationCategory =
   | 'thought'
   | 'todo'
   | 'time'
+  | 'failed'
   | 'skipped'
   | 'custom';
 
@@ -148,6 +149,19 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     gutterColor: '#8E8F95',
     priority: 7,
   },
+  failed: {
+    type: 'failed',
+    primaryTag: 'failed',
+    aliases: ['fail', 'failure', 'rejected', 'unsuccessful'],
+    label: 'Failed',
+    description: 'Failed, rejected, or unsuccessful task/event (adds red dot)',
+    color: '#DC2626', // Ruby red
+    textColor: '#991B1B',
+    bgColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    gutterColor: '#DC2626',
+    priority: 8,
+  },
   skipped: {
     type: 'skipped',
     primaryTag: 'skipped',
@@ -159,7 +173,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     bgColor: '#F3F4F6',
     borderColor: '#E5E7EB',
     dimsText: true,
-    priority: 8,
+    priority: 9,
   },
   custom: {
     type: 'custom',
@@ -271,6 +285,7 @@ export interface ParsedNoteResult {
   primaryAnnotation?: ParsedAnnotation;
   isImportant: boolean;
   isSkipped: boolean;
+  isFailed?: boolean;
   hasTime: boolean;
   timeString?: string;
 }
@@ -385,6 +400,7 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
   // Only highlight bold if there is an active (unresolved) @important annotation
   const isImportant = annotations.some((a) => a.type === 'important' && !a.isResolved);
   const isSkipped = annotations.some((a) => a.type === 'skipped');
+  const isFailed = annotations.some((a) => a.type === 'failed');
   const timeAnnotation = annotations.find((a) => a.isTime);
 
   return {
@@ -393,6 +409,7 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
     primaryAnnotation,
     isImportant,
     isSkipped,
+    isFailed,
     hasTime: Boolean(timeAnnotation),
     timeString: timeAnnotation?.timeString,
   };
@@ -611,6 +628,13 @@ export const SUGGESTED_TAGS: QuickTagOption[] = [
     description: 'Schedule at a specific time of day (adds slate dot)',
     color: ANNOTATION_CONFIGS.time.color,
     type: 'time',
+  },
+  {
+    tag: 'failed',
+    label: '@failed',
+    description: 'Failed, rejected, or unsuccessful task/event (adds red dot)',
+    color: ANNOTATION_CONFIGS.failed.color,
+    type: 'failed',
   },
   {
     tag: 'skipped',
