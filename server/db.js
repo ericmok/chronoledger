@@ -81,6 +81,12 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS circled_dates (
+      date_key TEXT PRIMARY KEY,
+      color TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       id TEXT PRIMARY KEY DEFAULT 'default',
       week_starts_on INTEGER NOT NULL DEFAULT 0,
@@ -116,6 +122,15 @@ export function migrateDatabase(db) {
   if (!columnNames.has('end_anchor')) {
     db.exec('ALTER TABLE drawings ADD COLUMN end_anchor TEXT;');
   }
+
+  // Ensure circled_dates table exists
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS circled_dates (
+      date_key TEXT PRIMARY KEY,
+      color TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
 
   const metaRow = db.prepare('SELECT value FROM metadata WHERE key = ?').get('schema_version');
   const currentVersion = Number(metaRow?.value) || 1;
@@ -194,6 +209,38 @@ export function migrateDatabase(db) {
       throw err;
     }
   }
+
+  // Schema v3: Migrate legacy circle drawings to first-class circled_dates table
+  if (currentVersion < 3) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      const legacyCircles = db.prepare("SELECT * FROM drawings WHERE type = 'circle'").all();
+      const insertCircled = db.prepare(`
+        INSERT OR REPLACE INTO circled_dates (date_key, color, created_at)
+        VALUES (?, ?, ?)
+      `);
+
+      for (const c of legacyCircles) {
+        if (c.anchor_start_date) {
+          insertCircled.run(c.anchor_start_date, c.color || '#D23B38', c.created_at || new Date().toISOString());
+        }
+      }
+
+      db.exec("DELETE FROM drawings WHERE type = 'circle';");
+
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES ('schema_version', '3')
+        ON CONFLICT(key) DO UPDATE SET value = '3'
+      `).run();
+
+      db.exec('COMMIT;');
+      console.log(`[DB Migration] Applied schema v3: migrated ${legacyCircles.length} legacy circle drawings to circled_dates.`);
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      console.error('[DB Migration Error schema v3]:', err);
+      throw err;
+    }
+  }
 }
 
 /**
@@ -258,6 +305,12 @@ export function getCalendarData(db = getDatabase()) {
     createdAt: r.created_at,
   }));
 
+  const circledRows = db.prepare('SELECT * FROM circled_dates ORDER BY created_at ASC').all();
+  const circledDates = {};
+  for (const r of circledRows) {
+    circledDates[r.date_key] = { color: r.color, createdAt: r.created_at };
+  }
+
   let settings = null;
   if (settingsRow) {
     settings = {
@@ -273,13 +326,14 @@ export function getCalendarData(db = getDatabase()) {
     metaMap[m.key] = m.value;
   }
 
-  const hasData = notes.length > 0 || weekNotes.length > 0 || monthNotes.length > 0 || drawings.length > 0;
+  const hasData = notes.length > 0 || weekNotes.length > 0 || monthNotes.length > 0 || drawings.length > 0 || Object.keys(circledDates).length > 0;
 
   return {
     notes,
     weekNotes,
     monthNotes,
     drawings,
+    circledDates,
     settings,
     syncedAt: metaMap['last_synced_at'] || null,
     schemaVersion: Number(metaMap['schema_version']) || 1,
@@ -382,6 +436,24 @@ export function saveCalendarData(db = getDatabase(), data) {
       }
     }
 
+    if (data.circledDates && typeof data.circledDates === 'object') {
+      db.exec('DELETE FROM circled_dates;');
+      const insertCircled = db.prepare(`
+        INSERT INTO circled_dates (date_key, color, created_at)
+        VALUES (?, ?, ?)
+      `);
+      const entries = Array.isArray(data.circledDates)
+        ? data.circledDates
+        : Object.entries(data.circledDates).map(([k, v]) => ({
+            dateKey: k,
+            color: typeof v === 'string' ? v : (v.color || '#D23B38'),
+            createdAt: (v && v.createdAt) || new Date().toISOString(),
+          }));
+      for (const c of entries) {
+        insertCircled.run(c.dateKey, c.color || '#D23B38', c.createdAt || new Date().toISOString());
+      }
+    }
+
     if (data.settings) {
       const s = data.settings;
       const upsertSettings = db.prepare(`
@@ -410,7 +482,7 @@ export function saveCalendarData(db = getDatabase(), data) {
     `);
     const now = new Date().toISOString();
     setMeta.run('last_synced_at', now);
-    setMeta.run('schema_version', '2');
+    setMeta.run('schema_version', '3');
 
     db.exec('COMMIT;');
     return { ok: true, syncedAt: now };

@@ -1,13 +1,14 @@
 import type { NoteItem, MonthNote, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
 import { formatDateKey, getWeekKey } from '../utils/dateUtils';
 
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
 
 export const STORAGE_KEYS = {
   NOTES: 'chrono_ledger_notes_v1',
   WEEK_NOTES: 'chrono_ledger_week_notes_v1',
   MONTH_NOTES: 'chrono_ledger_month_notes_v1',
   DRAWINGS: 'chrono_ledger_drawings_v1',
+  CIRCLED_DATES: 'chrono_ledger_circled_dates_v1',
   SETTINGS: 'chrono_ledger_settings_v1',
   SCHEMA_VERSION: 'chrono_ledger_schema_version',
 } as const;
@@ -19,6 +20,7 @@ export interface CalendarBackupData {
   weekNotes: WeekNote[];
   monthNotes: MonthNote[];
   drawings: DrawingElement[];
+  circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings;
 }
 
@@ -31,6 +33,8 @@ export interface CalendarStorage {
   saveMonthNotes(monthNotes: MonthNote[]): void;
   loadDrawings(): DrawingElement[];
   saveDrawings(drawings: DrawingElement[]): void;
+  loadCircledDates(): Record<string, { color: string }>;
+  saveCircledDates(circledDates: Record<string, { color: string }>): void;
   loadSettings(): CalendarSettings;
   saveSettings(settings: CalendarSettings): void;
   exportBackup(): string;
@@ -327,11 +331,63 @@ export class LocalStorageAdapter implements CalendarStorage {
     localStorage.setItem(STORAGE_KEYS.DRAWINGS, JSON.stringify(drawings));
   }
 
+  loadCircledDates(): Record<string, { color: string }> {
+    const raw = localStorage.getItem(STORAGE_KEYS.CIRCLED_DATES);
+    let circled: Record<string, { color: string }> = {};
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          circled = parsed;
+        }
+      } catch {
+        circled = {};
+      }
+    }
+
+    // Auto-migrate any legacy circle drawings found in local drawings store
+    const rawDrawings = localStorage.getItem(STORAGE_KEYS.DRAWINGS);
+    if (rawDrawings) {
+      try {
+        const drawings = JSON.parse(rawDrawings);
+        if (Array.isArray(drawings)) {
+          let hasLegacyCircles = false;
+          for (const d of drawings) {
+            if (d.type === 'circle' && d.anchorStartDate) {
+              if (!circled[d.anchorStartDate]) {
+                circled[d.anchorStartDate] = { color: d.color || '#D23B38' };
+              }
+              hasLegacyCircles = true;
+            }
+          }
+          if (hasLegacyCircles) {
+            const cleanDrawings = drawings.filter((d: { type?: string }) => d.type !== 'circle');
+            localStorage.setItem(STORAGE_KEYS.DRAWINGS, JSON.stringify(cleanDrawings));
+            this.saveCircledDates(circled);
+          }
+        }
+      } catch {
+        // ignore parse error
+      }
+    }
+
+    return circled;
+  }
+
+  saveCircledDates(circledDates: Record<string, { color: string }>): void {
+    localStorage.setItem(STORAGE_KEYS.CIRCLED_DATES, JSON.stringify(circledDates));
+  }
+
   loadSettings(): CalendarSettings {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (!raw) return DEFAULT_SETTINGS;
     try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      // Fallback if legacy settings stored circle as active drawing tool
+      if ((parsed.activeTool as string) === 'circle') {
+        parsed.activeTool = 'select';
+      }
+      return parsed;
     } catch {
       return DEFAULT_SETTINGS;
     }
@@ -349,6 +405,7 @@ export class LocalStorageAdapter implements CalendarStorage {
       weekNotes: this.loadWeekNotes(),
       monthNotes: this.loadMonthNotes(),
       drawings: this.loadDrawings(),
+      circledDates: this.loadCircledDates(),
       settings: this.loadSettings(),
     };
     return JSON.stringify(backup, null, 2);
@@ -363,6 +420,9 @@ export class LocalStorageAdapter implements CalendarStorage {
     const notes = Array.isArray(parsed.notes) ? parsed.notes : [];
     const rawDrawings = Array.isArray(parsed.drawings) ? parsed.drawings : [];
     const migratedDrawings = migrateDrawingsV1ToV2(rawDrawings, notes);
+    const circledDates = parsed.circledDates && typeof parsed.circledDates === 'object' && !Array.isArray(parsed.circledDates)
+      ? parsed.circledDates
+      : {};
 
     const data: CalendarBackupData = {
       version: STORAGE_VERSION,
@@ -371,6 +431,7 @@ export class LocalStorageAdapter implements CalendarStorage {
       weekNotes: Array.isArray(parsed.weekNotes) ? parsed.weekNotes : [],
       monthNotes: Array.isArray(parsed.monthNotes) ? parsed.monthNotes : [],
       drawings: migratedDrawings,
+      circledDates,
       settings: { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) },
     };
 
@@ -378,6 +439,7 @@ export class LocalStorageAdapter implements CalendarStorage {
     this.saveWeekNotes(data.weekNotes);
     this.saveMonthNotes(data.monthNotes);
     this.saveDrawings(data.drawings);
+    this.saveCircledDates(data.circledDates || {});
     this.saveSettings(data.settings);
     localStorage.setItem(STORAGE_KEYS.SCHEMA_VERSION, String(STORAGE_VERSION));
 
@@ -392,6 +454,7 @@ export interface RemoteCalendarResponse {
   weekNotes: WeekNote[];
   monthNotes: MonthNote[];
   drawings: DrawingElement[];
+  circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings | null;
   syncedAt: string | null;
   schemaVersion: number;
@@ -414,6 +477,7 @@ export async function saveRemoteCalendar(data: {
   weekNotes: WeekNote[];
   monthNotes: MonthNote[];
   drawings: DrawingElement[];
+  circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings;
 }): Promise<{ ok: boolean; syncedAt?: string } | null> {
   try {

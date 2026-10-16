@@ -12,6 +12,25 @@ export interface DateItem {
   isFirstDayOfMonth: boolean;
   isToday: boolean;
   epochDay: number; // Integer count of days since Unix epoch
+  // First-class semantic date marking
+  isCircled?: boolean;
+  circleColor?: string;
+}
+
+export const CIRCLE_DATE_COLORS = [
+  '#D23B38', // Terracotta / Crimson (Default)
+  '#83C5BE', // Sage / Aqua
+  '#E9C46A', // Warm Ochre
+  '#9B5DE5', // Lavender / Purple
+  '#457B9D', // Slate / Steel Blue
+] as const;
+
+export type CircleDateColor = typeof CIRCLE_DATE_COLORS[number];
+
+export interface CircledDate {
+  dateKey: string; // ISO "YYYY-MM-DD"
+  color: string;   // Hex color code
+  createdAt?: string;
 }
 
 export interface NoteItem {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { NoteItem, MonthNote, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
+import { CIRCLE_DATE_COLORS } from '../types/calendar';
 import { formatDateKey } from '../utils/dateUtils';
 import { 
   storage, 
@@ -15,6 +16,7 @@ export interface HistorySnapshot {
   weekNotes: WeekNote[];
   monthNotes: MonthNote[];
   drawings: DrawingElement[];
+  circledDates: Record<string, { color: string }>;
 }
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline';
@@ -24,6 +26,7 @@ export function useCalendarState() {
   const [weekNotes, setWeekNotes] = useState<WeekNote[]>(() => storage.loadWeekNotes());
   const [monthNotes, setMonthNotes] = useState<MonthNote[]>(() => storage.loadMonthNotes());
   const [drawings, setDrawings] = useState<DrawingElement[]>(() => storage.loadDrawings());
+  const [circledDates, setCircledDates] = useState<Record<string, { color: string }>>(() => storage.loadCircledDates());
   const [settings, setSettings] = useState<CalendarSettings>(() => storage.loadSettings());
 
   // SQLite sync state
@@ -45,11 +48,12 @@ export function useCalendarState() {
     weekNotes,
     monthNotes,
     drawings,
+    circledDates,
   });
 
   useEffect(() => {
-    currentStateRef.current = { notes, weekNotes, monthNotes, drawings };
-  }, [notes, weekNotes, monthNotes, drawings]);
+    currentStateRef.current = { notes, weekNotes, monthNotes, drawings, circledDates };
+  }, [notes, weekNotes, monthNotes, drawings, circledDates]);
 
   // Initial SQLite hydration with safe non-destructive merging
   useEffect(() => {
@@ -129,11 +133,16 @@ export function useCalendarState() {
           const mergedWeekNotes = safeMerge(currentStateRef.current.weekNotes, remote.weekNotes);
           const mergedMonthNotes = safeMerge(currentStateRef.current.monthNotes, remote.monthNotes);
           const mergedDrawings = safeMerge(currentStateRef.current.drawings, remote.drawings);
+          const mergedCircledDates = {
+            ...currentStateRef.current.circledDates,
+            ...(remote.circledDates || {}),
+          };
 
           setNotes(mergedNotes);
           setWeekNotes(mergedWeekNotes);
           setMonthNotes(mergedMonthNotes);
           setDrawings(mergedDrawings);
+          setCircledDates(mergedCircledDates);
           if (remote.settings) {
             setSettings(remote.settings);
           }
@@ -142,6 +151,7 @@ export function useCalendarState() {
           storage.saveWeekNotes(mergedWeekNotes);
           storage.saveMonthNotes(mergedMonthNotes);
           storage.saveDrawings(mergedDrawings);
+          storage.saveCircledDates(mergedCircledDates);
           if (remote.settings) {
             storage.saveSettings(remote.settings);
           }
@@ -151,13 +161,15 @@ export function useCalendarState() {
             mergedNotes.length !== remote.notes.length ||
             mergedWeekNotes.length !== remote.weekNotes.length ||
             mergedMonthNotes.length !== remote.monthNotes.length ||
-            mergedDrawings.length !== remote.drawings.length
+            mergedDrawings.length !== remote.drawings.length ||
+            Object.keys(mergedCircledDates).length !== Object.keys(remote.circledDates || {}).length
           ) {
             saveRemoteCalendar({
               notes: mergedNotes,
               weekNotes: mergedWeekNotes,
               monthNotes: mergedMonthNotes,
               drawings: mergedDrawings,
+              circledDates: mergedCircledDates,
               settings: remote.settings || storage.loadSettings(),
             });
           }
@@ -173,6 +185,7 @@ export function useCalendarState() {
             weekNotes: snapshot.weekNotes,
             monthNotes: snapshot.monthNotes,
             drawings: snapshot.drawings,
+            circledDates: snapshot.circledDates,
             settings: currentSettings,
           });
           if (result && result.ok) {
@@ -209,6 +222,7 @@ export function useCalendarState() {
       weekNotes: currentStateRef.current.weekNotes,
       monthNotes: currentStateRef.current.monthNotes,
       drawings: currentStateRef.current.drawings,
+      circledDates: currentStateRef.current.circledDates,
     });
 
     if (undoStackRef.current.length > 50) {
@@ -229,6 +243,7 @@ export function useCalendarState() {
       weekNotes: currentStateRef.current.weekNotes,
       monthNotes: currentStateRef.current.monthNotes,
       drawings: currentStateRef.current.drawings,
+      circledDates: currentStateRef.current.circledDates,
     });
 
     if (redoStackRef.current.length > 50) {
@@ -239,6 +254,7 @@ export function useCalendarState() {
     setWeekNotes(previous.weekNotes);
     setMonthNotes(previous.monthNotes);
     setDrawings(previous.drawings);
+    setCircledDates(previous.circledDates || {});
 
     setCanUndo(undoStackRef.current.length > 0);
     setCanRedo(true);
@@ -253,6 +269,7 @@ export function useCalendarState() {
       weekNotes: currentStateRef.current.weekNotes,
       monthNotes: currentStateRef.current.monthNotes,
       drawings: currentStateRef.current.drawings,
+      circledDates: currentStateRef.current.circledDates,
     });
 
     if (undoStackRef.current.length > 50) {
@@ -263,6 +280,7 @@ export function useCalendarState() {
     setWeekNotes(next.weekNotes);
     setMonthNotes(next.monthNotes);
     setDrawings(next.drawings);
+    setCircledDates(next.circledDates || {});
 
     setCanUndo(true);
     setCanRedo(redoStackRef.current.length > 0);
@@ -286,6 +304,10 @@ export function useCalendarState() {
   }, [drawings]);
 
   useEffect(() => {
+    storage.saveCircledDates(circledDates);
+  }, [circledDates]);
+
+  useEffect(() => {
     storage.saveSettings(settings);
   }, [settings]);
 
@@ -304,6 +326,7 @@ export function useCalendarState() {
         weekNotes,
         monthNotes,
         drawings,
+        circledDates,
         settings,
       };
 
@@ -321,7 +344,7 @@ export function useCalendarState() {
         window.clearTimeout(syncDebounceRef.current);
       }
     };
-  }, [notes, weekNotes, monthNotes, drawings, settings]);
+  }, [notes, weekNotes, monthNotes, drawings, circledDates, settings]);
 
   const forceSync = useCallback(async () => {
     setSyncStatus('syncing');
@@ -330,6 +353,7 @@ export function useCalendarState() {
       weekNotes,
       monthNotes,
       drawings,
+      circledDates,
       settings,
     };
     const result = await saveRemoteCalendar(payload);
@@ -341,7 +365,7 @@ export function useCalendarState() {
       setSyncStatus('offline');
       return false;
     }
-  }, [notes, weekNotes, monthNotes, drawings, settings]);
+  }, [notes, weekNotes, monthNotes, drawings, circledDates, settings]);
 
   // Date notes
   const addNote = useCallback((content: string, parentDates: string[], colorTag?: string) => {
@@ -781,6 +805,55 @@ export function useCalendarState() {
     setDrawings([]);
   }, [recordHistory]);
 
+  // First-class Circled Dates actions
+  const toggleCircleDate = useCallback(
+    (dateKey: string, color: string = CIRCLE_DATE_COLORS[0]) => {
+      recordHistory();
+      setCircledDates((prev) => {
+        const next = { ...prev };
+        if (next[dateKey]) {
+          delete next[dateKey];
+        } else {
+          next[dateKey] = { color };
+        }
+        return next;
+      });
+    },
+    [recordHistory]
+  );
+
+  const cycleCircleColor = useCallback(
+    (dateKey: string) => {
+      recordHistory();
+      setCircledDates((prev) => {
+        const existing = prev[dateKey];
+        const currentColor = existing?.color || CIRCLE_DATE_COLORS[0];
+        const currentIndex = (CIRCLE_DATE_COLORS as readonly string[]).indexOf(currentColor);
+        const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % CIRCLE_DATE_COLORS.length;
+        const nextColor = CIRCLE_DATE_COLORS[nextIndex];
+
+        return {
+          ...prev,
+          [dateKey]: { color: nextColor },
+        };
+      });
+    },
+    [recordHistory]
+  );
+
+  const removeCircleDate = useCallback(
+    (dateKey: string) => {
+      recordHistory();
+      setCircledDates((prev) => {
+        if (!prev[dateKey]) return prev;
+        const next = { ...prev };
+        delete next[dateKey];
+        return next;
+      });
+    },
+    [recordHistory]
+  );
+
   const updateSettings = useCallback((partial: Partial<CalendarSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }));
   }, []);
@@ -801,6 +874,9 @@ export function useCalendarState() {
       setWeekNotes(data.weekNotes);
       setMonthNotes(data.monthNotes);
       setDrawings(data.drawings);
+      if (data.circledDates) {
+        setCircledDates(data.circledDates);
+      }
       setSettings(data.settings);
       return true;
     } catch (err) {
@@ -814,6 +890,7 @@ export function useCalendarState() {
     weekNotes,
     monthNotes,
     drawings,
+    circledDates,
     settings,
     addNote,
     toggleStrikeNote,
@@ -838,6 +915,9 @@ export function useCalendarState() {
     removeDrawings,
     updateDrawing,
     clearAllDrawings,
+    toggleCircleDate,
+    cycleCircleColor,
+    removeCircleDate,
     updateSettings,
     exportBackup,
     importBackupFile,
