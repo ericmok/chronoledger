@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Strikethrough, Pencil, Trash2, Check, X, GripVertical } from 'lucide-react';
 import { computeWordDiff } from '../../utils/diffUtils';
+import { parseNoteContent, getNoteBulletColor, toggleAnnotationResolution } from '../../utils/annotationUtils';
+import { useAnnotationInput } from '../../hooks/useAnnotationInput';
+import { AnnotationAutocomplete } from './AnnotationAutocomplete';
 
 export interface NoteCardProps {
   id: string;
@@ -63,6 +66,18 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   const isComfortable = density === 'comfortable';
   const hasEdits = Boolean(originalContent && originalContent !== content);
 
+  const parsedNote = useMemo(
+    () => parseNoteContent(content || originalContent || ''),
+    [content, originalContent]
+  );
+
+  const bulletColor = useMemo(
+    () => getNoteBulletColor(content || originalContent || '', colorTag),
+    [content, originalContent, colorTag]
+  );
+
+  const annotationInput = useAnnotationInput(editText, setEditText);
+
   const diffChunks = useMemo(() => {
     if (!hasEdits || !originalContent) return [];
     return computeWordDiff(originalContent, content);
@@ -101,21 +116,42 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         data-note-id={id}
         onSubmit={handleSaveEdit}
         onClick={(e) => e.stopPropagation()}
-        className={`flex items-center gap-1.5 w-full my-1 p-1 bg-white border border-[#2B2C30] rounded-lg shadow-xs animate-in fade-in duration-100 ${className}`}
+        className={`relative flex items-center gap-1.5 w-full my-1 p-1 bg-white border border-[#2B2C30] rounded-lg shadow-xs animate-in fade-in duration-100 ${className}`}
       >
         <input
           autoFocus
           type="text"
           value={editText}
-          onChange={(e) => setEditText(e.target.value)}
+          onChange={(e) => {
+            setEditText(e.target.value);
+            annotationInput.updateCursor(e.target.value, e.target.selectionStart || 0);
+          }}
+          onKeyUp={(e) => {
+            annotationInput.updateCursor(editText, (e.target as HTMLInputElement).selectionStart || 0);
+          }}
+          onClick={(e) => {
+            annotationInput.updateCursor(editText, (e.target as HTMLInputElement).selectionStart || 0);
+          }}
           onKeyDown={(e) => {
+            if (annotationInput.isOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) {
+              return; // Handled by AnnotationAutocomplete
+            }
             if (e.key === 'Escape') handleCancelEdit();
           }}
           className={`flex-1 bg-transparent border-0 text-[#2B2C30] focus:outline-hidden font-sans placeholder:text-[#A19D94] ${
             isComfortable ? 'px-3.5 py-2 text-sm' : 'px-2 py-1 text-xs'
           }`}
-          placeholder="Edit note text... (Enter to save, Esc to cancel)"
+          placeholder="Edit note... (type @ for tags, Enter to save, Esc to cancel)"
         />
+
+        <AnnotationAutocomplete
+          isOpen={annotationInput.isOpen}
+          query={annotationInput.query}
+          onSelectTag={annotationInput.selectTag}
+          onClose={annotationInput.close}
+          className="top-full left-0 mt-1"
+        />
+
         <button
           type="submit"
           className={`bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] rounded-md font-medium shadow-2xs flex items-center gap-1 transition-colors shrink-0 ${
@@ -139,6 +175,95 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       </form>
     );
   }
+
+  const renderAnnotatedText = (text: string, isDeleted = false, isAdded = false) => {
+    const { segments } = parseNoteContent(text);
+    return segments.map((seg, idx) => {
+      if (seg.type === 'badge' && seg.annotation) {
+        const badge = seg.annotation;
+        const isResolved = Boolean(isStruck || badge.isResolved);
+
+        return (
+          <button
+            key={idx}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onUpdate) {
+                const current = content || originalContent || '';
+                const newContent = toggleAnnotationResolution(current, badge.raw);
+                onUpdate(id, newContent);
+              }
+            }}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.2 mx-0.5 rounded text-[10px] font-mono font-medium tracking-tight border select-none transition-all align-baseline cursor-pointer hover:scale-105 active:scale-95 ${
+              isResolved
+                ? 'line-through opacity-70 bg-[#F4F1EA]/80 border-[#DDD6C8]'
+                : isDeleted
+                ? 'line-through opacity-50'
+                : isAdded
+                ? 'ring-1 ring-[#1E7B48]/30 shadow-2xs'
+                : 'shadow-2xs'
+            }`}
+            style={{
+              backgroundColor: isResolved ? undefined : badge.bgColor,
+              color: isResolved ? '#7E7F85' : badge.textColor,
+              borderColor: isResolved ? undefined : badge.borderColor,
+            }}
+            title={`${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`}
+          >
+            {/* Badge Indicator Dot: shows diagonal slash when resolved */}
+            <svg className="w-2 h-2 shrink-0 overflow-visible" viewBox="0 0 8 8">
+              <circle
+                cx="4"
+                cy="4"
+                r="3"
+                fill={badge.color}
+                opacity={isResolved ? 0.6 : 1}
+              />
+              {isResolved && (
+                <line
+                  x1="1"
+                  y1="7"
+                  x2="7"
+                  y2="1"
+                  stroke="#2B2C30"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                />
+              )}
+            </svg>
+            <span>{badge.tag}</span>
+          </button>
+        );
+      }
+
+      if (isDeleted) {
+        return (
+          <span
+            key={idx}
+            className="inline line-through decoration-[#D23B38] decoration-[1.5px] text-[#D23B38] opacity-60 font-serif mr-1 selection:bg-[#D23B38]/20"
+            title="Deleted word"
+          >
+            {seg.text}
+          </span>
+        );
+      }
+
+      if (isAdded) {
+        return (
+          <span
+            key={idx}
+            className="inline text-[#1E7B48] font-medium bg-[#E8F5E9]/60 px-0.5 rounded-xs mr-0.5"
+            title="Added word"
+          >
+            {seg.text}
+          </span>
+        );
+      }
+
+      return <span key={idx}>{seg.text}</span>;
+    });
+  };
 
   // Normal Display Mode
   return (
@@ -260,22 +385,47 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           </div>
         )}
 
-        {/* Resting Indicator: Color tag dot or default subtle bullet dot (Hidden when hovered or dragging if draggable) */}
-        <span
-          className={`w-1.5 h-1.5 rounded-full shrink-0 transition-opacity ${
-            isStruck ? 'opacity-40' : ''
-          } ${
+        {/* Resting Indicator: Notable dot with crossed-out slash when note or annotations are resolved */}
+        <svg
+          className={`w-2 h-2 shrink-0 overflow-visible transition-opacity ${
             isBeingDragged || isDraggingSelf
               ? 'hidden'
               : isDraggable
               ? 'block group-hover:hidden'
               : 'block'
           }`}
-          style={{ backgroundColor: colorTag || '#A19D94' }}
-        />
+          viewBox="0 0 8 8"
+        >
+          <circle
+            cx="4"
+            cy="4"
+            r="3.2"
+            fill={bulletColor}
+            opacity={
+              isStruck ||
+              (parsedNote.annotations.length > 0 &&
+                parsedNote.annotations.every((a) => a.isResolved))
+                ? 0.6
+                : 1
+            }
+          />
+          {(isStruck ||
+            (parsedNote.annotations.length > 0 &&
+              parsedNote.annotations.every((a) => a.isResolved))) && (
+            <line
+              x1="1"
+              y1="7"
+              x2="7"
+              y2="1"
+              stroke="#2B2C30"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+          )}
+        </svg>
       </div>
 
-      {/* Note Content with Realistic Graphite Strike Line & Word-Level Diffs */}
+      {/* Note Content with Realistic Graphite Strike Line & Micro-badges */}
       <div className="flex-1 min-w-0">
         <div className="relative inline font-sans leading-relaxed break-words">
           {isStruck ? (
@@ -284,36 +434,30 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               {content || originalContent || '(empty note)'}
             </span>
           ) : hasEdits ? (
-            // Render word-level diff: deleted words struck in red ink, added words in green ink
-            <span className="inline whitespace-pre-wrap">
-              {diffChunks.map((chunk, idx) => {
-                if (chunk.type === 'deleted') {
-                  return (
-                    <span
-                      key={idx}
-                      className="inline line-through decoration-[#D23B38] decoration-[1.5px] text-[#D23B38] opacity-60 font-serif mr-1 selection:bg-[#D23B38]/20"
-                      title="Deleted word"
-                    >
-                      {chunk.value}
-                    </span>
-                  );
-                }
-                if (chunk.type === 'added') {
-                  return (
-                    <span
-                      key={idx}
-                      className="inline text-[#1E7B48] font-medium bg-[#E8F5E9]/60 px-0.5 rounded-xs mr-0.5"
-                      title="Added word"
-                    >
-                      {chunk.value}
-                    </span>
-                  );
-                }
-                return <span key={idx}>{chunk.value}</span>;
-              })}
+            // Render word-level diff with micro-badges recognized
+            <span
+              className={`inline whitespace-pre-wrap ${
+                parsedNote.isImportant ? 'font-bold text-[#1C1D20]' : ''
+              }`}
+            >
+              {diffChunks.map((chunk, idx) => (
+                <React.Fragment key={idx}>
+                  {renderAnnotatedText(
+                    chunk.value,
+                    chunk.type === 'deleted',
+                    chunk.type === 'added'
+                  )}
+                </React.Fragment>
+              ))}
             </span>
           ) : (
-            <span>{content || '(empty note)'}</span>
+            <span
+              className={`inline ${
+                parsedNote.isImportant ? 'font-bold text-[#1C1D20]' : ''
+              }`}
+            >
+              {renderAnnotatedText(content || '(empty note)')}
+            </span>
           )}
 
           {/* Audit Trail Badge */}
