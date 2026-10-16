@@ -93,14 +93,6 @@ export const DayRow: React.FC<DayRowProps> = ({
           >
             {dateItem.monthName}
           </span>
-        ) : dateItem.dayOfMonth === 15 ? (
-          <span
-            className={`font-serif text-[10px] uppercase tracking-wider ${
-              isMonthFocus ? 'text-[#D23B38]/85 font-semibold' : 'text-[#8E8F95]/60'
-            }`}
-          >
-            {dateItem.monthName}
-          </span>
         ) : dayIdx === 0 ? (
           <span
             className={`font-serif text-[10px] uppercase tracking-wider ${
@@ -117,34 +109,36 @@ export const DayRow: React.FC<DayRowProps> = ({
         data-date-gutter="true"
         className="w-12 shrink-0 flex flex-col items-center justify-start pt-1 font-mono select-none"
       >
-        <div className="flex items-center justify-center gap-1 leading-none">
-          <span
-            className={`inline-flex items-center justify-center min-w-[20px] h-5 px-0.5 rounded text-xs sm:text-sm font-medium ${
-              dateItem.isToday
-                ? 'text-[#FAF8F5] bg-[#2B2C30] font-bold shadow-xs'
-                : 'text-[#2B2C30]'
-            }`}
-          >
-            {dateItem.dayOfMonth}
-          </span>
-          <span
-            className={`font-semibold text-xs sm:text-sm ${
-              dateItem.isToday
-                ? 'text-[#D23B38] font-bold'
-                : dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
-                ? 'text-[#D23B38]'
-                : 'text-[#63666A]'
-            }`}
-          >
-            {dateItem.dayOfWeekLetter}
-          </span>
-        </div>
-
-        {/* TODAY badge at the bottom of the date number */}
-        {dateItem.isToday && (
-          <span className="text-[7.5px] font-mono font-black uppercase tracking-wider bg-[#D23B38] text-white px-1 py-0.5 rounded shadow-2xs mt-1">
-            TODAY
-          </span>
+        {dateItem.isToday ? (
+          /* Fused Today Unit: Date Number + Day of Week + TODAY badge */
+          <div className="flex flex-col items-center justify-center bg-[#2B2C30] text-[#FAF8F5] rounded-md px-1.5 py-1 shadow-xs min-w-[36px]">
+            <div className="flex items-center justify-center gap-1 leading-none">
+              <span className="text-xs sm:text-sm font-bold text-[#FAF8F5]">
+                {dateItem.dayOfMonth}
+              </span>
+              <span className="text-xs sm:text-sm font-bold text-[#FAF8F5]">
+                {dateItem.dayOfWeekLetter}
+              </span>
+            </div>
+            <span className="text-[7px] font-mono font-black uppercase tracking-wider text-[#FAF8F5]/80 leading-none mt-1">
+              TODAY
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1 leading-none">
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-0.5 rounded text-xs sm:text-sm font-medium text-[#2B2C30]">
+              {dateItem.dayOfMonth}
+            </span>
+            <span
+              className={`font-semibold text-xs sm:text-sm ${
+                dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
+                  ? 'text-[#D23B38]'
+                  : 'text-[#63666A]'
+              }`}
+            >
+              {dateItem.dayOfWeekLetter}
+            </span>
+          </div>
         )}
 
         {/* Horizontal Dots: Only for notes that are explicitly colored */}
