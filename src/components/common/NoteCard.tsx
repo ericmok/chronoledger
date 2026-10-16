@@ -191,9 +191,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         setLocalDropIndicator(null);
         onDrop?.(e, id, pos);
       }}
-      className={`group relative flex items-start ${
-        isMinimal ? 'gap-[3px]' : 'gap-1'
-      } transition-all duration-150 cursor-pointer ${
+      className={`group relative flex items-start gap-1.5 transition-all duration-150 cursor-pointer ${
         isMinimal
           ? 'py-1.5 px-0.5 text-xs border-b border-[#D5CDC0]'
           : isComfortable
@@ -237,7 +235,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       {/* Reserved Left Slot: Holds Color Bullet at rest, Drag Handle on hover/drag */}
       <div
         className={`shrink-0 flex items-center justify-center ${
-          isComfortable ? 'w-4 h-5 mt-0.5' : 'w-2 h-4 mt-0.5'
+          isComfortable ? 'w-4 h-5 mt-0.5' : 'w-3.5 h-4 mt-0.5'
         }`}
       >
         {/* Drag Handle: Shown on hover or when dragging */}
@@ -256,7 +254,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             }`}
             title="Drag to reorder note"
           >
-            <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'} />
+            <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
           </div>
         )}
 
