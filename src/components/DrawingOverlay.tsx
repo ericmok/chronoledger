@@ -6,7 +6,6 @@ import {
   pointsToPath,
   getCurvedArrowPath,
   isFreehandHit,
-  isCircleHit,
   isArrowHit,
 } from '../utils/drawingUtils';
 
@@ -226,13 +225,6 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
         if (isFreehandHit(d.points, anchorY, px, py, ERASER_RADIUS)) {
           hitIds.push(d.id);
         }
-      } else if (d.type === 'circle') {
-        const cx = d.startOffset.x;
-        const cy = anchorY + d.startOffset.y;
-        const radius = d.points[0]?.[0] || 22;
-        if (isCircleHit(cx, cy, radius, px, py, ERASER_RADIUS)) {
-          hitIds.push(d.id);
-        }
       } else if (d.type === 'arrow' && d.anchorEndDate) {
         const startResolved = resolveEndpoint(
           d.startAnchor,
@@ -366,22 +358,6 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
         startOffset: { x: dragStart.x, y: dragStart.y - anchorY },
         points: relativePoints,
       });
-    } else if (tool === 'circle' && dragStart && currentPointer) {
-      const anchorMatch = getDateAtY(dragStart.y);
-      if (anchorMatch) {
-        const radius = Math.max(
-          Math.hypot(currentPointer.x - dragStart.x, currentPointer.y - dragStart.y),
-          22
-        );
-        onAddDrawing({
-          type: 'circle',
-          color: inkColor,
-          strokeWidth: 2,
-          anchorStartDate: anchorMatch.dateString,
-          startOffset: { x: dragStart.x, y: dragStart.y - anchorMatch.dateY },
-          points: [[radius, radius]],
-        });
-      }
     } else if (tool === 'arrow' && dragStart && currentPointer) {
       const endHit = hitTestCalendar(e.clientX, e.clientY);
       const startMatch = getDateAtY(dragStart.y);
@@ -437,31 +413,6 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
       if (d.anchorStartDate?.startsWith('radar:')) return null;
       const anchorY = getYForDate(d.anchorStartDate);
       if (anchorY === null) return null;
-
-      if (d.type === 'circle') {
-        const cx = d.startOffset.x;
-        const cy = anchorY + d.startOffset.y;
-        const radius = d.points[0]?.[0] || 22;
-        const circleShape = generator.circle(cx, cy, radius * 2, {
-          stroke: d.color,
-          strokeWidth: d.strokeWidth,
-          roughness: 1.8,
-          bowing: 1.5,
-        });
-        const paths = generator.toPaths(circleShape);
-
-        return (
-          <g
-            key={d.id}
-            className={tool === 'eraser' ? 'cursor-pointer hover:opacity-40' : ''}
-            onClick={() => tool === 'eraser' && onRemoveDrawing(d.id)}
-          >
-            {paths.map((p, idx) => (
-              <path key={idx} d={p.d} stroke={d.color} strokeWidth={p.strokeWidth} fill="none" />
-            ))}
-          </g>
-        );
-      }
 
       if (d.type === 'arrow' && d.anchorEndDate) {
         // Responsively resolve endpoints
@@ -587,19 +538,6 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
       {/* Live drawing preview */}
       {isDrawing && tool === 'pencil' && currentPoints.length > 1 && (
         <path d={pointsToPath(currentPoints, 2.5)} fill={inkColor} opacity={0.85} />
-      )}
-
-      {isDrawing && tool === 'circle' && dragStart && currentPointer && (
-        <circle
-          cx={dragStart.x}
-          cy={dragStart.y}
-          r={Math.max(Math.hypot(currentPointer.x - dragStart.x, currentPointer.y - dragStart.y), 20)}
-          stroke={inkColor}
-          strokeWidth="2"
-          strokeDasharray="4 3"
-          fill="none"
-          opacity={0.8}
-        />
       )}
 
       {isDrawing && tool === 'arrow' && dragStart && currentPointer && (

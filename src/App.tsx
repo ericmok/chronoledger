@@ -110,8 +110,6 @@ export function App() {
         updateSettings({ activeTool: 'select' });
       } else if (e.key === 'p' || e.key === 'P') {
         updateSettings({ activeTool: 'pencil' });
-      } else if (e.key === 'c' || e.key === 'C') {
-        updateSettings({ activeTool: 'circle' });
       } else if (e.key === 'a' || e.key === 'A') {
         updateSettings({ activeTool: 'arrow' });
       } else if (e.key === 'e' || e.key === 'E') {

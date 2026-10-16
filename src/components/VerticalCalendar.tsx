@@ -212,7 +212,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
             <span className="text-xs">
               {settings.activeTool === 'eraser' && 'Painting Eraser: Click and drag/paint across pencil strokes to wipe them away'}
               {settings.activeTool === 'arrow' && 'Timeline Arrow: Click and drag from one date to another to link them with a curved arrow'}
-              {settings.activeTool === 'circle' && 'Circle Date: Click and drag over any date number to hand-draw a ring'}
               {settings.activeTool === 'pencil' && 'Pencil Mode: Sketch freely in margins and notes'}
             </span>
             {onCloseTool && (

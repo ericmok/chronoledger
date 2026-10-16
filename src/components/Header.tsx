@@ -1,7 +1,6 @@
 import React, { useRef } from 'react';
 import { 
   Calendar as CalendarIcon, 
-  Circle as CircleIcon, 
   MoveRight as ArrowIcon, 
   PenTool, 
   MousePointer, 
@@ -58,7 +57,6 @@ export const Header: React.FC<HeaderProps> = ({
   const tools: { id: DrawingTool; label: string; icon: React.ReactNode; shortcut: string; hint: string }[] = [
     { id: 'select', label: 'Select / Notes', icon: <MousePointer className="w-4 h-4" />, shortcut: 'V', hint: 'Browse and edit typed notes' },
     { id: 'pencil', label: 'Pencil', icon: <PenTool className="w-4 h-4" />, shortcut: 'P', hint: 'Pencil: Sketch freely in margins and notes' },
-    { id: 'circle', label: 'Circle Date', icon: <CircleIcon className="w-4 h-4" />, shortcut: 'C', hint: 'Circle Date: Drag over date numbers to ring them' },
     { id: 'arrow', label: 'Timeline Arrow', icon: <ArrowIcon className="w-4 h-4" />, shortcut: 'A', hint: 'Timeline Arrow: Drag between two dates to link them' },
     { id: 'eraser', label: 'Eraser', icon: <Eraser className="w-4 h-4" />, shortcut: 'E', hint: 'Eraser: Paint over pencil strokes to erase them' },
   ];

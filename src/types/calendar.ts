@@ -78,7 +78,7 @@ export const NOTE_ACCENT_COLORS = [
 
 export type NoteAccentColor = typeof NOTE_ACCENT_COLORS[number];
 
-export type DrawingTool = 'select' | 'pencil' | 'arrow' | 'circle' | 'highlighter' | 'eraser';
+export type DrawingTool = 'select' | 'pencil' | 'arrow' | 'highlighter' | 'eraser';
 
 export interface ArrowEndpointAnchor {
   dateString: string;
