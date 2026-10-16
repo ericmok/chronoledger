@@ -60,43 +60,57 @@ export function createDefaultNotes(): NoteItem[] {
   nextWeek1.setDate(today.getDate() + 5);
   const nextWeek1Str = formatDateKey(nextWeek1);
 
-  const nextWeek2 = new Date(today);
-  nextWeek2.setDate(today.getDate() + 7);
-  const nextWeek2Str = formatDateKey(nextWeek2);
-
   return [
     {
       id: 'demo-1',
       originalContent: 'Review quarterly architecture plan',
-      content: 'Review quarterly architecture and security plan with team',
+      content: 'Review quarterly architecture and security plan with team @important',
       parentDates: [todayStr],
       isStruck: false,
-      colorTag: '#E29578',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
     {
       id: 'demo-2',
-      content: 'Draft proposal for client team',
+      content: 'Finalize server migration roadmap @important',
       parentDates: [todayStr],
-      isStruck: true,
-      strikeStyle: 'single',
+      isStruck: false,
       createdAt: new Date().toISOString(),
     },
     {
       id: 'demo-3',
-      content: 'Tokyo Design & Engineering Offsite',
+      content: 'Tokyo Design & Engineering Offsite @4:00pm',
       parentDates: [tomorrowStr, dayAfterStr],
       isStruck: false,
-      colorTag: '#83C5BE',
       createdAt: new Date().toISOString(),
     },
     {
       id: 'demo-4',
-      content: 'Milestone Preparation & Sync',
-      parentDates: [nextWeek1Str, nextWeek2Str],
+      content: 'Draft proposal for client team @wait on legal team brief',
+      parentDates: [tomorrowStr],
       isStruck: false,
-      colorTag: '#E9C46A',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'demo-5',
+      content: 'Explore zero-latency state sync @explore',
+      parentDates: [dayAfterStr],
+      isStruck: false,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'demo-6',
+      content: 'The simplest abstractions are discovered, not designed @thought',
+      parentDates: [nextWeek1Str],
+      isStruck: false,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'demo-7',
+      content: 'Completed initial user interviews @skipped',
+      parentDates: [todayStr],
+      isStruck: true,
+      strikeStyle: 'single',
       createdAt: new Date().toISOString(),
     },
   ];
@@ -125,6 +139,13 @@ export function createDefaultWeekNotes(): WeekNote[] {
       parentWeeks: [currentWeekKey, nextWeekKey],
       isStruck: false,
       colorTag: '#83C5BE',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'wnote-3',
+      content: 'Feature: Search & filter all @todo notes across timeline (Cmd+K / Ledger drawer) @todo @explore',
+      parentWeeks: [currentWeekKey],
+      isStruck: false,
       createdAt: new Date().toISOString(),
     },
   ];
