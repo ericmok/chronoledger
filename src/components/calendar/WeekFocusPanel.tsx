@@ -78,9 +78,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
       {/* Week Header & Notes Section (expands to utilize full vertical space of the week) */}
       <div className="flex-1 flex flex-col min-h-0">
         <div
-          className={`flex items-baseline justify-between border-b pb-1 mb-1.5 shrink-0 ${
-            weekBlock.containsToday ? 'border-[#71727A]' : 'border-[#71727A]/80'
-          }`}
+          className="flex items-baseline justify-between border-b border-[#D5CDC0] pb-1 mb-1.5 shrink-0"
         >
           <div className="flex items-baseline gap-1.5 min-w-0">
             <span className="font-serif text-xs font-bold text-[#2B2C30] shrink-0 flex items-center gap-1">

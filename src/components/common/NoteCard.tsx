@@ -193,7 +193,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       }}
       className={`group relative flex items-start gap-1.5 transition-all duration-150 cursor-pointer ${
         isMinimal
-          ? 'py-1.5 px-0.5 text-xs border-b border-[#71727A]'
+          ? 'py-1.5 px-0.5 text-xs border-b border-[#D5CDC0]'
           : isComfortable
           ? 'rounded-md py-1 px-2 text-sm'
           : 'rounded-md p-1 text-xs'
@@ -259,24 +259,18 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         )}
 
         {/* Resting Indicator: Color tag dot or default subtle bullet dot (Hidden when hovered or dragging if draggable) */}
-        {(colorTag || isComfortable) && (
-          <span
-            className={`rounded-full shrink-0 transition-opacity ${
-              colorTag
-                ? isComfortable
-                  ? 'w-1.5 h-1.5'
-                  : 'w-1 h-1'
-                : 'w-1 h-1'
-            } ${
-              isBeingDragged || isDraggingSelf
-                ? 'hidden'
-                : isDraggable
-                ? 'block group-hover:hidden'
-                : 'block'
-            }`}
-            style={{ backgroundColor: colorTag || '#CDC5B7' }}
-          />
-        )}
+        <span
+          className={`w-1.5 h-1.5 rounded-full shrink-0 transition-opacity ${
+            isStruck ? 'opacity-40' : ''
+          } ${
+            isBeingDragged || isDraggingSelf
+              ? 'hidden'
+              : isDraggable
+              ? 'block group-hover:hidden'
+              : 'block'
+          }`}
+          style={{ backgroundColor: colorTag || '#A19D94' }}
+        />
       </div>
 
       {/* Note Content with Realistic Graphite Strike Line & Word-Level Diffs */}
