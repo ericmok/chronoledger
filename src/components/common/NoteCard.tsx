@@ -191,7 +191,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         setLocalDropIndicator(null);
         onDrop?.(e, id, pos);
       }}
-      className={`group relative flex items-start gap-1.5 transition-all duration-150 cursor-pointer ${
+      className={`group relative flex items-start ${
+        isMinimal ? 'gap-1' : 'gap-1.5'
+      } transition-all duration-150 cursor-pointer ${
         isMinimal
           ? 'py-1.5 px-0.5 text-xs border-b border-[#D5CDC0]'
           : isComfortable
