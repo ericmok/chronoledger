@@ -193,7 +193,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       }}
       className={`group relative flex items-start gap-1.5 transition-all duration-150 cursor-pointer ${
         isMinimal
-          ? 'py-1.5 px-0.5 text-xs border-b border-[#E5DFD5]/80'
+          ? 'py-1.5 px-0.5 text-xs border-b border-[#71727A]'
           : isComfortable
           ? 'rounded-md py-1 px-2 text-sm'
           : 'rounded-md p-1 text-xs'

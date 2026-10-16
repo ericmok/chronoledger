@@ -79,7 +79,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
       <div className="flex-1 flex flex-col min-h-0">
         <div
           className={`flex items-baseline justify-between border-b pb-1 mb-1.5 shrink-0 ${
-            weekBlock.containsToday ? 'border-[#D9CDBC]' : 'border-[#E5DFD5]/70'
+            weekBlock.containsToday ? 'border-[#71727A]' : 'border-[#71727A]/80'
           }`}
         >
           <div className="flex items-baseline gap-1.5 min-w-0">
