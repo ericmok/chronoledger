@@ -76,6 +76,18 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     [content, originalContent, colorTag]
   );
 
+  const isBulletResolved = useMemo(
+    () =>
+      Boolean(
+        isStruck ||
+          (parsedNote.leadingAnnotation
+            ? parsedNote.leadingAnnotation.isResolved
+            : parsedNote.annotations.length > 0 &&
+              parsedNote.annotations.every((a) => a.isResolved))
+      ),
+    [isStruck, parsedNote]
+  );
+
   const annotationInput = useAnnotationInput(editText, setEditText);
 
   const diffChunks = useMemo(() => {
@@ -180,15 +192,24 @@ export const NoteCard: React.FC<NoteCardProps> = ({
    * Renders note text by parsing micro-badges and clean plain text.
    * - Escaped tags (e.g. `\@todo`) have their escaping backslash stripped here for clean reading.
    * - In edit mode, the raw stored text (with backslash) is loaded in the input field.
+   * - Prefix Dot Elision: When a badge is leading (the note starts with this tag), its inner dot
+   *   is suppressed because the resting note bullet on the left serves as its primary indicator dot.
+   * - Middle-of-note badges retain their inner colored indicator dot.
    * - Badges can be clicked to toggle their markdown resolution state (`@tag` <-> `~~@tag~~`).
    * - Badges marked `isDeleted` in a word diff cannot be clicked to prevent state corruption.
    */
-  const renderAnnotatedText = (text: string, isDeleted = false, isAdded = false) => {
+  const renderAnnotatedText = (
+    text: string,
+    isDeleted = false,
+    isAdded = false,
+    forceNotLeading = false
+  ) => {
     const { segments } = parseNoteContent(text);
     return segments.map((seg, idx) => {
       if (seg.type === 'badge' && seg.annotation) {
         const badge = seg.annotation;
         const isResolved = Boolean(isStruck || badge.isResolved);
+        const isLeadingBadge = !forceNotLeading && Boolean(badge.isLeading);
 
         return (
           <button
@@ -203,7 +224,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 onUpdate(id, newContent);
               }
             }}
-            className={`inline-flex items-center gap-1 px-1.5 py-0.2 mx-0.5 rounded text-[10px] font-mono font-medium tracking-tight border select-none transition-all align-baseline ${
+            className={`inline-flex items-center gap-1 px-1.5 py-0.2 ${
+              isLeadingBadge ? 'ml-0 mr-1' : 'mx-0.5'
+            } rounded text-[10px] font-mono font-medium tracking-tight border select-none transition-all align-baseline ${
               isDeleted ? 'cursor-default' : 'cursor-pointer hover:scale-105 active:scale-95'
             } ${
               isResolved
@@ -225,27 +248,29 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
             }
           >
-            {/* Badge Indicator Dot: shows diagonal slash when resolved */}
-            <svg className="w-2 h-2 shrink-0 overflow-visible" viewBox="0 0 8 8">
-              <circle
-                cx="4"
-                cy="4"
-                r="3"
-                fill={badge.color}
-                opacity={isResolved ? 0.6 : 1}
-              />
-              {isResolved && (
-                <line
-                  x1="1"
-                  y1="7"
-                  x2="7"
-                  y2="1"
-                  stroke="#2B2C30"
-                  strokeWidth="1.3"
-                  strokeLinecap="round"
+            {/* Badge Indicator Dot: Elided when leading (resting bullet serves as the dot); shows diagonal slash when resolved */}
+            {!isLeadingBadge && (
+              <svg className="w-2 h-2 shrink-0 overflow-visible" viewBox="0 0 8 8">
+                <circle
+                  cx="4"
+                  cy="4"
+                  r="3"
+                  fill={badge.color}
+                  opacity={isResolved ? 0.6 : 1}
                 />
-              )}
-            </svg>
+                {isResolved && (
+                  <line
+                    x1="1"
+                    y1="7"
+                    x2="7"
+                    y2="1"
+                    stroke="#2B2C30"
+                    strokeWidth="1.3"
+                    strokeLinecap="round"
+                  />
+                )}
+              </svg>
+            )}
             <span>{badge.tag}</span>
           </button>
         );
@@ -415,17 +440,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             cy="4"
             r="3.2"
             fill={bulletColor}
-            opacity={
-              isStruck ||
-              (parsedNote.annotations.length > 0 &&
-                parsedNote.annotations.every((a) => a.isResolved))
-                ? 0.6
-                : 1
-            }
+            opacity={isBulletResolved ? 0.6 : 1}
           />
-          {(isStruck ||
-            (parsedNote.annotations.length > 0 &&
-              parsedNote.annotations.every((a) => a.isResolved))) && (
+          {isBulletResolved && (
             <line
               x1="1"
               y1="7"
@@ -454,15 +471,22 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 parsedNote.isImportant ? 'font-bold text-[#1C1D20]' : ''
               }`}
             >
-              {diffChunks.map((chunk, idx) => (
-                <React.Fragment key={idx}>
-                  {renderAnnotatedText(
+              {(() => {
+                let nonWhitespaceSeen = false;
+                return diffChunks.map((chunk, idx) => {
+                  const forceNotLeading = nonWhitespaceSeen;
+                  const rendered = renderAnnotatedText(
                     chunk.value,
                     chunk.type === 'deleted',
-                    chunk.type === 'added'
-                  )}
-                </React.Fragment>
-              ))}
+                    chunk.type === 'added',
+                    forceNotLeading
+                  );
+                  if (chunk.value.trim() !== '') {
+                    nonWhitespaceSeen = true;
+                  }
+                  return <React.Fragment key={idx}>{rendered}</React.Fragment>;
+                });
+              })()}
             </span>
           ) : (
             <span

@@ -22,6 +22,15 @@
  * - Boundaries: Tags must occur at start of string or following whitespace/delimiters (` `, `(`, `[`, etc.).
  *   Email addresses (`user@domain.com`) are unaffected.
  *
+ * ## Prefix Dot Elision (Leading Badge Optimization)
+ * - When a note begins with an annotation tag (e.g. `@todo Buy groceries`):
+ *   - The badge's inner indicator dot is suppressed (elided).
+ *   - The note's resting bullet on the left adopts the category color of the leading tag and acts as its anchor dot.
+ *   - This prevents redundant "double-dot stutter" (`[•] [• todo]`) while preserving bullet-column alignment.
+ *   - When toggled to resolved (`~~@todo~~`), the resting bullet displays the 45° pencil slash,
+ *     while the badge displays strikethrough text without visual slash collision.
+ *   - Badges located in the middle of a note (e.g. `Call @wait for update`) retain their inner colored indicator dot.
+ *
  * ## Notable Dots (Date Gutter & Radar)
  * - Tracks unique annotation categories per note.
  * - Active annotations render as solid circles in their designated category color.
@@ -211,6 +220,7 @@ export interface ParsedAnnotation {
   isTime?: boolean;
   timeString?: string;
   isResolved?: boolean;
+  isLeading?: boolean;
 }
 
 export function resolveAnnotation(tag: string, isResolved = false): ParsedAnnotation {
@@ -277,12 +287,15 @@ export interface NoteSegment {
   type: 'text' | 'badge';
   text: string;
   annotation?: ParsedAnnotation;
+  isLeading?: boolean;
 }
 
 export interface ParsedNoteResult {
   segments: NoteSegment[];
   annotations: ParsedAnnotation[];
   primaryAnnotation?: ParsedAnnotation;
+  leadingAnnotation?: ParsedAnnotation;
+  hasLeadingAnnotation: boolean;
   isImportant: boolean;
   isSkipped: boolean;
   isFailed?: boolean;
@@ -313,6 +326,7 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
     return {
       segments: [{ type: 'text', text: '' }],
       annotations: [],
+      hasLeadingAnnotation: false,
       isImportant: false,
       isSkipped: false,
       hasTime: false,
@@ -374,15 +388,21 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
     // Even number of backslashes: valid unescaped badge
     pushText(textBefore);
 
+    // Prefix Dot Elision: Determine if this badge is leading
+    // (first badge in note and all preceding segments are whitespace-only)
+    const isLeading = segments.every((s) => s.type === 'text' && s.text.trim() === '');
+
     const isResolved = noteIsStruck || isTagStruck;
     const parsed = resolveAnnotation(tagBody, isResolved);
     parsed.raw = rawTag;
+    parsed.isLeading = isLeading;
     annotations.push(parsed);
 
     segments.push({
       type: 'badge',
       text: rawTag,
       annotation: parsed,
+      isLeading,
     });
 
     lastIndex = matchEnd;
@@ -396,6 +416,8 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
   // Sort annotations by priority
   const sortedAnnotations = [...annotations].sort((a, b) => a.priority - b.priority);
   const primaryAnnotation = sortedAnnotations[0];
+  const leadingAnnotation = annotations.find((a) => a.isLeading);
+  const hasLeadingAnnotation = Boolean(leadingAnnotation);
 
   // Only highlight bold if there is an active (unresolved) @important annotation
   const isImportant = annotations.some((a) => a.type === 'important' && !a.isResolved);
@@ -407,6 +429,8 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
     segments,
     annotations,
     primaryAnnotation,
+    leadingAnnotation,
+    hasLeadingAnnotation,
     isImportant,
     isSkipped,
     isFailed,
@@ -465,7 +489,10 @@ export function toggleAnnotationResolution(content: string, rawTag: string): str
 // Determines the color of the note's bullet
 export function getNoteBulletColor(content: string, fallbackColor?: string): string {
   if (!content) return fallbackColor || '#A19D94';
-  const { primaryAnnotation } = parseNoteContent(content);
+  const { leadingAnnotation, primaryAnnotation } = parseNoteContent(content);
+  if (leadingAnnotation) {
+    return leadingAnnotation.color;
+  }
   if (primaryAnnotation) {
     return primaryAnnotation.color;
   }
