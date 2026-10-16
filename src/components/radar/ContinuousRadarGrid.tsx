@@ -140,7 +140,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                         e.stopPropagation();
                         onToggleCircleDate?.(cell.dateKey);
                       }}
-                      className="absolute inset-[4px] rounded-full pointer-events-auto cursor-pointer hover:scale-110 transition-transform flex items-center justify-center z-10"
+                      className="absolute inset-[1.5px] rounded-full pointer-events-auto cursor-pointer hover:scale-105 transition-transform flex items-center justify-center z-10"
                       title="Click circle to cycle color • Double-click to remove"
                     >
                       <RoughCircledRing

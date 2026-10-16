@@ -165,7 +165,7 @@ export const DayRow: React.FC<DayRowProps> = ({
             {/* Tactile Hand-Drawn Ring around Today badge */}
             {isCircled && (
               <span
-                className="absolute -inset-[3.5px] pointer-events-none flex items-center justify-center z-10"
+                className="absolute -inset-[5px] pointer-events-none flex items-center justify-center z-10"
                 aria-hidden="true"
               >
                 <RoughCircledRing
@@ -205,7 +205,7 @@ export const DayRow: React.FC<DayRowProps> = ({
               {/* Tactile Hand-Drawn Pen Ring around day number */}
               {isCircled && (
                 <span
-                  className="absolute -inset-[3px] pointer-events-none flex items-center justify-center z-10"
+                  className="absolute -inset-[5px] pointer-events-none flex items-center justify-center z-10"
                   aria-hidden="true"
                 >
                   <RoughCircledRing

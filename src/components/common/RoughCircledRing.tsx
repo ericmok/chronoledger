@@ -54,47 +54,47 @@ export const RoughCircledRing: React.FC<RoughCircledRingProps> = ({
 
     if (variant === 'today') {
       // Rounded rectangle framing the dark "Today" badge
-      // ViewBox: 0 0 44 38
+      // ViewBox: 0 0 48 42
       const shape = generator.path(
-        'M 8 3 L 36 3 Q 41 3 41 8 L 41 30 Q 41 35 36 35 L 8 35 Q 3 35 3 30 L 3 8 Q 3 3 8 3 Z',
+        'M 9 3 L 39 3 Q 45 3 45 9 L 45 33 Q 45 39 39 39 L 9 39 Q 3 39 3 33 L 3 9 Q 3 3 9 3 Z',
         {
           roughness: 1.3,
           bowing: 1.2,
-          strokeWidth: 2,
+          strokeWidth: 2.1,
           seed,
         }
       );
       return {
-        viewBox: '0 0 44 38',
+        viewBox: '0 0 48 42',
         paths: generator.toPaths(shape),
         filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))',
       };
     }
 
     if (variant === 'radar') {
-      // Hand-drawn sketchy oval tailored for 32x38 radar cells
-      const shape = generator.ellipse(16, 19, 27, 31, {
+      // Hand-drawn sketchy oval tailored for continuous radar cells (~36x42)
+      const shape = generator.ellipse(18, 21, 31, 36, {
         roughness: 1.5,
         bowing: 1.3,
-        strokeWidth: 2.1,
+        strokeWidth: 2.2,
         seed,
       });
       return {
-        viewBox: '0 0 32 38',
+        viewBox: '0 0 36 42',
         paths: generator.toPaths(shape),
         filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))',
       };
     }
 
-    // Default: 'day' - regular day number in VerticalCalendar DayRow (~28x28)
-    const shape = generator.ellipse(14, 14, 23, 21, {
+    // Default: 'day' - regular day number in VerticalCalendar DayRow (~32x30)
+    const shape = generator.ellipse(16, 15, 27, 24, {
       roughness: 1.5,
       bowing: 1.3,
-      strokeWidth: 1.9,
+      strokeWidth: 2.0,
       seed,
     });
     return {
-      viewBox: '0 0 28 28',
+      viewBox: '0 0 32 30',
       paths: generator.toPaths(shape),
       filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))',
     };
