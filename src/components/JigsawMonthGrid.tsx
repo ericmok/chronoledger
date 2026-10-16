@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Compass } from 'lucide-react';
 import type { NoteItem, MonthNote, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
 import { formatDateKey, MONTH_NAMES, FULL_MONTH_NAMES } from '../utils/dateUtils';
 import { getSeasonalColor } from '../utils/seasonalColors';
+import { getGutterDotsForNotes } from '../utils/annotationUtils';
 import { MonthNotesColumn, type MonthMeta } from './radar/MonthNotesColumn';
 import { ContinuousRadarGrid, type JigsawCell, type SvgBoundary } from './radar/ContinuousRadarGrid';
 import { VerticalMonthGutter } from './radar/VerticalMonthGutter';
@@ -219,7 +220,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
       const circleInfo = circledDatesMap.get(dKey);
       const cellNotes = notesByDateMap.get(dKey) || [];
-      const explicitlyColoredNotes = cellNotes.filter((n) => Boolean(n.colorTag));
+      const cellDots = getGutterDotsForNotes(cellNotes).dots;
 
       allCells.push({
         date: new Date(curr),
@@ -231,7 +232,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         isToday: dKey === todayKey,
         hasNotes: cellNotes.length > 0,
         noteCount: cellNotes.length,
-        noteColors: explicitlyColoredNotes.map((n) => n.colorTag!),
+        noteColors: cellDots.map((d) => d.color),
+        noteDots: cellDots.map((d) => ({ color: d.color, isResolved: d.isResolved })),
         isCircled: Boolean(circleInfo),
         circleColor: circleInfo?.color,
         isOutsideTargetRange: isOutside,

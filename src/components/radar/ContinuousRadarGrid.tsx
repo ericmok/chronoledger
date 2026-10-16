@@ -12,6 +12,7 @@ export interface JigsawCell {
   hasNotes: boolean;
   noteCount?: number;
   noteColors?: string[];
+  noteDots?: Array<{ color: string; isResolved: boolean }>;
   isCircled: boolean;
   circleColor?: string;
   isOutsideTargetRange?: boolean;
@@ -164,8 +165,37 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                     </span>
                   )}
 
-                  {/* Notes Pips: Show a dot per note */}
-                  {cell.noteColors && cell.noteColors.length > 0 ? (
+                  {/* Notes Pips: Show notable dots, with slash for resolved items */}
+                  {cell.noteDots && cell.noteDots.length > 0 ? (
+                    <div className="flex items-center justify-center gap-0.5 mt-0.5 max-w-[28px] flex-wrap">
+                      {cell.noteDots.slice(0, 4).map((dot, idx) => (
+                        <svg
+                          key={idx}
+                          className="w-1.5 h-1.5 shrink-0 overflow-visible"
+                          viewBox="0 0 6 6"
+                        >
+                          <circle
+                            cx="3"
+                            cy="3"
+                            r="2.2"
+                            fill={dot.color}
+                            opacity={dot.isResolved ? 0.6 : 1}
+                          />
+                          {dot.isResolved && (
+                            <line
+                              x1="0.8"
+                              y1="5.2"
+                              x2="5.2"
+                              y2="0.8"
+                              stroke="#2B2C30"
+                              strokeWidth="0.9"
+                              strokeLinecap="round"
+                            />
+                          )}
+                        </svg>
+                      ))}
+                    </div>
+                  ) : cell.noteColors && cell.noteColors.length > 0 ? (
                     <div className="flex items-center justify-center gap-0.5 mt-0.5 max-w-[28px] flex-wrap">
                       {cell.noteColors.slice(0, 4).map((color, idx) => (
                         <span

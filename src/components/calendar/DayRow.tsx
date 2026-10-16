@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { DateItem, NoteItem } from '../../types/calendar';
 import { analyzeDateSpan } from '../../utils/dateUtils';
+import { getGutterDotsForNotes } from '../../utils/annotationUtils';
 import { NoteItemComponent } from '../NoteItemComponent';
 import { DayNoteInlineForm } from './DayNoteInlineForm';
 import { Plus } from 'lucide-react';
@@ -66,6 +67,11 @@ export const DayRow: React.FC<DayRowProps> = ({
     const span = analyzeDateSpan(n.parentDates);
     return span.isContiguous && span.startDate === dateItem.dateString && span.count > 1;
   });
+
+  const { dots: gutterDots, title: gutterDotsTitle } = useMemo(
+    () => getGutterDotsForNotes(dayNotes),
+    [dayNotes]
+  );
 
   return (
     <div
@@ -141,23 +147,45 @@ export const DayRow: React.FC<DayRowProps> = ({
           </div>
         )}
 
-        {/* Horizontal Dots: Only for notes that are explicitly colored */}
-        {dayNotes.some((n) => Boolean(n.colorTag)) && (
+        {/* Horizontal Notable Dots: Tracks annotation counts, with diagonal slash for resolved items */}
+        {gutterDots.length > 0 && (
           <div
             className="flex items-center justify-center gap-1 mt-1 flex-wrap max-w-[36px]"
-            title={`${dayNotes.filter((n) => Boolean(n.colorTag)).length} colored note annotation(s)`}
+            title={gutterDotsTitle}
           >
-            {dayNotes
-              .filter((note) => Boolean(note.colorTag))
-              .map((note) => (
-                <span
-                  key={note.id}
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    note.isStruck ? 'opacity-35' : ''
-                  }`}
-                  style={{ backgroundColor: note.colorTag }}
-                />
-              ))}
+            {gutterDots.map((dot, idx) => (
+              <span
+                key={`${dot.id}-${idx}`}
+                className="w-2 h-2 shrink-0 flex items-center justify-center"
+                title={`${dot.label}${dot.isResolved ? ' (resolved)' : ''}`}
+              >
+                <svg
+                  className="w-2 h-2 shrink-0 overflow-visible transition-all"
+                  viewBox="0 0 8 8"
+                >
+                  {/* Colored circle dot */}
+                  <circle
+                    cx="4"
+                    cy="4"
+                    r="3.2"
+                    fill={dot.color}
+                    opacity={dot.isResolved ? 0.6 : 1}
+                  />
+                  {/* Tactile diagonal graphite pencil slash when resolved */}
+                  {dot.isResolved && (
+                    <line
+                      x1="1"
+                      y1="7"
+                      x2="7"
+                      y2="1"
+                      stroke="#2B2C30"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                    />
+                  )}
+                </svg>
+              </span>
+            ))}
           </div>
         )}
       </div>
