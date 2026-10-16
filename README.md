@@ -37,6 +37,7 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
     - 🟣 `@explore` / `@idea` (Amethyst Purple): Exploratory research, ideas, and unknown territory.
     - 🔵 `@thought` / `@revelation` (Estuary Blue): Insights, reflections, and realizations.
     - ⏱️ `@4:00pm` / `@10:30am` (Slate Gray): Specific scheduled times.
+    - 🔴 `@failed` / `@fail` (Ruby Red): Failed, rejected, or unsuccessful tasks and events.
     - ⚪ `@skipped` / `@missed` (Ash Gray): Intentionally skipped or missed items without crossing out note text.
   - **Clean Micro-Badges**: Badges hide the literal `@` prefix inside rendered pill tags (e.g. `important`, `todo`), keeping the ledger typography clean while preserving raw `@tag` in text inputs.
   - **Universal Resolution**: All annotations can be marked as resolved (`~~@tag~~`). Clicking any micro-badge toggles its resolution state directly. Striking out an entire note resolves all embedded tags automatically.

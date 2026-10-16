@@ -42,7 +42,7 @@ Enable users to search, filter, and aggregate all notes with semantic annotation
 ## ✅ Completed Foundation: Semantic Annotation System
 
 1. **Category Registry & Parser (`src/utils/annotationUtils.ts`)**:
-   - 8 core categories: `@important`, `@wait`, `@celebrate`, `@todo`, `@explore`, `@thought`, `@time`, `@skipped`.
+   - 9 core categories: `@important`, `@wait`, `@celebrate`, `@todo`, `@explore`, `@thought`, `@time`, `@failed`, `@skipped`.
    - Zero-schema migration: Plain string storage (`content`) maintains 100% backward/forward compatibility.
 2. **Micro-Badges with `@` Concealment (`NoteCard.tsx`)**:
    - Conceals `@` in badge pills for clean reading while preserving raw `@` in editor inputs.
