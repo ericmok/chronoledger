@@ -28,6 +28,22 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
   - **Week Notes**: Dedicated weekly focus objectives with responsive viewports that expand naturally as tasks accumulate.
   - **Month Notes**: Long-term monthly notes anchored in the margin gutter and jigsaw radar.
   - **Reordering**: Smooth drag handles (`:::`) on all daily, weekly, and monthly notes for intuitive reorganization. Newly created notes append to the bottom of lists.
+- **Semantic Note Annotations, Micro-Badges & Notable Dots**:
+  - **Type `@` anywhere in a note** (with keyboard-driven autocomplete and quick-tag bar) to attach rich metadata:
+    - 🔴 `@important` (Desert Crimson): Critical priorities; bolds note text and renders red dots in the date gutter.
+    - 🟢 `@todo` (Emerald Green): Actionable items and tasks.
+    - 🟠 `@wait` / `@await` (Terracotta Orange): Items blocked by or waiting on external events.
+    - 🟡 `@celebrate` / `@happy` (Marigold Yellow): Birthdays, milestones, and happy celebrations.
+    - 🟣 `@explore` / `@idea` (Amethyst Purple): Exploratory research, ideas, and unknown territory.
+    - 🔵 `@thought` / `@revelation` (Estuary Blue): Insights, reflections, and realizations.
+    - ⏱️ `@4:00pm` / `@10:30am` (Slate Gray): Specific scheduled times.
+    - ⚪ `@skipped` / `@missed` (Ash Gray): Intentionally skipped or missed items without crossing out note text.
+  - **Clean Micro-Badges**: Badges hide the literal `@` prefix inside rendered pill tags (e.g. `important`, `todo`), keeping the ledger typography clean while preserving raw `@tag` in text inputs.
+  - **Universal Resolution**: All annotations can be marked as resolved (`~~@tag~~`). Clicking any micro-badge toggles its resolution state directly. Striking out an entire note resolves all embedded tags automatically.
+  - **Pencil-Slashed Notable Dots**: Date gutter dots track active and resolved annotations by count. Resolved dots remain visible at their date position, crossed out with a crisp 45° diagonal graphite pencil slash.
+  - **CommonMark Backslash Escaping**:
+    - Typing `\@todo` escapes the tag so it renders as clean plain text `@todo` without turning into a badge.
+    - The escaping backslash is consumed in read mode for notebook aesthetics, but preserved in raw storage so opening edit mode displays `\@todo` losslessly (`\\@todo` renders as literal `\` followed by an active badge).
 - **Visual Revision Diffs**:
   - Double-click any note to edit in-place.
   - Deleted words are struck through in low-opacity red ink.

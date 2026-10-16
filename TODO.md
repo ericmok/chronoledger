@@ -36,3 +36,26 @@ Enable users to search, filter, and aggregate all notes with semantic annotation
 - **Query Engine**: Use existing `parseNoteContent()` from `src/utils/annotationUtils.ts`.
 - **Zero Schema Changes**: Queries operate directly on existing in-memory state (`notes`, `weekNotes`, `monthNotes`) in `src/hooks/useCalendarState.ts`.
 - **Navigation**: Leverage `scrollToDate(targetDate)` from virtualizer in `VerticalCalendar.tsx` and `JigsawMonthGrid.tsx`.
+
+---
+
+## ✅ Completed Foundation: Semantic Annotation System
+
+1. **Category Registry & Parser (`src/utils/annotationUtils.ts`)**:
+   - 8 core categories: `@important`, `@wait`, `@celebrate`, `@todo`, `@explore`, `@thought`, `@time`, `@skipped`.
+   - Zero-schema migration: Plain string storage (`content`) maintains 100% backward/forward compatibility.
+2. **Micro-Badges with `@` Concealment (`NoteCard.tsx`)**:
+   - Conceals `@` in badge pills for clean reading while preserving raw `@` in editor inputs.
+3. **Universal Resolution (`~~@tag~~`)**:
+   - Clicking any micro-badge toggles its resolved state in place (`@tag` $\leftrightarrow$ `~~@tag~~`).
+   - Whole-note strikethrough automatically resolves all contained annotations.
+4. **CommonMark Backslash Escaping**:
+   - `\@tag` escapes the badge, consumed on render to produce plain `@tag` without a badge.
+   - Raw `\@tag` is preserved in storage so the edit input loads `\@tag` losslessly.
+   - `\\@tag` escapes the backslash, producing `\` + badge.
+5. **Notable Dots with Graphite Pencil Slash (`DayRow.tsx`, `ContinuousRadarGrid.tsx`)**:
+   - Date gutter dots track active (solid) and resolved (45° diagonal pencil slash) counts.
+   - Resting note bullet mirrors resolution state.
+6. **Autocomplete & Quick-Tag Bar (`AnnotationAutocomplete.tsx`, `useAnnotationInput.ts`)**:
+   - Keyboard-navigable popup on typing `@` with time suggestions (`@4` $\to$ `@4:00pm`).
+   - Integrated into Day, Week, and Month note forms.
