@@ -140,7 +140,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                         onToggleCircleDate?.(cell.dateKey);
                       }}
                       className="absolute inset-[4px] rounded-full pointer-events-auto cursor-pointer hover:scale-110 transition-transform flex items-center justify-center z-10"
-                      title="Click circle to cycle color (Red → Sage → Ochre) • Double-click to remove"
+                      title="Click circle to cycle color • Double-click to remove"
                     >
                       <svg className="w-full h-full overflow-visible" viewBox="0 0 32 38">
                         <ellipse

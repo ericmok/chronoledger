@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { DateItem, NoteItem } from '../../types/calendar';
+import type { DateItem, NoteItem, DrawingTool } from '../../types/calendar';
 import { analyzeDateSpan } from '../../utils/dateUtils';
 import { getGutterDotsForNotes } from '../../utils/annotationUtils';
 import { NoteItemComponent } from '../NoteItemComponent';
@@ -12,6 +12,11 @@ export interface DayRowProps {
   dayNotes: NoteItem[];
   isMonthFocus?: boolean;
   isQuickAdding: boolean;
+  isCircled?: boolean;
+  circleColor?: string;
+  onToggleCircleDate?: (dateKey: string) => void;
+  onCycleCircleColor?: (dateKey: string) => void;
+  activeTool?: DrawingTool;
   onStartQuickAdd: (dateString: string) => void;
   onCancelQuickAdd: () => void;
   onAddNote: (content: string, parentDates: string[], colorTag?: string) => void;
@@ -29,6 +34,11 @@ export const DayRow: React.FC<DayRowProps> = ({
   dayNotes,
   isMonthFocus,
   isQuickAdding,
+  isCircled = false,
+  circleColor,
+  onToggleCircleDate,
+  onCycleCircleColor,
+  activeTool,
   onStartQuickAdd,
   onCancelQuickAdd,
   onAddNote,
@@ -117,7 +127,28 @@ export const DayRow: React.FC<DayRowProps> = ({
       >
         {dateItem.isToday ? (
           /* Fused Today Unit: Date Number + Day of Week + TODAY badge */
-          <div className="flex flex-col items-center justify-center bg-[#2B2C30] text-[#FAF8F5] rounded-md px-1.5 py-1 shadow-xs min-w-[36px]">
+          <div
+            className="relative flex flex-col items-center justify-center bg-[#2B2C30] text-[#FAF8F5] rounded-md px-1.5 py-1 shadow-xs min-w-[36px] cursor-pointer hover:brightness-110 transition-all"
+            title={
+              isCircled
+                ? 'Today (Circled - click to cycle color, double-click to remove)'
+                : 'Today (Double-click to circle)'
+            }
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onToggleCircleDate?.(dateItem.dateString);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (activeTool === 'eraser' && isCircled) {
+                onToggleCircleDate?.(dateItem.dateString);
+                return;
+              }
+              if (isCircled) {
+                onCycleCircleColor?.(dateItem.dateString);
+              }
+            }}
+          >
             <div className="flex items-center justify-center gap-1 leading-none">
               <span className="text-xs sm:text-sm font-bold text-[#FAF8F5]">
                 {dateItem.dayOfMonth}
@@ -129,11 +160,88 @@ export const DayRow: React.FC<DayRowProps> = ({
             <span className="text-[7px] font-mono font-black uppercase tracking-wider text-[#FAF8F5]/80 leading-none mt-1">
               TODAY
             </span>
+
+            {/* Tactile Hand-Drawn Ring around Today badge */}
+            {isCircled && (
+              <span
+                className="absolute -inset-[3.5px] pointer-events-none flex items-center justify-center z-10"
+                aria-hidden="true"
+              >
+                <svg className="w-full h-full overflow-visible" viewBox="0 0 44 38">
+                  <rect
+                    x="1.5"
+                    y="1.5"
+                    width="41"
+                    height="35"
+                    rx="8"
+                    fill="none"
+                    stroke={circleColor || '#E29578'}
+                    strokeWidth="2.2"
+                    strokeDasharray="145"
+                    strokeDashoffset="2"
+                    strokeLinecap="round"
+                    className="transition-colors duration-150"
+                    style={{
+                      filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+                    }}
+                  />
+                </svg>
+              </span>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-center gap-1 leading-none">
-            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-0.5 rounded text-xs sm:text-sm font-medium text-[#2B2C30]">
+            <span
+              className="relative inline-flex items-center justify-center min-w-[20px] h-5 px-0.5 rounded text-xs sm:text-sm font-medium text-[#2B2C30] cursor-pointer hover:bg-black/5 transition-colors"
+              title={
+                isCircled
+                  ? `${dateItem.monthName} ${dateItem.dayOfMonth} (Circled - click to cycle color, double-click to remove)`
+                  : `${dateItem.monthName} ${dateItem.dayOfMonth} (Double-click to circle)`
+              }
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                onToggleCircleDate?.(dateItem.dateString);
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (activeTool === 'eraser' && isCircled) {
+                  onToggleCircleDate?.(dateItem.dateString);
+                  return;
+                }
+                if (isCircled) {
+                  onCycleCircleColor?.(dateItem.dateString);
+                }
+              }}
+            >
               {dateItem.dayOfMonth}
+
+              {/* Tactile Hand-Drawn Pen Ring around day number */}
+              {isCircled && (
+                <span
+                  className="absolute -inset-[3px] pointer-events-none flex items-center justify-center z-10"
+                  aria-hidden="true"
+                >
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 28 28">
+                    <ellipse
+                      cx="14"
+                      cy="14"
+                      rx="12"
+                      ry="11"
+                      fill="none"
+                      stroke={circleColor || '#D23B38'}
+                      strokeWidth="2"
+                      strokeDasharray="75"
+                      strokeDashoffset="1.5"
+                      strokeLinecap="round"
+                      className="transition-colors duration-150"
+                      style={{
+                        filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))',
+                        transform: 'rotate(-8deg)',
+                      }}
+                    />
+                  </svg>
+                </span>
+              )}
             </span>
             <span
               className={`font-semibold text-xs sm:text-sm ${

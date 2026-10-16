@@ -12,6 +12,7 @@ interface VerticalCalendarProps {
   notes: NoteItem[];
   weekNotes: WeekNote[];
   drawings: DrawingElement[];
+  circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings;
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
@@ -28,6 +29,8 @@ interface VerticalCalendarProps {
   onAddDrawing: (drawing: Omit<DrawingElement, 'id' | 'createdAt'>) => void;
   onRemoveDrawing: (id: string) => void;
   onRemoveDrawings?: (ids: string[]) => void;
+  onToggleCircleDate?: (dateKey: string) => void;
+  onCycleCircleColor?: (dateKey: string) => void;
   onCloseTool?: () => void;
   onJumpToDateRequested?: (dateKey: string) => void;
   scrollTargetDate?: { dateString: string; key: number } | null;
@@ -39,6 +42,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   notes = [],
   weekNotes = [],
   drawings = [],
+  circledDates = {},
   settings,
   onToggleStrike,
   onRemoveNote,
@@ -55,6 +59,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   onAddDrawing,
   onRemoveDrawing,
   onRemoveDrawings,
+  onToggleCircleDate,
+  onCycleCircleColor,
   onCloseTool,
   onJumpToDateRequested,
   scrollTargetDate,
@@ -273,6 +279,11 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       dayNotes={notesByDate.get(dateItem.dateString) || []}
                       isMonthFocus={dateItem.dateString.slice(0, 7) === currentMonthKey}
                       isQuickAdding={quickInputDate === dateItem.dateString}
+                      isCircled={Boolean(circledDates[dateItem.dateString])}
+                      circleColor={circledDates[dateItem.dateString]?.color}
+                      onToggleCircleDate={onToggleCircleDate}
+                      onCycleCircleColor={onCycleCircleColor}
+                      activeTool={settings.activeTool}
                       onStartQuickAdd={(d) => setQuickInputDate(d)}
                       onCancelQuickAdd={() => setQuickInputDate(null)}
                       onAddNote={(content, parentDates, colorTag) => {

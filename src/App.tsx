@@ -12,6 +12,7 @@ export function App() {
     weekNotes,
     monthNotes,
     drawings,
+    circledDates,
     settings,
     addNote,
     toggleStrikeNote,
@@ -34,7 +35,8 @@ export function App() {
     addDrawing,
     removeDrawing,
     removeDrawings,
-    updateDrawing,
+    toggleCircleDate,
+    cycleCircleColor,
     updateSettings,
     exportBackup,
     importBackupFile,
@@ -151,6 +153,7 @@ export function App() {
             notes={notes}
             weekNotes={weekNotes}
             drawings={drawings}
+            circledDates={circledDates}
             settings={settings}
             onToggleStrike={toggleStrikeNote}
             onRemoveNote={removeNote}
@@ -167,6 +170,8 @@ export function App() {
             onAddDrawing={addDrawing}
             onRemoveDrawing={removeDrawing}
             onRemoveDrawings={removeDrawings}
+            onToggleCircleDate={toggleCircleDate}
+            onCycleCircleColor={cycleCircleColor}
             onCloseTool={() => updateSettings({ activeTool: 'select' })}
             onJumpToDateRequested={(d) => scrollToDate(d)}
             scrollTargetDate={scrollTargetDate}
@@ -182,6 +187,7 @@ export function App() {
             notes={notes}
             monthNotes={monthNotes}
             drawings={drawings}
+            circledDates={circledDates}
             weekStartsOn={settings.weekStartsOn}
             onJumpToToday={handleJumpToToday}
             onAddMonthNote={addMonthNote}
@@ -194,7 +200,8 @@ export function App() {
             onAddDrawing={addDrawing}
             onRemoveDrawing={removeDrawing}
             onRemoveDrawings={removeDrawings}
-            onUpdateDrawing={updateDrawing}
+            onToggleCircleDate={toggleCircleDate}
+            onCycleCircleColor={cycleCircleColor}
             settings={settings}
           />
         )}

@@ -15,6 +15,7 @@ interface JigsawMonthGridProps {
   notes: NoteItem[];
   monthNotes: MonthNote[];
   drawings: DrawingElement[];
+  circledDates?: Record<string, { color: string }>;
   weekStartsOn: WeekStartDay;
   onJumpToToday: () => void;
   onAddMonthNote: (content: string, parentMonths: string[], colorTag?: string) => void;
@@ -27,15 +28,10 @@ interface JigsawMonthGridProps {
   onAddDrawing: (d: Omit<DrawingElement, 'id' | 'createdAt'>) => DrawingElement;
   onRemoveDrawing: (id: string) => void;
   onRemoveDrawings?: (ids: string[]) => void;
-  onUpdateDrawing?: (id: string, partial: Partial<DrawingElement>) => void;
+  onToggleCircleDate?: (dateKey: string) => void;
+  onCycleCircleColor?: (dateKey: string) => void;
   settings?: CalendarSettings;
 }
-
-const RADAR_CIRCLE_COLORS = [
-  '#D23B38', // 1. Red Pencil (Deadlines / Milestones)
-  '#2A9D8F', // 2. Pine / Sage (Completed / Events)
-  '#E9C46A', // 3. Warm Ochre (Special dates / Highlights)
-];
 
 // Squarish, slightly taller cells with generous vertical height for monthly notes
 const CELL_WIDTH = 38; // 38px wide
@@ -70,6 +66,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   notes,
   monthNotes,
   drawings,
+  circledDates = {},
   weekStartsOn,
   onJumpToToday,
   onAddMonthNote,
@@ -82,7 +79,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onAddDrawing,
   onRemoveDrawing,
   onRemoveDrawings,
-  onUpdateDrawing,
+  onToggleCircleDate,
+  onCycleCircleColor,
   settings,
 }) => {
   const baseMonth = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1), []);
@@ -123,16 +121,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     return map;
   }, [notes]);
 
-  // Map of circled dates with their drawing ID and color
+  // Map of circled dates directly from first-class state
   const circledDatesMap = useMemo(() => {
-    const map = new Map<string, { id: string; color: string }>();
-    for (const d of drawings) {
-      if (d.type === 'circle' && d.anchorStartDate) {
-        map.set(d.anchorStartDate, { id: d.id, color: d.color });
-      }
-    }
-    return map;
-  }, [drawings]);
+    return circledDates || {};
+  }, [circledDates]);
 
   // Group month notes by monthKey
   const monthNotesByMonth = useMemo(() => {
@@ -218,7 +210,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       const mKey = `${y}-${String(mIdx + 1).padStart(2, '0')}`;
       const isOutside = mKey < targetMinKey || mKey > targetMaxKey;
 
-      const circleInfo = circledDatesMap.get(dKey);
+      const circleInfo = circledDatesMap[dKey];
       const cellNotes = notesByDateMap.get(dKey) || [];
       const cellDots = getGutterDotsForNotes(cellNotes).dots;
 
@@ -538,49 +530,17 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   // Double-click date: toggle circle
   const handleToggleCircleDate = useCallback(
     (dateKey: string) => {
-      const existing = circledDatesMap.get(dateKey);
-      if (existing) {
-        onRemoveDrawing(existing.id);
-      } else {
-        onAddDrawing({
-          type: 'circle',
-          color: RADAR_CIRCLE_COLORS[0],
-          strokeWidth: 2,
-          anchorStartDate: dateKey,
-          startOffset: { x: 95, y: 18 },
-          points: [[18, 18]],
-        });
-      }
+      onToggleCircleDate?.(dateKey);
     },
-    [circledDatesMap, onAddDrawing, onRemoveDrawing]
+    [onToggleCircleDate]
   );
 
-  // Single-click circle ring: cycle through 3 colors
+  // Single-click circle ring: cycle through colors
   const handleCycleCircleColor = useCallback(
     (dateKey: string) => {
-      const existing = circledDatesMap.get(dateKey);
-      if (existing) {
-        const currentIndex = RADAR_CIRCLE_COLORS.indexOf(existing.color);
-        const nextIndex = (currentIndex + 1) % RADAR_CIRCLE_COLORS.length;
-        const nextColor = RADAR_CIRCLE_COLORS[nextIndex];
-        if (onUpdateDrawing) {
-          onUpdateDrawing(existing.id, { color: nextColor });
-        } else {
-          onRemoveDrawing(existing.id);
-          onAddDrawing({
-            type: 'circle',
-            color: nextColor,
-            strokeWidth: 2,
-            anchorStartDate: dateKey,
-            startOffset: { x: 95, y: 18 },
-            points: [[18, 18]],
-          });
-        }
-      } else {
-        handleToggleCircleDate(dateKey);
-      }
+      onCycleCircleColor?.(dateKey);
     },
-    [circledDatesMap, onUpdateDrawing, onRemoveDrawing, onAddDrawing, handleToggleCircleDate]
+    [onCycleCircleColor]
   );
 
   // Day header names based on weekStartsOn
