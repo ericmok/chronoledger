@@ -53,19 +53,19 @@ export const RoughCircledRing: React.FC<RoughCircledRingProps> = ({
     const seed = getNumericSeed(dateKey);
 
     if (variant === 'today') {
-      // Rounded rectangle framing the dark "Today" badge
-      // ViewBox: 0 0 48 42
+      // Rounded rectangle framing the dark "Today" badge (~54x48)
+      // ViewBox: 0 0 54 48
       const shape = generator.path(
-        'M 9 3 L 39 3 Q 45 3 45 9 L 45 33 Q 45 39 39 39 L 9 39 Q 3 39 3 33 L 3 9 Q 3 3 9 3 Z',
+        'M 10 3 L 44 3 Q 51 3 51 10 L 51 38 Q 51 45 44 45 L 10 45 Q 3 45 3 38 L 3 10 Q 3 3 10 3 Z',
         {
           roughness: 1.3,
           bowing: 1.2,
-          strokeWidth: 2.1,
+          strokeWidth: 2.3,
           seed,
         }
       );
       return {
-        viewBox: '0 0 48 42',
+        viewBox: '0 0 54 48',
         paths: generator.toPaths(shape),
         filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))',
       };
@@ -86,15 +86,16 @@ export const RoughCircledRing: React.FC<RoughCircledRingProps> = ({
       };
     }
 
-    // Default: 'day' - regular day number in VerticalCalendar DayRow (~32x30)
-    const shape = generator.ellipse(16, 15, 27, 24, {
+    // Default: 'day' - regular day number in VerticalCalendar DayRow (~46x40)
+    // Generous, prominent hand-drawn loop comfortably encircling the date number
+    const shape = generator.ellipse(23, 20, 41, 35, {
       roughness: 1.5,
       bowing: 1.3,
-      strokeWidth: 2.0,
+      strokeWidth: 2.2,
       seed,
     });
     return {
-      viewBox: '0 0 32 30',
+      viewBox: '0 0 46 40',
       paths: generator.toPaths(shape),
       filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))',
     };

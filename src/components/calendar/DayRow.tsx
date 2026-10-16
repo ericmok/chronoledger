@@ -165,7 +165,7 @@ export const DayRow: React.FC<DayRowProps> = ({
             {/* Tactile Hand-Drawn Ring around Today badge */}
             {isCircled && (
               <span
-                className="absolute -inset-[5px] pointer-events-none flex items-center justify-center z-10"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[54px] h-[48px] pointer-events-none flex items-center justify-center z-10"
                 aria-hidden="true"
               >
                 <RoughCircledRing
@@ -205,8 +205,22 @@ export const DayRow: React.FC<DayRowProps> = ({
               {/* Tactile Hand-Drawn Pen Ring around day number */}
               {isCircled && (
                 <span
-                  className="absolute -inset-[5px] pointer-events-none flex items-center justify-center z-10"
-                  aria-hidden="true"
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (activeTool === 'eraser') {
+                      onToggleCircleDate?.(dateItem.dateString);
+                      return;
+                    }
+                    onCycleCircleColor?.(dateItem.dateString);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    onToggleCircleDate?.(dateItem.dateString);
+                  }}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[40px] pointer-events-auto cursor-pointer flex items-center justify-center z-10 hover:scale-105 transition-transform"
+                  title={`${dateItem.monthName} ${dateItem.dayOfMonth} (Circled - click to cycle color, double-click to remove)`}
                 >
                   <RoughCircledRing
                     dateKey={dateItem.dateString}
