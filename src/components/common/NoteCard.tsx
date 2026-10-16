@@ -176,6 +176,13 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     );
   }
 
+  /**
+   * Renders note text by parsing micro-badges and clean plain text.
+   * - Escaped tags (e.g. `\@todo`) have their escaping backslash stripped here for clean reading.
+   * - In edit mode, the raw stored text (with backslash) is loaded in the input field.
+   * - Badges can be clicked to toggle their markdown resolution state (`@tag` <-> `~~@tag~~`).
+   * - Badges marked `isDeleted` in a word diff cannot be clicked to prevent state corruption.
+   */
   const renderAnnotatedText = (text: string, isDeleted = false, isAdded = false) => {
     const { segments } = parseNoteContent(text);
     return segments.map((seg, idx) => {
@@ -189,13 +196,16 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              if (isDeleted) return;
               if (onUpdate) {
                 const current = content || originalContent || '';
                 const newContent = toggleAnnotationResolution(current, badge.raw);
                 onUpdate(id, newContent);
               }
             }}
-            className={`inline-flex items-center gap-1 px-1.5 py-0.2 mx-0.5 rounded text-[10px] font-mono font-medium tracking-tight border select-none transition-all align-baseline cursor-pointer hover:scale-105 active:scale-95 ${
+            className={`inline-flex items-center gap-1 px-1.5 py-0.2 mx-0.5 rounded text-[10px] font-mono font-medium tracking-tight border select-none transition-all align-baseline ${
+              isDeleted ? 'cursor-default' : 'cursor-pointer hover:scale-105 active:scale-95'
+            } ${
               isResolved
                 ? 'line-through opacity-70 bg-[#F4F1EA]/80 border-[#DDD6C8]'
                 : isDeleted
@@ -209,7 +219,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               color: isResolved ? '#7E7F85' : badge.textColor,
               borderColor: isResolved ? undefined : badge.borderColor,
             }}
-            title={`${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`}
+            title={
+              isDeleted
+                ? `${badge.label} (Deleted)`
+                : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
+            }
           >
             {/* Badge Indicator Dot: shows diagonal slash when resolved */}
             <svg className="w-2 h-2 shrink-0 overflow-visible" viewBox="0 0 8 8">

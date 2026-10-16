@@ -1,6 +1,32 @@
-// Semantic Note Annotations & Tagging Engine
-// Provides tag parsing, micro-badge rendering metadata, time-parsing,
-// dynamic bullet colors, notable dots tracking, and resolution states.
+/**
+ * Semantic Note Annotations & Tagging Engine
+ *
+ * Provides tag parsing, micro-badge rendering metadata, time-parsing,
+ * dynamic bullet colors, notable dots tracking, universal resolution,
+ * and CommonMark-style backslash escaping.
+ *
+ * ## Annotation Syntax & Behavior
+ * - **Active Tag**: `@important`, `@todo`, `@wait`, `@celebrate`, `@explore`, `@thought`, `@time`, `@skipped`
+ * - **Resolved Tag**: `~~@tag~~` (renders with muted styling, line-through, and a pencil-slashed indicator)
+ * - **Micro-Badge**: The literal `@` symbol is hidden in the rendered badge pill for clean reading,
+ *   while preserved in raw text for easy editing.
+ *
+ * ## Backslash Escaping (CommonMark Specification)
+ * - A backslash immediately preceding `@` escapes the tag:
+ *   - `\@todo` renders as plain text `@todo` (not a badge; no gutter dots or bullet coloring).
+ *   - The escaping backslash is consumed during rendering (read mode) so the ledger page stays clean.
+ *   - The raw string `\@todo` is preserved in storage and editor inputs for lossless round-trip editing.
+ * - Consecutive backslashes collapse in pairs ($N \to \lfloor N / 2 \rfloor$):
+ *   - `\\@todo` (even = 2): renders as literal `\` followed by an active `todo` badge.
+ *   - `\\\@todo` (odd = 3): renders as literal `\@todo` as plain text.
+ * - Boundaries: Tags must occur at start of string or following whitespace/delimiters (` `, `(`, `[`, etc.).
+ *   Email addresses (`user@domain.com`) are unaffected.
+ *
+ * ## Notable Dots (Date Gutter & Radar)
+ * - Tracks unique annotation categories per note.
+ * - Active annotations render as solid circles in their designated category color.
+ * - Resolved annotations render at their date position with an authentic 45° diagonal pencil slash.
+ */
 
 export type AnnotationCategory =
   | 'important'
@@ -252,6 +278,21 @@ export interface ParsedNoteResult {
 // Unified regex capturing active tags (@tag) or resolved tags (~~@tag~~) anywhere in text
 export const ANNOTATION_REGEX = /(?:^|(?<=\s))(~~)?@([a-zA-Z0-9]+(?:[:.-][a-zA-Z0-9]+)*(?:[ap]m)?)(~~)?/gi;
 
+/**
+ * Parses raw note text into structured segments (plain text and micro-badges),
+ * detecting active (@tag) and resolved (~~@tag~~) annotations while honoring
+ * CommonMark-style backslash escaping.
+ *
+ * Escaping rules:
+ * - Odd backslashes before '@' (e.g. `\@todo`): The tag is escaped. The escaping backslash
+ *   is consumed on render, producing clean plain text `@todo` without a badge.
+ * - Even backslashes before '@' (e.g. `\\@todo`): The backslash pair collapses to a single `\`,
+ *   and `@todo` is rendered as an active micro-badge.
+ *
+ * @param content Raw note string stored in state (e.g. "Meeting \@important @todo")
+ * @param noteIsStruck When true, cascades resolution to all annotations in this note
+ * @returns Parsed segments, active/resolved annotations list, and computed flags
+ */
 export function parseNoteContent(content: string, noteIsStruck = false): ParsedNoteResult {
   if (!content) {
     return {
@@ -266,7 +307,16 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
   const segments: NoteSegment[] = [];
   const annotations: ParsedAnnotation[] = [];
 
-  const regex = /(?:^|(?<=\s))(~~)?@([a-zA-Z0-9]+(?:[:.-][a-zA-Z0-9]+)*(?:[ap]m)?)(~~)?/gi;
+  const pushText = (text: string) => {
+    if (!text) return;
+    if (segments.length > 0 && segments[segments.length - 1].type === 'text') {
+      segments[segments.length - 1].text += text;
+    } else {
+      segments.push({ type: 'text', text });
+    }
+  };
+
+  const regex = /(~~)?@([a-zA-Z0-9]+(?:[:.-][a-zA-Z0-9]+)*(?:[ap]m)?)(~~)?/gi;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -277,13 +327,37 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
     const isTagStruck = Boolean(match[1] && match[3]);
     const tagBody = match[2];
 
-    // Push preceding text segment
-    if (matchStart > lastIndex) {
-      segments.push({
-        type: 'text',
-        text: content.slice(lastIndex, matchStart),
-      });
+    // Count preceding consecutive backslashes immediately before matchStart
+    let backslashCount = 0;
+    let checkIdx = matchStart;
+    while (checkIdx > 0 && content[checkIdx - 1] === '\\') {
+      backslashCount++;
+      checkIdx--;
     }
+
+    // Boundary check: must be start of text, whitespace, or opening punctuation
+    const isAtStart = checkIdx === 0;
+    const isPrecededByBoundary = isAtStart || /[\s([{"'`]/.test(content[checkIdx - 1]);
+
+    if (!isPrecededByBoundary) {
+      // Ignored: e.g. email@test.com
+      continue;
+    }
+
+    // Halve preceding backslashes (\\ -> \, \\\\ -> \\)
+    const collapsedBackslashes = '\\'.repeat(Math.floor(backslashCount / 2));
+    const textBefore = content.slice(lastIndex, checkIdx) + collapsedBackslashes;
+
+    // Odd number of backslashes means the '@' is escaped (e.g. \@todo, \\\@todo) -> not a badge
+    if (backslashCount % 2 === 1) {
+      // Consume the escaping backslash: render as plain text @tag without a badge
+      pushText(textBefore + rawTag);
+      lastIndex = matchEnd;
+      continue;
+    }
+
+    // Even number of backslashes: valid unescaped badge
+    pushText(textBefore);
 
     const isResolved = noteIsStruck || isTagStruck;
     const parsed = resolveAnnotation(tagBody, isResolved);
@@ -301,10 +375,7 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
 
   // Push remaining text
   if (lastIndex < content.length) {
-    segments.push({
-      type: 'text',
-      text: content.slice(lastIndex),
-    });
+    pushText(content.slice(lastIndex));
   }
 
   // Sort annotations by priority
@@ -327,14 +398,51 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
   };
 }
 
-// Toggles an annotation's resolution state within a note's text
-// e.g. "@wait" -> "~~@wait~~", and "~~@wait~~" -> "@wait"
+/**
+ * Toggles an annotation's markdown strikethrough resolution state (@tag <-> ~~@tag~~)
+ * within a note's raw text string.
+ *
+ * Backslash-safety: Only targets UNESCAPED matches (preceded by an even number of backslashes),
+ * ensuring an active `@todo` badge can be toggled without corrupting an escaped `\@todo` in the same note.
+ *
+ * @param content The current raw note text
+ * @param rawTag The annotation tag to toggle (e.g. "@todo" or "~~@todo~~")
+ * @returns Updated raw note string with resolution state toggled
+ */
 export function toggleAnnotationResolution(content: string, rawTag: string): string {
-  if (rawTag.startsWith('~~') && rawTag.endsWith('~~')) {
-    const unwrap = rawTag.slice(2, -2);
-    return content.replace(rawTag, unwrap);
+  const isWrapped = rawTag.startsWith('~~') && rawTag.endsWith('~~');
+  const targetTag = isWrapped ? rawTag.slice(2, -2) : rawTag;
+  const searchPattern = isWrapped ? rawTag : targetTag;
+  const replacement = isWrapped ? targetTag : `~~${targetTag}~~`;
+
+  let searchIndex = 0;
+  while (true) {
+    const matchIdx = content.indexOf(searchPattern, searchIndex);
+    if (matchIdx === -1) break;
+
+    // Count preceding backslashes
+    let backslashCount = 0;
+    let k = matchIdx;
+    while (k > 0 && content[k - 1] === '\\') {
+      backslashCount++;
+      k--;
+    }
+
+    const isAtStart = k === 0;
+    const isPrecededByBoundary = isAtStart || /[\s([{"'`]/.test(content[k - 1]);
+
+    if (isPrecededByBoundary && backslashCount % 2 === 0) {
+      return (
+        content.slice(0, matchIdx) +
+        replacement +
+        content.slice(matchIdx + searchPattern.length)
+      );
+    }
+
+    searchIndex = matchIdx + searchPattern.length;
   }
-  return content.replace(rawTag, `~~${rawTag}~~`);
+
+  return content;
 }
 
 // Determines the color of the note's bullet
