@@ -51,7 +51,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
 
   return (
     <div
-      className="shrink-0 relative"
+      className="shrink-0 relative border-r border-[#E5DFD5]"
       style={{ width: `${gridWidth}px`, height: `${totalWeeksHeight}px` }}
     >
       {/* Continuous Grid Weeks */}
