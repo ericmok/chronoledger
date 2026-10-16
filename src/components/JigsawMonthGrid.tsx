@@ -222,37 +222,29 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       weekRows.push(allCells.slice(i, i + 7));
     }
 
-    // Map the week row index where each month's 1st day falls
-    const firstDateKeyToRow = new Map<string, number>();
+    // Map the week row index where each month's last day falls
+    const lastDateKeyToRow = new Map<string, number>();
     weekRows.forEach((row, rIdx) => {
       row.forEach((cell) => {
-        if (cell.dayNumber === 1) {
-          firstDateKeyToRow.set(cell.monthKey, rIdx);
-        }
+        lastDateKeyToRow.set(cell.monthKey, rIdx);
       });
     });
 
-    // Compute month metas aligned strictly to start on the 1st
+    // Compute month metas where each month spans through the row containing its last date,
+    // so the month gutter aligns seamlessly with the bottom black jigsaw boundary lines.
     const metas: MonthMeta[] = [];
     targetMonths.forEach((tm, idx) => {
       const y = tm.getFullYear();
       const m = tm.getMonth();
       const mKey = `${y}-${String(m + 1).padStart(2, '0')}`;
 
-      // Start row: starts on the row containing the 1st of this month
-      // For the first buffer month (idx === 0), anchor to row 0 so there is no gap at the top
-      let startRow = firstDateKeyToRow.get(mKey) ?? 0;
-      if (idx === 0) {
-        startRow = 0;
-      }
+      // Start row: Month 0 starts at row 0; subsequent months start immediately on the row after previous month's endRow
+      const startRow = idx === 0 ? 0 : metas[idx - 1].endRow + 1;
 
-      // End row: ends right before the next month's 1st begins
+      // End row: ends on the row containing the last day of this month
       let endRow: number;
       if (idx < targetMonths.length - 1) {
-        const nextTm = targetMonths[idx + 1];
-        const nextMKey = `${nextTm.getFullYear()}-${String(nextTm.getMonth() + 1).padStart(2, '0')}`;
-        const nextStartRow = firstDateKeyToRow.get(nextMKey);
-        endRow = nextStartRow !== undefined ? nextStartRow - 1 : weekRows.length - 1;
+        endRow = lastDateKeyToRow.get(mKey) ?? (weekRows.length - 1);
       } else {
         endRow = weekRows.length - 1;
       }
