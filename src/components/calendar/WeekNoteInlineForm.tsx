@@ -254,6 +254,18 @@ export const WeekNoteInlineForm: React.FC<WeekNoteInlineFormProps> = ({
       {/* Color Dots & Action Buttons */}
       <div className="flex items-center justify-between pt-1 border-t border-[#E5DFD5]">
         <div className="flex items-center gap-1">
+          {/* None / Default uncolored option */}
+          <button
+            type="button"
+            onClick={() => setColorTag(undefined)}
+            className={`w-3.5 h-3.5 rounded-full border border-[#DDD6C8] flex items-center justify-center transition-all cursor-pointer ${
+              !colorTag ? 'ring-2 ring-offset-1 ring-[#2B2C30] bg-[#EAE3D6]' : 'bg-[#FAF8F5] opacity-65 hover:opacity-100'
+            }`}
+            title="No color (Default / Clear)"
+          >
+            <span className="w-1 h-1 rounded-full bg-[#A19D94]" />
+          </button>
+
           {NOTE_ACCENT_COLORS.map((c) => (
             <button
               key={c}

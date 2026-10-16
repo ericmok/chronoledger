@@ -258,11 +258,15 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           </div>
         )}
 
-        {/* Resting Indicator: Color tag dot or default bullet dot (Hidden when hovered or dragging if draggable) */}
+        {/* Resting Indicator: Color tag dot or default subtle bullet dot (Hidden when hovered or dragging if draggable) */}
         {(colorTag || isComfortable) && (
           <span
-            className={`rounded-full shrink-0 ${
-              isComfortable ? 'w-1.5 h-1.5' : 'w-1 h-1'
+            className={`rounded-full shrink-0 transition-opacity ${
+              colorTag
+                ? isComfortable
+                  ? 'w-1.5 h-1.5'
+                  : 'w-1 h-1'
+                : 'w-1 h-1'
             } ${
               isBeingDragged || isDraggingSelf
                 ? 'hidden'
@@ -270,7 +274,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 ? 'block group-hover:hidden'
                 : 'block'
             }`}
-            style={{ backgroundColor: colorTag || '#A19D94' }}
+            style={{ backgroundColor: colorTag || '#CDC5B7' }}
           />
         )}
       </div>
