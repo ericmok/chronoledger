@@ -161,7 +161,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   }, []);
 
   // Calculate grid range & cells
-  const { weeks, monthMetas, totalWeeksHeight, svgBoundaries } = useMemo(() => {
+  const { weeks, gutterMonthMetas, notesMonthMetas, totalWeeksHeight, svgBoundaries } = useMemo(() => {
     const firstMonth = targetMonths[0];
     const lastMonth = targetMonths[targetMonths.length - 1];
     const lastDayOfLastMonth = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0);
@@ -222,26 +222,28 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       weekRows.push(allCells.slice(i, i + 7));
     }
 
-    // Map the week row index where each month's last day falls
+    // 1. Map row indices where each month's 1st day and last day fall
+    const firstDateKeyToRow = new Map<string, number>();
     const lastDateKeyToRow = new Map<string, number>();
     weekRows.forEach((row, rIdx) => {
       row.forEach((cell) => {
+        if (cell.dayNumber === 1) {
+          firstDateKeyToRow.set(cell.monthKey, rIdx);
+        }
         lastDateKeyToRow.set(cell.monthKey, rIdx);
       });
     });
 
-    // Compute month metas where each month spans through the row containing its last date,
-    // so the month gutter aligns seamlessly with the bottom black jigsaw boundary lines.
-    const metas: MonthMeta[] = [];
+    // 2. Gutter Month Metas (Left Column):
+    // Spans through the row containing the LAST day of the month,
+    // so the gutter's bottom black line flows directly into the bottom horizontal jigsaw line on the left.
+    const gutterMonthMetas: MonthMeta[] = [];
     targetMonths.forEach((tm, idx) => {
       const y = tm.getFullYear();
       const m = tm.getMonth();
       const mKey = `${y}-${String(m + 1).padStart(2, '0')}`;
 
-      // Start row: Month 0 starts at row 0; subsequent months start immediately on the row after previous month's endRow
-      const startRow = idx === 0 ? 0 : metas[idx - 1].endRow + 1;
-
-      // End row: ends on the row containing the last day of this month
+      const startRow = idx === 0 ? 0 : gutterMonthMetas[idx - 1].endRow + 1;
       let endRow: number;
       if (idx < targetMonths.length - 1) {
         endRow = lastDateKeyToRow.get(mKey) ?? (weekRows.length - 1);
@@ -254,7 +256,50 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       }
 
       const totalRows = endRow - startRow + 1;
-      metas.push({
+      gutterMonthMetas.push({
+        monthKey: mKey,
+        monthIndex: m,
+        year: y,
+        name: MONTH_NAMES[m],
+        fullName: FULL_MONTH_NAMES[m],
+        startRow,
+        endRow,
+        totalRows,
+        topPx: startRow * CELL_HEIGHT,
+        heightPx: totalRows * CELL_HEIGHT,
+      });
+    });
+
+    // 3. Notes Month Metas (Right Column):
+    // Starts on the row containing the 1st of the month,
+    // so the notes top border flows directly from the top horizontal jigsaw line on the right.
+    const notesMonthMetas: MonthMeta[] = [];
+    targetMonths.forEach((tm, idx) => {
+      const y = tm.getFullYear();
+      const m = tm.getMonth();
+      const mKey = `${y}-${String(m + 1).padStart(2, '0')}`;
+
+      let startRow = firstDateKeyToRow.get(mKey) ?? 0;
+      if (idx === 0) {
+        startRow = 0;
+      }
+
+      let endRow: number;
+      if (idx < targetMonths.length - 1) {
+        const nextTm = targetMonths[idx + 1];
+        const nextMKey = `${nextTm.getFullYear()}-${String(nextTm.getMonth() + 1).padStart(2, '0')}`;
+        const nextStartRow = firstDateKeyToRow.get(nextMKey);
+        endRow = nextStartRow !== undefined ? nextStartRow - 1 : weekRows.length - 1;
+      } else {
+        endRow = weekRows.length - 1;
+      }
+
+      if (endRow < startRow) {
+        endRow = startRow;
+      }
+
+      const totalRows = endRow - startRow + 1;
+      notesMonthMetas.push({
         monthKey: mKey,
         monthIndex: m,
         year: y,
@@ -304,7 +349,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
     return {
       weeks: weekRows,
-      monthMetas: metas,
+      gutterMonthMetas,
+      notesMonthMetas,
       totalWeeksHeight: weekRows.length * CELL_HEIGHT,
       svgBoundaries: boundaries,
     };
@@ -372,7 +418,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
     // Detect currently visible month
     const focusY = scrollTop + 80;
-    const activeMeta = monthMetas.find(
+    const activeMeta = notesMonthMetas.find(
       (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
     );
     if (activeMeta) {
@@ -395,18 +441,18 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     } else if (scrollTop + container.clientHeight > container.scrollHeight - 350) {
       handleLoadLaterMonths();
     }
-  }, [monthMetas, handleLoadEarlierMonths, handleLoadLaterMonths]);
+  }, [notesMonthMetas, handleLoadEarlierMonths, handleLoadLaterMonths]);
 
   // Navigate months: scroll smoothly to prev / next month
   const handlePrevMonth = () => {
     if (!gridContainerRef.current) return;
     const currentScrollTop = gridContainerRef.current.scrollTop;
     const focusY = currentScrollTop + 80;
-    const currentMetaIndex = monthMetas.findIndex(
+    const currentMetaIndex = notesMonthMetas.findIndex(
       (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
     );
     if (currentMetaIndex > 0) {
-      const prevMeta = monthMetas[currentMetaIndex - 1];
+      const prevMeta = notesMonthMetas[currentMetaIndex - 1];
       gridContainerRef.current.scrollTo({
         top: prevMeta.topPx,
         behavior: 'smooth',
@@ -421,11 +467,11 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     if (!gridContainerRef.current) return;
     const currentScrollTop = gridContainerRef.current.scrollTop;
     const focusY = currentScrollTop + 80;
-    const currentMetaIndex = monthMetas.findIndex(
+    const currentMetaIndex = notesMonthMetas.findIndex(
       (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
     );
-    if (currentMetaIndex !== -1 && currentMetaIndex < monthMetas.length - 1) {
-      const nextMeta = monthMetas[currentMetaIndex + 1];
+    if (currentMetaIndex !== -1 && currentMetaIndex < notesMonthMetas.length - 1) {
+      const nextMeta = notesMonthMetas[currentMetaIndex + 1];
       gridContainerRef.current.scrollTo({
         top: nextMeta.topPx,
         behavior: 'smooth',
@@ -602,7 +648,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
         {/* 1. Left Column: Vertical Month Name Gutter */}
         <VerticalMonthGutter
-          monthMetas={monthMetas}
+          monthMetas={gutterMonthMetas}
           totalWeeksHeight={totalWeeksHeight}
           todayKey={todayKey}
           onJumpToMonth={(mKey) => scrollToDateInRadar(mKey + '-01', true)}
@@ -623,7 +669,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
         {/* 3. Right Column: Month Notes */}
         <MonthNotesColumn
-          monthMetas={monthMetas}
+          monthMetas={notesMonthMetas}
           monthNotesByMonth={monthNotesByMonth}
           totalWeeksHeight={totalWeeksHeight}
           todayKey={todayKey}
