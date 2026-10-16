@@ -151,7 +151,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                   setActiveDragId(null);
                 }
               }}
-              className={`flex-1 overflow-y-auto space-y-1 py-1 pr-1 flex flex-col justify-start rounded-md transition-colors ${
+              className={`flex-1 overflow-y-auto pr-0.5 flex flex-col justify-start transition-colors ${
                 dragOverMonthKey === meta.monthKey && !dropTargetId
                   ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1'
                   : ''
@@ -164,7 +164,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     e.stopPropagation();
                     onStartQuickAddMonth(meta.monthKey);
                   }}
-                  className="w-full my-auto py-2.5 px-1 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded flex flex-col items-center justify-center text-center bg-white/40 hover:bg-white/80 transition-all cursor-pointer group/placeholder"
+                  className="w-full my-auto py-2 px-1 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded flex flex-col items-center justify-center text-center bg-white/40 hover:bg-white/80 transition-all cursor-pointer group/placeholder min-h-[45px]"
                   title={`Add ${meta.name} note or double-click`}
                 >
                   <div className="flex items-center gap-1 text-[11px] font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
@@ -172,7 +172,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     <span>Add {meta.name} note</span>
                   </div>
                   <span className="text-[8px] font-mono text-[#A19D94] mt-0.5">
-                    or double-click card
+                    or double-click
                   </span>
                 </button>
               )}
@@ -244,6 +244,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     colorTag={mn.colorTag}
                     badge={multiBadge}
                     density="compact"
+                    variant="minimal"
                     onToggleStrike={onToggleStrikeMonthNote}
                     onRemove={onRemoveMonthNote}
                     onStartEdit={() => setEditingNoteId(mn.id)}
@@ -299,7 +300,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
               <button
                 type="button"
                 onClick={() => onStartQuickAddMonth(meta.monthKey)}
-                className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] flex items-center justify-center gap-1 w-full py-1 rounded border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/40 bg-white/50 hover:bg-white transition-all shadow-2xs mt-1 cursor-pointer"
+                className="text-[10px] font-mono text-[#71727A] hover:text-[#2B2C30] hover:bg-[#F2EDE4]/60 flex items-center justify-center gap-1 w-full py-1 rounded transition-all cursor-pointer mt-0.5"
                 title={`Add another ${meta.name} note`}
               >
                 <Plus className="w-2.5 h-2.5 text-[#D23B38]" />
