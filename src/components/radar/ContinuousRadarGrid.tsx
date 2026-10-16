@@ -10,6 +10,8 @@ export interface JigsawCell {
   monthKey: string;
   isToday: boolean;
   hasNotes: boolean;
+  noteCount?: number;
+  noteColors?: string[];
   isCircled: boolean;
   circleColor?: string;
   isOutsideTargetRange?: boolean;
@@ -162,10 +164,20 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                     </span>
                   )}
 
-                  {/* Has Notes Pip */}
-                  {cell.hasNotes && (
+                  {/* Notes Pips: Show a dot per note */}
+                  {cell.noteColors && cell.noteColors.length > 0 ? (
+                    <div className="flex items-center justify-center gap-0.5 mt-0.5 max-w-[28px] flex-wrap">
+                      {cell.noteColors.slice(0, 4).map((color, idx) => (
+                        <span
+                          key={idx}
+                          className="w-1 h-1 rounded-full shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  ) : cell.hasNotes ? (
                     <span className="w-1.5 h-1.5 rounded-full bg-[#E29578] mt-0.5" />
-                  )}
+                  ) : null}
                 </button>
               );
             })}

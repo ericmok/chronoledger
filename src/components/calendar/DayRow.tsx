@@ -138,10 +138,6 @@ export const DayRow: React.FC<DayRowProps> = ({
           >
             {dateItem.dayOfWeekLetter}
           </span>
-          {/* Small Dot Indicator if day has notes */}
-          {dayNotes.length > 0 && !dateItem.isToday && (
-            <span className="w-1.5 h-1.5 rounded-full bg-[#E29578] -ml-0.5" />
-          )}
         </div>
 
         {/* TODAY badge at the bottom of the date number */}
@@ -149,6 +145,24 @@ export const DayRow: React.FC<DayRowProps> = ({
           <span className="text-[7.5px] font-mono font-black uppercase tracking-wider bg-[#D23B38] text-white px-1 py-0.5 rounded shadow-2xs mt-1">
             TODAY
           </span>
+        )}
+
+        {/* Note Dots: Show a dot per note */}
+        {dayNotes.length > 0 && (
+          <div
+            className="flex items-center justify-center gap-1 mt-1 flex-wrap max-w-[36px]"
+            title={`${dayNotes.length} ${dayNotes.length === 1 ? 'note' : 'notes'}`}
+          >
+            {dayNotes.map((note) => (
+              <span
+                key={note.id}
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  note.isStruck ? 'opacity-35' : ''
+                }`}
+                style={{ backgroundColor: note.colorTag || '#E29578' }}
+              />
+            ))}
+          </div>
         )}
       </div>
 

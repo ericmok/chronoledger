@@ -85,12 +85,14 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
 
-  // Map day notes count
-  const notesCountMap = useMemo(() => {
-    const map = new Map<string, number>();
+  // Map day notes by dateKey
+  const notesByDateMap = useMemo(() => {
+    const map = new Map<string, NoteItem[]>();
     for (const n of notes) {
       for (const d of n.parentDates) {
-        map.set(d, (map.get(d) || 0) + 1);
+        const list = map.get(d) || [];
+        list.push(n);
+        map.set(d, list);
       }
     }
     return map;
@@ -192,6 +194,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       const isOutside = mKey < targetMinKey || mKey > targetMaxKey;
 
       const circleInfo = circledDatesMap.get(dKey);
+      const cellNotes = notesByDateMap.get(dKey) || [];
 
       allCells.push({
         date: new Date(curr),
@@ -201,7 +204,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         year: y,
         monthKey: mKey,
         isToday: dKey === todayKey,
-        hasNotes: (notesCountMap.get(dKey) || 0) > 0,
+        hasNotes: cellNotes.length > 0,
+        noteCount: cellNotes.length,
+        noteColors: cellNotes.map((n) => n.colorTag || '#E29578'),
         isCircled: Boolean(circleInfo),
         circleColor: circleInfo?.color,
         isOutsideTargetRange: isOutside,
@@ -310,7 +315,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       totalWeeksHeight: weekRows.length * CELL_HEIGHT,
       svgBoundaries: boundaries,
     };
-  }, [targetMonths, weekStartsOn, todayKey, notesCountMap, circledDatesMap]);
+  }, [targetMonths, weekStartsOn, todayKey, notesByDateMap, circledDatesMap]);
 
   // Synchronously adjust scrollTop after prepending earlier months so content never jumps
   useLayoutEffect(() => {
