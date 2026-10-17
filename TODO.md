@@ -64,3 +64,10 @@ Enable users to search, filter, and aggregate all notes with semantic annotation
    - Standardized Left Slot across all notes: resting bullet (`•`) at rest, drag handle (`:::`) on hover.
    - Restored full natural width across DayRow, WeekFocusPanel, and MonthNotesColumn without gutter offsets.
    - Interactive resolution toggling (`@tag` $\leftrightarrow$ `~~@tag~~`), turning chips into muted oatmeal with strikethrough and applying a 45° pencil slash to the anchor bullet.
+8. **Fused Leading Badge Anchor & Multi-Line Alignment System (`NoteCard.tsx`, `annotationUtils.ts`)**:
+   - Fuses the anchor bullet dot directly inside the solid rectangle of leading annotations (`[ • TAG ]`).
+   - Line 1 negative margin outdent (`-ml-5` in comfortable, `-ml-4` in minimal) anchors the badge flush at $x = 0$.
+   - Second and subsequent lines of multi-line notes wrap cleanly to the content baseline ($x = 20\text{px}$), remaining perfectly collinear with untagged notes while leaving the $0..20\text{px}$ bullet column strictly reserved.
+   - Hovering over the leading badge transitions the inner dot directly into a reorder grip handle (`[ ::: TAG ]`) with `cursor-grab`.
+   - Middle/inline annotations (`seg.isLeading === false`) render as snug inline chips without negative margins or dots.
+   - Calibrated warm, softer mid-tone backgrounds, borderless flat finish (`border-none`, `outline-none`, `ring-0`), and subtle `+` prefix diff cues on revision.
