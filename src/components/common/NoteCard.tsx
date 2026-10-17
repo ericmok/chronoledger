@@ -6,6 +6,8 @@ import {
   splitNoteAnchorAndBody,
   toggleAnnotationResolution,
   type ParsedAnnotation,
+  type BadgeTheme,
+  DEFAULT_BADGE_THEME,
 } from '../../utils/annotationUtils';
 import { useAnnotationInput } from '../../hooks/useAnnotationInput';
 import { AnnotationAutocomplete } from './AnnotationAutocomplete';
@@ -24,6 +26,7 @@ export interface NoteCardProps {
   onStartEdit?: (id: string) => void;
   density?: 'comfortable' | 'compact';
   variant?: 'card' | 'minimal';
+  badgeTheme?: BadgeTheme;
   className?: string;
 
   // Drag and drop reordering
@@ -51,6 +54,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onStartEdit,
   density = 'comfortable',
   variant = 'card',
+  badgeTheme = DEFAULT_BADGE_THEME,
   className = '',
   isDraggable = true,
   onDragStart,
@@ -74,13 +78,13 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
   // Split note into leading Anchor Tag (if present) and Prose Body
   const currentSplit = useMemo(
-    () => splitNoteAnchorAndBody(content || originalContent || '', isStruck),
-    [content, originalContent, isStruck]
+    () => splitNoteAnchorAndBody(content || originalContent || '', isStruck, badgeTheme),
+    [content, originalContent, isStruck, badgeTheme]
   );
 
   const originalSplit = useMemo(
-    () => (originalContent ? splitNoteAnchorAndBody(originalContent, isStruck) : null),
-    [originalContent, isStruck]
+    () => (originalContent ? splitNoteAnchorAndBody(originalContent, isStruck, badgeTheme) : null),
+    [originalContent, isStruck, badgeTheme]
   );
 
   // Body diff engine: strictly compares prose body after the leading anchor
@@ -108,8 +112,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   );
 
   const parsedNote = useMemo(
-    () => parseNoteContent(content || originalContent || ''),
-    [content, originalContent]
+    () => parseNoteContent(content || originalContent || '', isStruck, badgeTheme),
+    [content, originalContent, isStruck, badgeTheme]
   );
 
   const isBulletResolved = useMemo(
@@ -247,9 +251,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
    */
   const renderAnchorBadge = (anchor: ParsedAnnotation) => {
     const isResolved = Boolean(isStruck || anchor.isResolved);
-    const bgColor = isResolved ? (anchor.resolvedBgColor || '#F5F3EF') : anchor.bgColor;
-    const textColor = isResolved ? (anchor.resolvedTextColor || '#71727A') : anchor.textColor;
-    const bulletColor = isResolved ? (anchor.resolvedColor || anchor.color) : anchor.color;
+    const bgColor = isResolved ? anchor.resolvedBgColor : anchor.bgColor;
+    const textColor = isResolved ? anchor.resolvedTextColor : anchor.textColor;
+    const bulletColor = isResolved
+      ? (anchor.resolvedBulletColor || anchor.resolvedColor)
+      : (anchor.bulletColor || anchor.color);
 
     return (
       <button
@@ -350,8 +356,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     isAdded = false
   ) => {
     const isResolved = Boolean(isStruck || badge.isResolved);
-    const bgColor = isResolved ? (badge.resolvedBgColor || '#F5F3EF') : badge.bgColor;
-    const textColor = isResolved ? (badge.resolvedTextColor || '#71727A') : badge.textColor;
+    const bgColor = isResolved ? badge.resolvedBgColor : badge.bgColor;
+    const textColor = isResolved ? badge.resolvedTextColor : badge.textColor;
 
     return (
       <button

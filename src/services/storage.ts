@@ -46,6 +46,7 @@ export const DEFAULT_SETTINGS: CalendarSettings = {
   showStruckItems: true,
   activeTool: 'select',
   inkColor: '#2B2C30',
+  badgeTheme: 'solid',
 };
 
 export function createDefaultNotes(): NoteItem[] {

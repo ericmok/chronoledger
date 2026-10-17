@@ -1,12 +1,13 @@
 import React from 'react';
 import { Calendar, Link2 } from 'lucide-react';
-import type { NoteItem } from '../types/calendar';
+import type { NoteItem, BadgeTheme } from '../types/calendar';
 import { analyzeDateSpan } from '../utils/dateUtils';
 import { NoteCard } from './common/NoteCard';
 
 export interface NoteItemComponentProps {
   note: NoteItem;
   currentDate: string;
+  badgeTheme?: BadgeTheme;
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
   onUpdateNote?: (noteId: string, newContent: string) => void;
@@ -28,6 +29,7 @@ export interface NoteItemComponentProps {
 export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
   note,
   currentDate,
+  badgeTheme,
   onToggleStrike,
   onRemoveNote,
   onUpdateNote,
@@ -90,6 +92,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
       colorTag={note.colorTag}
       badge={spanBadge}
       density="comfortable"
+      badgeTheme={badgeTheme}
       onToggleStrike={onToggleStrike}
       onRemove={onRemoveNote}
       onUpdate={onUpdateNote}

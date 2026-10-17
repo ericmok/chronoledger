@@ -118,9 +118,12 @@ export interface DrawingElement {
   createdAt: string;
 }
 
+export type BadgeTheme = 'solid' | 'wash';
+
 export interface CalendarSettings {
   weekStartsOn: WeekStartDay;
   showStruckItems: boolean;
   activeTool: DrawingTool;
   inkColor: string;
+  badgeTheme?: BadgeTheme;
 }

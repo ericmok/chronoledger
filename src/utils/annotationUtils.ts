@@ -53,186 +53,418 @@ export type AnnotationCategory =
   | 'skipped'
   | 'custom';
 
+export type BadgeTheme = 'solid' | 'wash';
+export const DEFAULT_BADGE_THEME: BadgeTheme = 'solid';
+
+export interface BadgeThemeColors {
+  bgColor: string;
+  textColor: string;
+  borderColor: string;
+  bulletColor: string;
+  resolvedBgColor: string;
+  resolvedTextColor: string;
+  resolvedBulletColor: string;
+}
+
 export interface AnnotationConfig {
   type: AnnotationCategory;
   primaryTag: string; // e.g. "important"
   aliases: string[];  // e.g. ["urgent", "star", "key"]
   label: string;
   description: string;
-  color: string;               // Dot / Bullet accent color (Active)
-  textColor: string;           // Badge ink text color (Active - deep tone)
-  bgColor: string;             // Badge wash background color (Active - soft tinted paper wash)
-  borderColor: string;         // Micro-badge border
-  resolvedColor?: string;     // Dot / Bullet accent color (Resolved - same hue, dialed warmer/lighter)
-  resolvedTextColor?: string; // Badge ink text color (Resolved - same hue, dialed warmer/lighter)
-  resolvedBgColor?: string;   // Badge wash background color (Resolved - same hue, dialed warmer/lighter)
-  gutterColor?: string; // Dot color on date gutter
-  makesBold?: boolean; // Changes note text font to bold
-  dimsText?: boolean;  // Dims note text
-  priority: number;    // Lower number = higher priority
+  color: string;               // Resting dot / Bullet accent color (Active)
+  resolvedColor: string;       // Resting dot / Bullet accent color (Resolved - warmer/lighter)
+  gutterColor?: string;        // Dot color on date gutter
+  makesBold?: boolean;         // Changes note text font to bold
+  dimsText?: boolean;          // Dims note text
+  priority: number;            // Lower number = higher priority
+
+  // Default theme properties (pointing to solid chip theme)
+  textColor: string;
+  bgColor: string;
+  borderColor: string;
+  bulletColor: string;
+  resolvedTextColor: string;
+  resolvedBgColor: string;
+  resolvedBulletColor: string;
+
+  // Multi-theme definitions
+  themes: Record<BadgeTheme, BadgeThemeColors>;
+}
+
+function defineAnnotation(
+  base: {
+    type: AnnotationCategory;
+    primaryTag: string;
+    aliases: string[];
+    label: string;
+    description: string;
+    color: string;
+    resolvedColor: string;
+    gutterColor?: string;
+    makesBold?: boolean;
+    dimsText?: boolean;
+    priority: number;
+  },
+  solid: BadgeThemeColors,
+  wash: BadgeThemeColors
+): AnnotationConfig {
+  return {
+    ...base,
+    textColor: solid.textColor,
+    bgColor: solid.bgColor,
+    borderColor: solid.borderColor,
+    bulletColor: solid.bulletColor,
+    resolvedTextColor: solid.resolvedTextColor,
+    resolvedBgColor: solid.resolvedBgColor,
+    resolvedBulletColor: solid.resolvedBulletColor,
+    themes: {
+      solid,
+      wash,
+    },
+  };
 }
 
 export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = {
-  important: {
-    type: 'important',
-    primaryTag: 'important',
-    aliases: ['urgent', 'star', 'key'],
-    label: 'Important',
-    description: 'High priority / critical task (adds red dot to date gutter & bold font)',
-    color: '#D23B38', // Desert Crimson
-    textColor: '#8C1D1B', // Deep crimson ink
-    bgColor: '#FCEBEA', // Soft crimson paper wash
-    borderColor: '#D23B3830',
-    resolvedColor: '#D99492',
-    resolvedTextColor: '#A65E5C',
-    resolvedBgColor: '#FCF3F2',
-    gutterColor: '#D23B38',
-    makesBold: true,
-    priority: 1,
-  },
-  wait: {
-    type: 'wait',
-    primaryTag: 'wait',
-    aliases: ['await', 'waiting', 'blocked', 'pending'],
-    label: 'Waiting',
-    description: 'Waiting on external event, email, or blocker (adds terracotta dot)',
-    color: '#E29578', // Terracotta
-    textColor: '#8A3E26', // Deep terracotta ink
-    bgColor: '#FAECE6', // Soft terracotta paper wash
-    borderColor: '#E2957830',
-    resolvedColor: '#DFAC98',
-    resolvedTextColor: '#A97463',
-    resolvedBgColor: '#FAF2EF',
-    gutterColor: '#E29578',
-    priority: 2,
-  },
-  celebrate: {
-    type: 'celebrate',
-    primaryTag: 'celebrate',
-    aliases: ['happy', 'birthday', 'party', 'fun', 'joy', 'milestone', 'cheers'],
-    label: 'Happy Event',
-    description: 'Celebration, birthday, milestone, or happy event (adds golden ochre dot)',
-    color: '#E9C46A', // Warm Ochre
-    textColor: '#7D5705', // Deep amber ochre ink
-    bgColor: '#FAF3E1', // Soft warm ochre paper wash
-    borderColor: '#E9C46A30',
-    resolvedColor: '#DFC78B',
-    resolvedTextColor: '#9E8651',
-    resolvedBgColor: '#FCF8EE',
-    gutterColor: '#E9C46A',
-    priority: 3,
-  },
-  explore: {
-    type: 'explore',
-    primaryTag: 'explore',
-    aliases: ['idea', 'question', 'unknown', 'research', 'brainstorm'],
-    label: 'Explore / Idea',
-    description: 'Exploratory inquiry, unknown, research, or idea (adds lavender dot)',
-    color: '#9B5DE5', // Lavender / Amethyst
-    textColor: '#5A229E', // Deep amethyst ink
-    bgColor: '#F4ECFC', // Soft lavender paper wash
-    borderColor: '#9B5DE530',
-    resolvedColor: '#B693E3',
-    resolvedTextColor: '#8B71A8',
-    resolvedBgColor: '#F9F4FD',
-    gutterColor: '#9B5DE5',
-    priority: 4,
-  },
-  thought: {
-    type: 'thought',
-    primaryTag: 'thought',
-    aliases: ['revelation', 'insight', 'reflection', 'note'],
-    label: 'Thought',
-    description: 'Revelation, reflection, journal entry, or insight (adds steel blue dot)',
-    color: '#457B9D', // Steel Blue / Slate
-    textColor: '#1B4766', // Deep slate blue ink
-    bgColor: '#EBF2F6', // Soft slate paper wash
-    borderColor: '#457B9D30',
-    resolvedColor: '#7FA1B5',
-    resolvedTextColor: '#688699',
-    resolvedBgColor: '#F2F6F9',
-    gutterColor: '#457B9D',
-    priority: 5,
-  },
-  todo: {
-    type: 'todo',
-    primaryTag: 'todo',
-    aliases: ['task', 'action'],
-    label: 'To-Do',
-    description: 'Actionable task item (adds sage dot)',
-    color: '#83C5BE', // Sage / Aqua
-    textColor: '#1C544E', // Deep forest sage ink
-    bgColor: '#E4F1EF', // Soft sage paper wash
-    borderColor: '#83C5BE30',
-    resolvedColor: '#A0C4C0',
-    resolvedTextColor: '#6C8F8B',
-    resolvedBgColor: '#EFF6F5',
-    gutterColor: '#83C5BE',
-    priority: 6,
-  },
-  time: {
-    type: 'time',
-    primaryTag: 'time',
-    aliases: ['event', 'sched', 'schedule'],
-    label: 'Scheduled Event',
-    description: 'Time-of-day scheduled event or appointment (adds slate dot)',
-    color: '#71727A', // Muted slate gray
-    textColor: '#36373D', // Deep graphite ink
-    bgColor: '#F0EFEA', // Soft parchment wash
-    borderColor: '#71727A30',
-    resolvedColor: '#9D9DA3',
-    resolvedTextColor: '#83838A',
-    resolvedBgColor: '#F6F5F2',
-    gutterColor: '#71727A',
-    priority: 7,
-  },
-  failed: {
-    type: 'failed',
-    primaryTag: 'failed',
-    aliases: ['fail', 'failure', 'rejected', 'unsuccessful'],
-    label: 'Failed',
-    description: 'Failed, rejected, or unsuccessful task/event (adds ruby dot)',
-    color: '#C84E4B', // Ruby muted red
-    textColor: '#872321', // Deep ruby ink
-    bgColor: '#FCEBEA', // Soft ruby wash
-    borderColor: '#C84E4B30',
-    resolvedColor: '#D89593',
-    resolvedTextColor: '#A46765',
-    resolvedBgColor: '#FCF3F2',
-    gutterColor: '#C84E4B',
-    priority: 8,
-  },
-  skipped: {
-    type: 'skipped',
-    primaryTag: 'skipped',
-    aliases: ['missed', 'postponed', 'dropped', 'canceled'],
-    label: 'Skipped',
-    description: 'Missed or postponed task (dimmed with line-through)',
-    color: '#A19D94', // Muted graphite ash
-    textColor: '#57544D', // Deep pencil ash ink
-    bgColor: '#F3F1EC', // Soft ash paper wash
-    borderColor: '#A19D9430',
-    resolvedColor: '#BDBAB2',
-    resolvedTextColor: '#949087',
-    resolvedBgColor: '#F7F6F3',
-    dimsText: true,
-    priority: 9,
-  },
-  custom: {
-    type: 'custom',
-    primaryTag: 'custom',
-    aliases: [],
-    label: 'Tag',
-    description: 'Custom annotation',
-    color: '#71727A',
-    textColor: '#3E3F45',
-    bgColor: '#F1EFEA',
-    borderColor: '#71727A30',
-    resolvedColor: '#9D9DA3',
-    resolvedTextColor: '#83838A',
-    resolvedBgColor: '#F5F4F1',
-    priority: 99,
-  },
+  important: defineAnnotation(
+    {
+      type: 'important',
+      primaryTag: 'important',
+      aliases: ['urgent', 'star', 'key'],
+      label: 'Important',
+      description: 'High priority / critical task (adds red dot to date gutter & bold font)',
+      color: '#D23B38', // Desert Crimson
+      resolvedColor: '#D99492',
+      gutterColor: '#D23B38',
+      makesBold: true,
+      priority: 1,
+    },
+    // Solid Theme (Default: high contrast, vibrant)
+    {
+      bgColor: '#C85250',
+      textColor: '#FFFFFF',
+      borderColor: '#B91C1C',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#C47D7C',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme (Soft watercolor paper wash)
+    {
+      bgColor: '#FCEBEA',
+      textColor: '#8C1D1B',
+      borderColor: '#D23B3830',
+      bulletColor: '#D23B38',
+      resolvedBgColor: '#FCF3F2',
+      resolvedTextColor: '#A65E5C',
+      resolvedBulletColor: '#D99492',
+    }
+  ),
+
+  wait: defineAnnotation(
+    {
+      type: 'wait',
+      primaryTag: 'wait',
+      aliases: ['await', 'waiting', 'blocked', 'pending'],
+      label: 'Waiting',
+      description: 'Waiting on external event, email, or blocker (adds terracotta dot)',
+      color: '#E29578', // Terracotta
+      resolvedColor: '#DFAC98',
+      gutterColor: '#E29578',
+      priority: 2,
+    },
+    // Solid Theme
+    {
+      bgColor: '#DE7351',
+      textColor: '#FFFFFF',
+      borderColor: '#9A3412',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#C48D7B',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#FAECE6',
+      textColor: '#8A3E26',
+      borderColor: '#E2957830',
+      bulletColor: '#E29578',
+      resolvedBgColor: '#FAF2EF',
+      resolvedTextColor: '#A97463',
+      resolvedBulletColor: '#DFAC98',
+    }
+  ),
+
+  celebrate: defineAnnotation(
+    {
+      type: 'celebrate',
+      primaryTag: 'celebrate',
+      aliases: ['happy', 'birthday', 'party', 'fun', 'joy', 'milestone', 'cheers'],
+      label: 'Happy Event',
+      description: 'Celebration, birthday, milestone, or happy event (adds golden ochre dot)',
+      color: '#E9C46A', // Warm Ochre
+      resolvedColor: '#DFC78B',
+      gutterColor: '#E9C46A',
+      priority: 3,
+    },
+    // Solid Theme
+    {
+      bgColor: '#D48216',
+      textColor: '#FFFFFF',
+      borderColor: '#92400E',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#C29653',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#FAF3E1',
+      textColor: '#7D5705',
+      borderColor: '#E9C46A30',
+      bulletColor: '#E9C46A',
+      resolvedBgColor: '#FCF8EE',
+      resolvedTextColor: '#9E8651',
+      resolvedBulletColor: '#DFC78B',
+    }
+  ),
+
+  explore: defineAnnotation(
+    {
+      type: 'explore',
+      primaryTag: 'explore',
+      aliases: ['idea', 'question', 'unknown', 'research', 'brainstorm'],
+      label: 'Explore / Idea',
+      description: 'Exploratory inquiry, unknown, research, or idea (adds lavender dot)',
+      color: '#9B5DE5', // Lavender / Amethyst
+      resolvedColor: '#B693E3',
+      gutterColor: '#9B5DE5',
+      priority: 4,
+    },
+    // Solid Theme
+    {
+      bgColor: '#8B5BB5',
+      textColor: '#FFFFFF',
+      borderColor: '#6B21A8',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#A184BA',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#F4ECFC',
+      textColor: '#5A229E',
+      borderColor: '#9B5DE530',
+      bulletColor: '#9B5DE5',
+      resolvedBgColor: '#F9F4FD',
+      resolvedTextColor: '#8B71A8',
+      resolvedBulletColor: '#B693E3',
+    }
+  ),
+
+  thought: defineAnnotation(
+    {
+      type: 'thought',
+      primaryTag: 'thought',
+      aliases: ['revelation', 'insight', 'reflection', 'note'],
+      label: 'Thought',
+      description: 'Revelation, reflection, journal entry, or insight (adds steel blue dot)',
+      color: '#457B9D', // Steel Blue
+      resolvedColor: '#7FA1B5',
+      gutterColor: '#457B9D',
+      priority: 5,
+    },
+    // Solid Theme
+    {
+      bgColor: '#3B7EBD',
+      textColor: '#FFFFFF',
+      borderColor: '#1E40AF',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#6E8EAB',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#EBF2F6',
+      textColor: '#1B4766',
+      borderColor: '#457B9D30',
+      bulletColor: '#457B9D',
+      resolvedBgColor: '#F2F6F9',
+      resolvedTextColor: '#688699',
+      resolvedBulletColor: '#7FA1B5',
+    }
+  ),
+
+  todo: defineAnnotation(
+    {
+      type: 'todo',
+      primaryTag: 'todo',
+      aliases: ['task', 'action'],
+      label: 'To-Do',
+      description: 'Actionable task item (adds sage dot)',
+      color: '#83C5BE', // Sage / Aqua
+      resolvedColor: '#A0C4C0',
+      gutterColor: '#83C5BE',
+      priority: 6,
+    },
+    // Solid Theme
+    {
+      bgColor: '#2D7D73',
+      textColor: '#FFFFFF',
+      borderColor: '#1C544E',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#669892',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#E4F1EF',
+      textColor: '#1C544E',
+      borderColor: '#83C5BE30',
+      bulletColor: '#83C5BE',
+      resolvedBgColor: '#EFF6F5',
+      resolvedTextColor: '#6C8F8B',
+      resolvedBulletColor: '#A0C4C0',
+    }
+  ),
+
+  time: defineAnnotation(
+    {
+      type: 'time',
+      primaryTag: 'time',
+      aliases: ['event', 'sched', 'schedule'],
+      label: 'Scheduled Event',
+      description: 'Time-of-day scheduled event or appointment (adds slate dot)',
+      color: '#71727A', // Muted slate gray
+      resolvedColor: '#9D9DA3',
+      gutterColor: '#71727A',
+      priority: 7,
+    },
+    // Solid Theme
+    {
+      bgColor: '#6B7280',
+      textColor: '#FFFFFF',
+      borderColor: '#334155',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#8C8F96',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#F0EFEA',
+      textColor: '#36373D',
+      borderColor: '#71727A30',
+      bulletColor: '#71727A',
+      resolvedBgColor: '#F6F5F2',
+      resolvedTextColor: '#83838A',
+      resolvedBulletColor: '#9D9DA3',
+    }
+  ),
+
+  failed: defineAnnotation(
+    {
+      type: 'failed',
+      primaryTag: 'failed',
+      aliases: ['fail', 'failure', 'rejected', 'unsuccessful'],
+      label: 'Failed',
+      description: 'Failed, rejected, or unsuccessful task/event (adds ruby dot)',
+      color: '#C84E4B', // Ruby muted red
+      resolvedColor: '#D89593',
+      gutterColor: '#C84E4B',
+      priority: 8,
+    },
+    // Solid Theme
+    {
+      bgColor: '#C84E4B',
+      textColor: '#FFFFFF',
+      borderColor: '#B91C1C',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#BF7A78',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#FCEBEA',
+      textColor: '#872321',
+      borderColor: '#C84E4B30',
+      bulletColor: '#C84E4B',
+      resolvedBgColor: '#FCF3F2',
+      resolvedTextColor: '#A46765',
+      resolvedBulletColor: '#D89593',
+    }
+  ),
+
+  skipped: defineAnnotation(
+    {
+      type: 'skipped',
+      primaryTag: 'skipped',
+      aliases: ['missed', 'postponed', 'dropped', 'canceled'],
+      label: 'Skipped',
+      description: 'Missed or postponed task (dimmed with line-through)',
+      color: '#A19D94', // Muted graphite ash
+      resolvedColor: '#BDBAB2',
+      dimsText: true,
+      priority: 9,
+    },
+    // Solid Theme
+    {
+      bgColor: '#8A857C',
+      textColor: '#FFFFFF',
+      borderColor: '#4B5563',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#A8A39A',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#F3F1EC',
+      textColor: '#57544D',
+      borderColor: '#A19D9430',
+      bulletColor: '#A19D94',
+      resolvedBgColor: '#F7F6F3',
+      resolvedTextColor: '#949087',
+      resolvedBulletColor: '#BDBAB2',
+    }
+  ),
+
+  custom: defineAnnotation(
+    {
+      type: 'custom',
+      primaryTag: 'custom',
+      aliases: [],
+      label: 'Tag',
+      description: 'Custom annotation',
+      color: '#71727A',
+      resolvedColor: '#9D9DA3',
+      priority: 99,
+    },
+    // Solid Theme
+    {
+      bgColor: '#6B7280',
+      textColor: '#FFFFFF',
+      borderColor: '#374151',
+      bulletColor: '#FFFFFF',
+      resolvedBgColor: '#8C8F96',
+      resolvedTextColor: '#FAF8F5',
+      resolvedBulletColor: '#FAF8F5',
+    },
+    // Wash Theme
+    {
+      bgColor: '#F1EFEA',
+      textColor: '#3E3F45',
+      borderColor: '#71727A30',
+      bulletColor: '#71727A',
+      resolvedBgColor: '#F5F4F1',
+      resolvedTextColor: '#83838A',
+      resolvedBulletColor: '#9D9DA3',
+    }
+  ),
 };
 
 // Test if tag string represents a time of day: e.g. 4:00pm, 4pm, 14:30, 9am, 10:15am, 2:00pm-3:30pm
@@ -250,9 +482,12 @@ export interface ParsedAnnotation {
   textColor: string;
   bgColor: string;
   borderColor: string;
-  resolvedColor?: string;
-  resolvedTextColor?: string;
-  resolvedBgColor?: string;
+  bulletColor: string;
+  resolvedColor: string;
+  resolvedTextColor: string;
+  resolvedBgColor: string;
+  resolvedBulletColor: string;
+  theme: BadgeTheme;
   gutterColor?: string;
   makesBold?: boolean;
   dimsText?: boolean;
@@ -263,73 +498,58 @@ export interface ParsedAnnotation {
   isLeading?: boolean;
 }
 
-export function resolveAnnotation(tag: string, isResolved = false): ParsedAnnotation {
+export function resolveAnnotation(
+  tag: string,
+  isResolved = false,
+  theme: BadgeTheme = DEFAULT_BADGE_THEME
+): ParsedAnnotation {
   const lowerTag = tag.toLowerCase().trim();
+
+  const createParsed = (
+    config: AnnotationConfig,
+    resolvedTag: string,
+    isTime = false
+  ): ParsedAnnotation => {
+    const tColors = config.themes[theme] || config.themes.solid;
+    return {
+      raw: `@${resolvedTag}`,
+      tag: resolvedTag,
+      type: config.type,
+      label: isTime ? resolvedTag : config.label,
+      color: config.color,
+      textColor: tColors.textColor,
+      bgColor: tColors.bgColor,
+      borderColor: tColors.borderColor,
+      bulletColor: tColors.bulletColor,
+      resolvedColor: config.resolvedColor,
+      resolvedTextColor: tColors.resolvedTextColor,
+      resolvedBgColor: tColors.resolvedBgColor,
+      resolvedBulletColor: tColors.resolvedBulletColor,
+      theme,
+      gutterColor: config.gutterColor,
+      makesBold: config.makesBold,
+      dimsText: config.dimsText,
+      priority: config.priority,
+      isTime,
+      timeString: isTime ? resolvedTag : undefined,
+      isResolved,
+    };
+  };
 
   // Check if it's a time annotation (e.g. 4:00pm, 9am, 14:30)
   if (isTimeString(lowerTag)) {
-    const config = ANNOTATION_CONFIGS.time;
-    return {
-      raw: `@${tag}`,
-      tag,
-      type: 'time',
-      label: tag,
-      color: config.color,
-      textColor: config.textColor,
-      bgColor: config.bgColor,
-      borderColor: config.borderColor,
-      resolvedColor: config.resolvedColor,
-      resolvedTextColor: config.resolvedTextColor,
-      resolvedBgColor: config.resolvedBgColor,
-      gutterColor: config.gutterColor,
-      priority: config.priority,
-      isTime: true,
-      timeString: tag,
-      isResolved,
-    };
+    return createParsed(ANNOTATION_CONFIGS.time, tag, true);
   }
 
   // Check defined categories and their aliases
   for (const config of Object.values(ANNOTATION_CONFIGS)) {
     if (config.primaryTag === lowerTag || config.aliases.includes(lowerTag)) {
-      return {
-        raw: `@${tag}`,
-        tag,
-        type: config.type,
-        label: config.label,
-        color: config.color,
-        textColor: config.textColor,
-        bgColor: config.bgColor,
-        borderColor: config.borderColor,
-        resolvedColor: config.resolvedColor,
-        resolvedTextColor: config.resolvedTextColor,
-        resolvedBgColor: config.resolvedBgColor,
-        gutterColor: config.gutterColor,
-        makesBold: config.makesBold,
-        dimsText: config.dimsText,
-        priority: config.priority,
-        isResolved,
-      };
+      return createParsed(config, tag);
     }
   }
 
   // Fallback for custom / unknown tags
-  const fallback = ANNOTATION_CONFIGS.custom;
-  return {
-    raw: `@${tag}`,
-    tag,
-    type: 'custom',
-    label: tag,
-    color: fallback.color,
-    textColor: fallback.textColor,
-    bgColor: fallback.bgColor,
-    borderColor: fallback.borderColor,
-    resolvedColor: fallback.resolvedColor,
-    resolvedTextColor: fallback.resolvedTextColor,
-    resolvedBgColor: fallback.resolvedBgColor,
-    priority: fallback.priority,
-    isResolved,
-  };
+  return createParsed(ANNOTATION_CONFIGS.custom, tag);
 }
 
 export interface NoteSegment {
@@ -370,7 +590,11 @@ export const ANNOTATION_REGEX = /(?:^|(?<=\s))(~~)?@([a-zA-Z0-9]+(?:[:.-][a-zA-Z
  * @param noteIsStruck When true, cascades resolution to all annotations in this note
  * @returns Parsed segments, active/resolved annotations list, and computed flags
  */
-export function parseNoteContent(content: string, noteIsStruck = false): ParsedNoteResult {
+export function parseNoteContent(
+  content: string,
+  noteIsStruck = false,
+  theme: BadgeTheme = DEFAULT_BADGE_THEME
+): ParsedNoteResult {
   if (!content) {
     return {
       segments: [{ type: 'text', text: '' }],
@@ -442,7 +666,7 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
     const isLeading = segments.every((s) => s.type === 'text' && s.text.trim() === '');
 
     const isResolved = noteIsStruck || isTagStruck;
-    const parsed = resolveAnnotation(tagBody, isResolved);
+    const parsed = resolveAnnotation(tagBody, isResolved, theme);
     parsed.raw = rawTag;
     parsed.isLeading = isLeading;
     annotations.push(parsed);
@@ -498,12 +722,16 @@ export interface SplitNoteResult {
  * The Anchor owns the bullet dot and card identity at x = 0.
  * The Body Text contains the prose and any inline tags, and is what participates in word diffs.
  */
-export function splitNoteAnchorAndBody(content: string, noteIsStruck = false): SplitNoteResult {
+export function splitNoteAnchorAndBody(
+  content: string,
+  noteIsStruck = false,
+  theme: BadgeTheme = DEFAULT_BADGE_THEME
+): SplitNoteResult {
   if (!content) {
     return { anchor: null, bodyText: '' };
   }
 
-  const parsed = parseNoteContent(content, noteIsStruck);
+  const parsed = parseNoteContent(content, noteIsStruck, theme);
   if (!parsed.hasLeadingAnnotation || !parsed.leadingAnnotation) {
     return { anchor: null, bodyText: content };
   }
