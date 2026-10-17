@@ -10,6 +10,7 @@ import {
   saveRemoteCalendar, 
   type CalendarBackupData 
 } from '../services/storage';
+import { filterAndPromoteGuestNotes } from '../services/demoNotes';
 
 export interface HistorySnapshot {
   notes: NoteItem[];
@@ -48,50 +49,6 @@ function safeMerge<T extends { id: string; createdAt?: string; updatedAt?: strin
     }
   }
   return Array.from(map.values());
-}
-
-/**
- * Canonical content and default struck status of demo starter notes.
- * Used on login to identify and drop untouched demo notes without polluting the user's account,
- * while seamlessly merging and re-identifying any note the user actually interacted with.
- */
-const PRISTINE_DEMO_TEMPLATES: Record<string, { content: string; isStruck: boolean }> = {
-  'demo-1': { content: 'Review quarterly architecture and security plan with team @important', isStruck: false },
-  'demo-2': { content: 'Finalize server migration roadmap @important', isStruck: false },
-  'demo-3': { content: 'Tokyo Design & Engineering Offsite @4:00pm', isStruck: false },
-  'demo-4': { content: 'Draft proposal for client team @wait on legal team brief', isStruck: false },
-  'demo-5': { content: 'Explore zero-latency state sync @explore', isStruck: false },
-  'demo-6': { content: 'The simplest abstractions are discovered, not designed @thought', isStruck: false },
-  'demo-7': { content: 'Completed initial user interviews @skipped', isStruck: true },
-  'wnote-1': { content: 'Week 42 Focus: 3-Tier temporal planning (Day → Week → Month)', isStruck: false },
-  'wnote-2': { content: '2-Week Sprint (Spanning W42 – W43)', isStruck: false },
-  'wnote-3': { content: 'Feature: Search & filter all @todo notes across timeline (Cmd+K / Ledger drawer) @todo @explore', isStruck: false },
-  'mnote-1': { content: 'October Focus: Ship continuous jigsaw calendar', isStruck: false },
-  'mnote-2': { content: 'Q4 Product Initiative (Spanning Oct – Dec)', isStruck: false },
-};
-
-function filterAndPromoteGuestNotes<T extends { id: string; content: string; isStruck?: boolean }>(
-  items: T[],
-  idPrefix: string
-): T[] {
-  return items
-    .filter((item) => {
-      const template = PRISTINE_DEMO_TEMPLATES[item.id];
-      if (!template) return true; // User authored this note; keep it
-      // Discard if completely untouched: content and struck status match starter template
-      const isUntouched = item.content.trim() === template.content.trim() && Boolean(item.isStruck) === template.isStruck;
-      return !isUntouched;
-    })
-    .map((item) => {
-      // If a user edited an initial demo note, give it a real persistent unique ID
-      if (PRISTINE_DEMO_TEMPLATES[item.id]) {
-        return {
-          ...item,
-          id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        };
-      }
-      return item;
-    });
 }
 
 export function useCalendarState() {
