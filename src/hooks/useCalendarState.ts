@@ -425,6 +425,19 @@ export function useCalendarState() {
     );
   }, [recordHistory]);
 
+  const acceptNoteRevision = useCallback((noteId: string) => {
+    recordHistory(true);
+    setNotes((prev) =>
+      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
+    );
+    setWeekNotes((prev) =>
+      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
+    );
+    setMonthNotes((prev) =>
+      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
+    );
+  }, [recordHistory]);
+
   const reorderNotes = useCallback(
     (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => {
       if (sourceNoteId === targetNoteId && !targetDate) return;
@@ -896,6 +909,7 @@ export function useCalendarState() {
     toggleStrikeNote,
     removeNote,
     updateNote,
+    acceptNoteRevision,
     reorderNotes,
     moveNoteToDate,
     addWeekNote,

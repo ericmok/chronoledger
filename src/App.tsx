@@ -18,6 +18,7 @@ export function App() {
     toggleStrikeNote,
     removeNote,
     updateNote,
+    acceptNoteRevision,
     reorderNotes,
     moveNoteToDate,
     addWeekNote,
@@ -158,6 +159,7 @@ export function App() {
             onToggleStrike={toggleStrikeNote}
             onRemoveNote={removeNote}
             onUpdateNote={updateNote}
+            onAcceptNoteRevision={acceptNoteRevision}
             onReorderNotes={reorderNotes}
             onMoveNoteToDate={moveNoteToDate}
             onAddQuickNote={(date, text, parentDates, colorTag) => addNote(text, parentDates || [date], colorTag)}
@@ -194,6 +196,7 @@ export function App() {
             onToggleStrikeMonthNote={toggleStrikeMonthNote}
             onRemoveMonthNote={removeMonthNote}
             onUpdateMonthNote={updateMonthNote}
+            onAcceptNoteRevision={acceptNoteRevision}
             onReorderMonthNotes={reorderMonthNotes}
             onMoveMonthNoteToMonth={moveMonthNoteToMonth}
             scrollTargetDate={scrollTargetDate}

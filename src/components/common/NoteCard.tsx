@@ -1,7 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Strikethrough, Pencil, Trash2, Check, X, GripVertical } from 'lucide-react';
 import { computeWordDiff } from '../../utils/diffUtils';
-import { parseNoteContent, getNoteBulletColor, toggleAnnotationResolution } from '../../utils/annotationUtils';
+import {
+  parseNoteContent,
+  splitNoteAnchorAndBody,
+  toggleAnnotationResolution,
+  type ParsedAnnotation,
+} from '../../utils/annotationUtils';
 import { useAnnotationInput } from '../../hooks/useAnnotationInput';
 import { AnnotationAutocomplete } from './AnnotationAutocomplete';
 
@@ -15,6 +20,7 @@ export interface NoteCardProps {
   onToggleStrike: (id: string) => void;
   onRemove: (id: string) => void;
   onUpdate?: (id: string, newContent: string) => void;
+  onAcceptEdit?: (id: string) => void;
   onStartEdit?: (id: string) => void;
   density?: 'comfortable' | 'compact';
   variant?: 'card' | 'minimal';
@@ -41,6 +47,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onToggleStrike,
   onRemove,
   onUpdate,
+  onAcceptEdit,
   onStartEdit,
   density = 'comfortable',
   variant = 'card',
@@ -64,7 +71,41 @@ export const NoteCard: React.FC<NoteCardProps> = ({
 
   const isMinimal = variant === 'minimal';
   const isComfortable = density === 'comfortable';
-  const hasEdits = Boolean(originalContent && originalContent !== content);
+
+  // Split note into leading Anchor Tag (if present) and Prose Body
+  const currentSplit = useMemo(
+    () => splitNoteAnchorAndBody(content || originalContent || '', isStruck),
+    [content, originalContent, isStruck]
+  );
+
+  const originalSplit = useMemo(
+    () => (originalContent ? splitNoteAnchorAndBody(originalContent, isStruck) : null),
+    [originalContent, isStruck]
+  );
+
+  // Body diff engine: strictly compares prose body after the leading anchor
+  const bodyDiffChunks = useMemo(() => {
+    if (!originalSplit) return [];
+    return computeWordDiff(originalSplit.bodyText, currentSplit.bodyText);
+  }, [originalSplit, currentSplit]);
+
+  // Track if the anchor itself was replaced, added, or removed
+  const anchorReplaced = Boolean(
+    originalSplit?.anchor &&
+      (!currentSplit.anchor || originalSplit.anchor.tag !== currentSplit.anchor.tag)
+  );
+
+  const anchorAdded = Boolean(
+    originalSplit && !originalSplit.anchor && currentSplit.anchor
+  );
+
+  const hasBodyEdits = bodyDiffChunks.some(
+    (c) => c.type === 'added' || c.type === 'deleted'
+  );
+
+  const hasEdits = Boolean(
+    originalSplit && (hasBodyEdits || anchorReplaced || anchorAdded)
+  );
 
   const parsedNote = useMemo(
     () => parseNoteContent(content || originalContent || ''),
@@ -72,28 +113,23 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   );
 
   const bulletColor = useMemo(
-    () => getNoteBulletColor(content || originalContent || '', colorTag),
-    [content, originalContent, colorTag]
+    () => (currentSplit.anchor ? currentSplit.anchor.color : colorTag || '#A19D94'),
+    [currentSplit.anchor, colorTag]
   );
 
   const isBulletResolved = useMemo(
     () =>
       Boolean(
         isStruck ||
-          (parsedNote.leadingAnnotation
-            ? parsedNote.leadingAnnotation.isResolved
+          (currentSplit.anchor
+            ? currentSplit.anchor.isResolved
             : parsedNote.annotations.length > 0 &&
               parsedNote.annotations.every((a) => a.isResolved))
       ),
-    [isStruck, parsedNote]
+    [isStruck, currentSplit.anchor, parsedNote]
   );
 
   const annotationInput = useAnnotationInput(editText, setEditText);
-
-  const diffChunks = useMemo(() => {
-    if (!hasEdits || !originalContent) return [];
-    return computeWordDiff(originalContent, content);
-  }, [hasEdits, originalContent, content]);
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -196,137 +232,170 @@ export const NoteCard: React.FC<NoteCardProps> = ({
    * - Badges can be clicked to toggle their markdown resolution state (`@tag` <-> `~~@tag~~`).
    * - Badges marked `isDeleted` in a word diff cannot be clicked to prevent state corruption.
    */
+  /**
+   * Renders the note's Anchor Badge (fused with the bullet dot at x = 0).
+   * Exclusively handles the leading tag at the start of the note.
+   */
+  const renderAnchorBadge = (anchor: ParsedAnnotation) => {
+    const isResolved = Boolean(isStruck || anchor.isResolved);
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onUpdate) {
+            const current = content || originalContent || '';
+            const newContent = toggleAnnotationResolution(current, anchor.raw);
+            onUpdate(id, newContent);
+          }
+        }}
+        onMouseEnter={() => {
+          if (isDraggable) setCanDrag(true);
+        }}
+        onMouseLeave={() => {
+          if (!isDraggingSelf) setCanDrag(false);
+        }}
+        onPointerDown={() => {
+          if (isDraggable) setCanDrag(true);
+        }}
+        onPointerUp={() => {
+          if (!isDraggingSelf) setCanDrag(false);
+        }}
+        className={`inline-flex items-center gap-1.5 ${
+          isComfortable
+            ? '-ml-5 mr-1.5 pl-1.5 pr-2 py-[2px]'
+            : '-ml-4 mr-1.5 pl-1 pr-1.5 py-[1.5px]'
+        } rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+          isDraggable
+            ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
+            : 'cursor-pointer hover:scale-105 active:scale-95'
+        } ${
+          isResolved
+            ? 'line-through opacity-70 bg-[#DDD6C8] text-[#71727A]'
+            : ''
+        }`}
+        style={{
+          backgroundColor: isResolved ? undefined : anchor.bgColor,
+          color: isResolved ? undefined : anchor.textColor,
+          border: 'none',
+          outline: 'none',
+          boxShadow: 'none',
+        }}
+        title={`${anchor.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle • Drag to reorder`}
+      >
+        <span className="w-2.5 h-2.5 flex items-center justify-center shrink-0">
+          {isDraggable && (
+            <GripVertical
+              className={`w-2.5 h-2.5 ${isResolved ? 'text-[#71727A]' : 'text-white'} ${
+                isBeingDragged || isDraggingSelf ? 'block' : 'hidden group-hover:block'
+              }`}
+            />
+          )}
+          <svg
+            className={`w-2 h-2 overflow-visible ${
+              isBeingDragged || isDraggingSelf
+                ? 'hidden'
+                : isDraggable
+                ? 'block group-hover:hidden'
+                : 'block'
+            }`}
+            viewBox="0 0 8 8"
+          >
+            <circle
+              cx="4"
+              cy="4"
+              r="3.2"
+              fill={isResolved ? '#71727A' : '#FFFFFF'}
+              opacity={isResolved ? 0.7 : 0.95}
+            />
+            {isResolved && (
+              <line
+                x1="1"
+                y1="7"
+                x2="7"
+                y2="1"
+                stroke="#2B2C30"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+        </span>
+        <span className="leading-none">{anchor.tag}</span>
+      </button>
+    );
+  };
+
+  /**
+   * Renders an Inline Tag Badge inside the sentence prose.
+   * Never receives negative margins, bullet dots, or drag handles.
+   * If deleted in a diff, renders in category badge color with lower opacity and strikethrough, without a `-` prefix.
+   */
+  const renderInlineBadge = (
+    badge: ParsedAnnotation,
+    key: string | number,
+    isDeleted = false,
+    isAdded = false
+  ) => {
+    const isResolved = Boolean(isStruck || badge.isResolved);
+    return (
+      <button
+        key={key}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isDeleted) return;
+          if (onUpdate) {
+            const current = content || originalContent || '';
+            const newContent = toggleAnnotationResolution(current, badge.raw);
+            onUpdate(id, newContent);
+          }
+        }}
+        className={`inline-flex items-center gap-1 ${
+          isComfortable ? 'mx-0.5 px-1.5 py-[2px]' : 'mx-0.5 px-1 py-[1.5px]'
+        } rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+          isDeleted
+            ? 'cursor-default line-through decoration-[#2B2C30] decoration-[1.5px] opacity-50'
+            : isResolved
+            ? 'cursor-pointer hover:scale-105 active:scale-95 line-through opacity-70 bg-[#DDD6C8] text-[#71727A]'
+            : 'cursor-pointer hover:scale-105 active:scale-95'
+        }`}
+        style={{
+          backgroundColor: isResolved ? undefined : badge.bgColor,
+          color: isResolved ? undefined : badge.textColor,
+          border: 'none',
+          outline: 'none',
+          boxShadow: 'none',
+        }}
+        title={
+          isDeleted
+            ? `${badge.label} (Deleted tag)`
+            : isAdded
+            ? `${badge.label} (Newly added tag): Click to toggle`
+            : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
+        }
+      >
+        {isAdded && <span className="opacity-80 font-bold select-none mr-0.5">+</span>}
+        <span className="leading-none">{badge.tag}</span>
+      </button>
+    );
+  };
+
+  /**
+   * Renders body text and inline micro-badges.
+   */
   const renderAnnotatedText = (
     text: string,
     isDeleted = false,
-    isAdded = false,
-    allowLeadingFusion = false
+    isAdded = false
   ) => {
     const { segments } = parseNoteContent(text);
     return segments.map((seg, idx) => {
       if (seg.type === 'badge' && seg.annotation) {
-        const badge = seg.annotation;
-        const isLeading = Boolean(allowLeadingFusion && !isDeleted && !isAdded && seg.isLeading);
-        const isResolved = Boolean(isStruck || badge.isResolved);
-
-        return (
-          <button
-            key={idx}
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isDeleted) return;
-              if (onUpdate) {
-                const current = content || originalContent || '';
-                const newContent = toggleAnnotationResolution(current, badge.raw);
-                onUpdate(id, newContent);
-              }
-            }}
-            onMouseEnter={() => {
-              if (isLeading && isDraggable) setCanDrag(true);
-            }}
-            onMouseLeave={() => {
-              if (isLeading && !isDraggingSelf) setCanDrag(false);
-            }}
-            onPointerDown={() => {
-              if (isLeading && isDraggable) setCanDrag(true);
-            }}
-            onPointerUp={() => {
-              if (isLeading && !isDraggingSelf) setCanDrag(false);
-            }}
-            className={`inline-flex items-center gap-1 ${
-              isLeading
-                ? isComfortable
-                  ? '-ml-5 mr-1.5 pl-1.5 pr-2 py-[2px]'
-                  : '-ml-4 mr-1.5 pl-1 pr-1.5 py-[1.5px]'
-                : isComfortable
-                ? 'mx-0.5 px-1.5 py-[2px]'
-                : 'mx-0.5 px-1 py-[1.5px]'
-            } rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
-              isLeading && isDraggable
-                ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
-                : isDeleted
-                ? 'cursor-default'
-                : 'cursor-pointer hover:scale-105 active:scale-95'
-            } ${
-              isDeleted
-                ? 'line-through decoration-[#D23B38] decoration-[1.5px] bg-[#FDEDEC] text-[#D23B38] opacity-85'
-                : isResolved
-                ? 'line-through opacity-70 bg-[#DDD6C8] text-[#71727A]'
-                : ''
-            }`}
-            style={{
-              backgroundColor: isDeleted ? '#FDEDEC' : isResolved ? undefined : badge.bgColor,
-              color: isDeleted ? '#D23B38' : isResolved ? undefined : badge.textColor,
-              border: 'none',
-              outline: 'none',
-              boxShadow: 'none',
-            }}
-            title={
-              isDeleted
-                ? `${badge.label} (Deleted tag)`
-                : isAdded
-                ? `${badge.label} (Newly added tag): Click to toggle`
-                : isLeading
-                ? `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle • Drag to reorder`
-                : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
-            }
-          >
-            {/* For leading badge: Encompass the dot inside! */}
-            {isLeading && (
-              <span className="w-2.5 h-2.5 flex items-center justify-center shrink-0">
-                {isDraggable && (
-                  <GripVertical
-                    className={`w-2.5 h-2.5 ${isResolved ? 'text-[#71727A]' : 'text-white'} ${
-                      isBeingDragged || isDraggingSelf ? 'block' : 'hidden group-hover:block'
-                    }`}
-                  />
-                )}
-                <svg
-                  className={`w-2 h-2 overflow-visible ${
-                    isBeingDragged || isDraggingSelf
-                      ? 'hidden'
-                      : isDraggable
-                      ? 'block group-hover:hidden'
-                      : 'block'
-                  }`}
-                  viewBox="0 0 8 8"
-                >
-                  <circle
-                    cx="4"
-                    cy="4"
-                    r="3.2"
-                    fill={isResolved ? '#71727A' : '#FFFFFF'}
-                    opacity={isResolved ? 0.7 : 0.95}
-                  />
-                  {isResolved && (
-                    <line
-                      x1="1"
-                      y1="7"
-                      x2="7"
-                      y2="1"
-                      stroke="#2B2C30"
-                      strokeWidth="1.3"
-                      strokeLinecap="round"
-                    />
-                  )}
-                </svg>
-              </span>
-            )}
-
-            {isDeleted && <span className="opacity-80 font-bold select-none mr-0.5">−</span>}
-            {isAdded && <span className="opacity-80 font-bold select-none mr-0.5">+</span>}
-            <span className="leading-none">{badge.tag}</span>
-          </button>
-        );
+        return renderInlineBadge(seg.annotation, idx, isDeleted, isAdded);
       }
 
       if (seg.type === 'text') {
-        if (idx === 0 && seg.text.trim() === '' && allowLeadingFusion && parsedNote.hasLeadingAnnotation) {
-          // Drop leading whitespace before leading badge so it starts flush at negative margin
-          return null;
-        }
-
         if (isDeleted) {
           return (
             <span
@@ -450,8 +519,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
       )}
 
-      {/* Standalone Left Slot: Rendered when note has no leading annotation OR when viewing revision diffs */}
-      {(!parsedNote.hasLeadingAnnotation || hasEdits) && (
+      {/* Standalone Left Slot: Rendered ONLY when note has NO leading anchor badge */}
+      {!currentSplit.anchor && (
         <div
           className={`absolute ${
             isComfortable
@@ -515,30 +584,37 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       {/* Note Content */}
       <div className={`flex-1 min-w-0 ${isComfortable ? 'pl-5' : 'pl-4'}`}>
         <div className="relative inline font-sans leading-relaxed break-words">
+          {/* 1. Leading Anchor Badge: Rendered as first inline element with -ml-5 to anchor at x=0 */}
+          {currentSplit.anchor && renderAnchorBadge(currentSplit.anchor)}
+
+          {/* 2. Body Content (or Body Diff) */}
           {isStruck ? (
             // Full note strike overrides inner diffs with graphite pencil strike
             <span className="line-through decoration-[#A19D94] decoration-2">
               {renderAnnotatedText(
-                content || originalContent || '(empty note)',
-                false,
-                false,
-                true
+                currentSplit.bodyText || (!currentSplit.anchor ? '(empty note)' : '')
               )}
             </span>
           ) : hasEdits ? (
-            // Render word-level diff with micro-badges recognized
+            // Render word-level diff of the body
             <span
               className={`inline whitespace-pre-wrap ${
                 parsedNote.isImportant ? 'font-bold text-[#1C1D20]' : ''
               }`}
             >
-              {diffChunks.map((chunk, idx) => (
+              {/* If an old leading anchor was replaced or removed, render it as a struck deleted badge at start of body */}
+              {anchorReplaced && originalSplit?.anchor && (
+                <>
+                  {renderInlineBadge(originalSplit.anchor, 'deleted-anchor', true, false)}
+                  {' '}
+                </>
+              )}
+              {bodyDiffChunks.map((chunk, idx) => (
                 <React.Fragment key={idx}>
                   {renderAnnotatedText(
                     chunk.value,
                     chunk.type === 'deleted',
-                    chunk.type === 'added',
-                    false
+                    chunk.type === 'added'
                   )}
                 </React.Fragment>
               ))}
@@ -550,29 +626,43 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               }`}
             >
               {renderAnnotatedText(
-                content || originalContent || '(empty note)',
-                false,
-                false,
-                true
+                currentSplit.bodyText || (!currentSplit.anchor ? '(empty note)' : '')
               )}
             </span>
           )}
 
-          {/* Audit Trail Badge */}
+          {/* Audit Trail Badge & Clean/Accept Button */}
           {hasEdits && !isStruck && (
-            <span
-              className={`ml-1.5 text-[8px] font-mono px-1 py-0.2 rounded border uppercase tracking-wider ${
-                content === ''
-                  ? 'text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]'
-                  : 'text-[#1E7B48] bg-[#E8F5E9] border-[#C8E6C9]'
-              }`}
-              title={
-                content === ''
-                  ? 'All text deleted (crossed out)'
-                  : `Original: "${originalContent}"`
-              }
-            >
-              {content === '' ? 'deleted' : 'edited'}
+            <span className="inline-flex items-center gap-1 ml-1.5 align-middle select-none">
+              <span
+                className={`text-[8px] font-mono px-1 py-0.2 rounded border uppercase tracking-wider ${
+                  content === ''
+                    ? 'text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]'
+                    : 'text-[#1E7B48] bg-[#E8F5E9] border-[#C8E6C9]'
+                }`}
+                title={
+                  content === ''
+                    ? 'All text deleted (crossed out)'
+                    : `Original: "${originalContent}"`
+                }
+              >
+                {content === '' ? 'deleted' : 'edited'}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onAcceptEdit) {
+                    onAcceptEdit(id);
+                  } else if (onUpdate) {
+                    onUpdate(id, content || '');
+                  }
+                }}
+                className="text-[9px] font-mono px-1 py-0.2 rounded bg-[#EAE3D6] hover:bg-[#D5CDC0] text-[#2B2C30] cursor-pointer transition-colors shadow-2xs font-medium"
+                title="Accept revision and finalize note"
+              >
+                ✓ Accept
+              </button>
             </span>
           )}
         </div>

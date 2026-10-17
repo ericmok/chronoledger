@@ -443,6 +443,42 @@ export function parseNoteContent(content: string, noteIsStruck = false): ParsedN
   };
 }
 
+export interface SplitNoteResult {
+  anchor: ParsedAnnotation | null;
+  bodyText: string;
+}
+
+/**
+ * Splits a note into its leading Anchor Tag (if present) and the remaining Body Text.
+ * The Anchor owns the bullet dot and card identity at x = 0.
+ * The Body Text contains the prose and any inline tags, and is what participates in word diffs.
+ */
+export function splitNoteAnchorAndBody(content: string, noteIsStruck = false): SplitNoteResult {
+  if (!content) {
+    return { anchor: null, bodyText: '' };
+  }
+
+  const parsed = parseNoteContent(content, noteIsStruck);
+  if (!parsed.hasLeadingAnnotation || !parsed.leadingAnnotation) {
+    return { anchor: null, bodyText: content };
+  }
+
+  const rawTag = parsed.leadingAnnotation.raw;
+  const tagIdx = content.indexOf(rawTag);
+  if (tagIdx === -1) {
+    return { anchor: null, bodyText: content };
+  }
+
+  const afterTag = content.slice(tagIdx + rawTag.length);
+  // Strip one leading space if present so body text doesn't have awkward leading indent
+  const bodyText = afterTag.startsWith(' ') ? afterTag.slice(1) : afterTag;
+
+  return {
+    anchor: parsed.leadingAnnotation,
+    bodyText,
+  };
+}
+
 /**
  * Toggles an annotation's markdown strikethrough resolution state (@tag <-> ~~@tag~~)
  * within a note's raw text string.

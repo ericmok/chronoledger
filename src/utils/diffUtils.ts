@@ -10,12 +10,36 @@ export interface DiffChunk {
 }
 
 /**
- * Tokenize string into words, whitespace, and punctuation tokens.
+ * Strips markdown strikethrough resolution markers (`~~`) from a tag token for semantic equivalence.
+ * e.g. `~~@todo~~` -> `@todo`
+ */
+function stripTagResolution(token: string): string {
+  if (!token) return '';
+  const match = token.match(/^(?:~~)?(@[a-zA-Z0-9]+(?:[:.-][a-zA-Z0-9]+)*(?:[ap]m)?)(?:~~)?$/i);
+  return match ? match[1].toLowerCase() : token;
+}
+
+/**
+ * Compares two tokens for equality.
+ * Tags with differing resolution status (e.g. `@todo` vs `~~@todo~~`) are treated as equivalent.
+ */
+function areTokensEquivalent(t1: string, t2: string): boolean {
+  if (t1 === t2) return true;
+  const s1 = stripTagResolution(t1);
+  const s2 = stripTagResolution(t2);
+  if (s1.startsWith('@') && s2.startsWith('@')) {
+    return s1 === s2;
+  }
+  return false;
+}
+
+/**
+ * Tokenize string into words, tags, whitespace, and punctuation tokens.
  */
 function tokenize(text: string): string[] {
   if (!text) return [];
-  // Matches consecutive non-whitespace characters, or whitespace sequences
-  return text.match(/\S+|\s+/g) || [];
+  // Isolates tags (with optional resolution markers), whitespace sequences, or other non-whitespace runs
+  return text.match(/(?:~~)?@[a-zA-Z0-9]+(?:[:.-][a-zA-Z0-9]+)*(?:[ap]m)?(?:~~)?|\s+|[^\s]+/gi) || [];
 }
 
 /**
@@ -38,7 +62,7 @@ export function computeWordDiff(oldText: string, newText: string): DiffChunk[] {
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (oldTokens[i - 1] === newTokens[j - 1]) {
+      if (areTokensEquivalent(oldTokens[i - 1], newTokens[j - 1])) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
@@ -52,8 +76,9 @@ export function computeWordDiff(oldText: string, newText: string): DiffChunk[] {
   let j = n;
 
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldTokens[i - 1] === newTokens[j - 1]) {
-      rawChunks.push({ type: 'unchanged', value: oldTokens[i - 1] });
+    if (i > 0 && j > 0 && areTokensEquivalent(oldTokens[i - 1], newTokens[j - 1])) {
+      // Preserve newTokens[j - 1] so current tag resolution state is shown in unchanged chunk
+      rawChunks.push({ type: 'unchanged', value: newTokens[j - 1] });
       i--;
       j--;
     } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {

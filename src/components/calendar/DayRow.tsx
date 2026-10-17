@@ -25,6 +25,7 @@ export interface DayRowProps {
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
   onUpdateNote?: (noteId: string, newContent: string, parentDates?: string[], colorTag?: string) => void;
+  onAcceptNoteRevision?: (noteId: string) => void;
   onJumpToDateRequested?: (dateKey: string) => void;
   onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
   onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
@@ -47,6 +48,7 @@ export const DayRow: React.FC<DayRowProps> = ({
   onToggleStrike,
   onRemoveNote,
   onUpdateNote,
+  onAcceptNoteRevision,
   onJumpToDateRequested,
   onReorderNotes,
   onMoveNoteToDate,
@@ -372,6 +374,7 @@ export const DayRow: React.FC<DayRowProps> = ({
                 onRemoveNote={onRemoveNote}
                 onStartEdit={() => setEditingNoteId(note.id)}
                 onUpdateNote={(id, text) => onUpdateNote?.(id, text, note.parentDates, note.colorTag)}
+                onAcceptNoteRevision={onAcceptNoteRevision}
                 onJumpToDate={(targetDate) => {
                   if (onJumpToDateRequested) onJumpToDateRequested(targetDate);
                 }}

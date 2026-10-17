@@ -22,6 +22,7 @@ interface JigsawMonthGridProps {
   onToggleStrikeMonthNote: (id: string) => void;
   onRemoveMonthNote: (id: string) => void;
   onUpdateMonthNote?: (id: string, newContent: string, parentMonths?: string[], colorTag?: string) => void;
+  onAcceptNoteRevision?: (noteId: string) => void;
   onReorderMonthNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => void;
   onMoveMonthNoteToMonth?: (noteId: string, targetMonth: string, position?: 'start' | 'end') => void;
   scrollTargetDate?: { dateString: string; key: number } | null;
@@ -73,6 +74,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onToggleStrikeMonthNote,
   onRemoveMonthNote,
   onUpdateMonthNote,
+  onAcceptNoteRevision,
   onReorderMonthNotes,
   onMoveMonthNoteToMonth,
   scrollTargetDate,
@@ -668,6 +670,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           onToggleStrikeMonthNote={onToggleStrikeMonthNote}
           onRemoveMonthNote={onRemoveMonthNote}
           onUpdateMonthNote={onUpdateMonthNote}
+          onAcceptNoteRevision={onAcceptNoteRevision}
           onReorderMonthNotes={onReorderMonthNotes}
           onMoveMonthNoteToMonth={onMoveMonthNoteToMonth}
           onJumpToMonth={(mKey) => scrollToDateInRadar(mKey + '-01', true)}

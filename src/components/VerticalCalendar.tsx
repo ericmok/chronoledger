@@ -17,6 +17,7 @@ interface VerticalCalendarProps {
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
   onUpdateNote?: (noteId: string, newContent: string, parentDates?: string[], colorTag?: string) => void;
+  onAcceptNoteRevision?: (noteId: string) => void;
   onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
   onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
   onAddQuickNote: (dateString: string, content: string, parentDates?: string[], colorTag?: string) => void;
@@ -47,6 +48,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   onToggleStrike,
   onRemoveNote,
   onUpdateNote,
+  onAcceptNoteRevision,
   onReorderNotes,
   onMoveNoteToDate,
   onAddQuickNote,
@@ -292,6 +294,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       onToggleStrike={onToggleStrike}
                       onRemoveNote={onRemoveNote}
                       onUpdateNote={onUpdateNote}
+                      onAcceptNoteRevision={onAcceptNoteRevision}
                       onJumpToDateRequested={onJumpToDateRequested}
                       onReorderNotes={onReorderNotes}
                       onMoveNoteToDate={onMoveNoteToDate}
@@ -311,6 +314,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                   onToggleStrikeWeekNote={onToggleStrikeWeekNote}
                   onRemoveWeekNote={onRemoveWeekNote}
                   onUpdateWeekNote={onUpdateWeekNote}
+                  onAcceptNoteRevision={onAcceptNoteRevision}
                   onReorderWeekNotes={onReorderWeekNotes}
                   onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
                   onJumpToWeek={(wKey) => {
