@@ -88,24 +88,12 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     [isStruck, parsedNote]
   );
 
-  // Strip leading annotation tag from note body so text starts flush and aligned
-  const displayedContent = useMemo(() => {
-    const raw = content || originalContent || '';
-    if (!parsedNote.leadingAnnotation) return raw;
-    const regex = /^\s*(?:~~)?@[a-zA-Z0-9]+(?:[:.-][a-zA-Z0-9]+)*(?:[ap]m)?(?:~~)?\s*/i;
-    return raw.replace(regex, '');
-  }, [content, originalContent, parsedNote.leadingAnnotation]);
-
   const annotationInput = useAnnotationInput(editText, setEditText);
 
   const diffChunks = useMemo(() => {
     if (!hasEdits || !originalContent) return [];
-    const origRegex = /^\s*(?:~~)?@[a-zA-Z0-9]+(?:[:.-][a-zA-Z0-9]+)*(?:[ap]m)?(?:~~)?\s*/i;
-    const cleanOrig = parsedNote.leadingAnnotation
-      ? originalContent.replace(origRegex, '')
-      : originalContent;
-    return computeWordDiff(cleanOrig, displayedContent);
-  }, [hasEdits, originalContent, displayedContent, parsedNote.leadingAnnotation]);
+    return computeWordDiff(originalContent, content);
+  }, [hasEdits, originalContent, content]);
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -232,11 +220,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 onUpdate(id, newContent);
               }
             }}
-            className={`inline-flex items-center gap-1 px-1.5 py-0.2 mx-0.5 rounded text-[10px] font-mono font-medium tracking-tight border select-none transition-all align-baseline ${
+            className={`inline-flex items-center justify-center px-1.5 py-0.5 mx-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider border select-none transition-all align-baseline leading-none ${
               isDeleted ? 'cursor-default' : 'cursor-pointer hover:scale-105 active:scale-95'
             } ${
               isResolved
-                ? 'line-through opacity-70 bg-[#F4F1EA]/80 border-[#DDD6C8]'
+                ? 'line-through opacity-70 bg-[#DDD6C8] text-[#71727A] border-[#C8BFB0]'
                 : isDeleted
                 ? 'line-through opacity-50'
                 : isAdded
@@ -245,7 +233,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             }`}
             style={{
               backgroundColor: isResolved ? undefined : badge.bgColor,
-              color: isResolved ? '#7E7F85' : badge.textColor,
+              color: isResolved ? undefined : badge.textColor,
               borderColor: isResolved ? undefined : badge.borderColor,
             }}
             title={
@@ -254,27 +242,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
             }
           >
-            {/* Inline / Middle Badge: Indicator dot on the left */}
-            <svg className="w-2 h-2 shrink-0 overflow-visible" viewBox="0 0 8 8">
-              <circle
-                cx="4"
-                cy="4"
-                r="3"
-                fill={badge.color}
-                opacity={isResolved ? 0.6 : 1}
-              />
-              {isResolved && (
-                <line
-                  x1="1"
-                  y1="7"
-                  x2="7"
-                  y2="1"
-                  stroke="#2B2C30"
-                  strokeWidth="1.3"
-                  strokeLinecap="round"
-                />
-              )}
-            </svg>
             <span>{badge.tag}</span>
           </button>
         );
@@ -402,134 +369,60 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
       )}
 
-      {/* Reserved Left Slot: Holds Color Bullet at rest, Leading Badge if present, Drag Handle on hover/drag */}
+      {/* Reserved Left Slot: Holds Color Bullet at rest, Drag Handle on hover/drag */}
       <div
-        className={`shrink-0 flex items-center justify-end relative ${
+        className={`shrink-0 flex items-center justify-center relative ${
           isComfortable ? 'w-4 h-5 mt-0.5' : 'w-3.5 h-4 mt-0.5'
         }`}
       >
-        {parsedNote.leadingAnnotation ? (
-          <div className="relative flex items-center justify-end w-full h-full">
-            {/* Drag Handle: Shown on hover or when dragging, positioned to the left of the badge */}
-            {isDraggable && (
-              <div
-                onMouseEnter={() => setCanDrag(true)}
-                onMouseLeave={() => {
-                  if (!isDraggingSelf) setCanDrag(false);
-                }}
-                onPointerDown={() => setCanDrag(true)}
-                onPointerUp={() => {
-                  if (!isDraggingSelf) setCanDrag(false);
-                }}
-                className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] items-center justify-center rounded transition-colors absolute right-full mr-1 h-5 ${
-                  isBeingDragged || isDraggingSelf ? 'flex' : 'hidden group-hover:flex'
-                }`}
-                title="Drag to reorder note"
-              >
-                <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
-              </div>
-            )}
-
-            {/* Leading Badge: Replaces resting dot, right-aligned, dot on the right side */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onUpdate) {
-                  const current = content || originalContent || '';
-                  const newContent = toggleAnnotationResolution(current, parsedNote.leadingAnnotation!.raw);
-                  onUpdate(id, newContent);
-                }
-              }}
-              className={`absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded text-[10px] font-mono font-medium tracking-tight border select-none transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-2xs z-10 whitespace-nowrap ${
-                isBulletResolved
-                  ? 'line-through opacity-70 bg-[#F4F1EA]/80 border-[#DDD6C8]'
-                  : 'shadow-2xs'
-              }`}
-              style={{
-                backgroundColor: isBulletResolved ? undefined : parsedNote.leadingAnnotation.bgColor,
-                color: isBulletResolved ? '#7E7F85' : parsedNote.leadingAnnotation.textColor,
-                borderColor: isBulletResolved ? undefined : parsedNote.leadingAnnotation.borderColor,
-              }}
-              title={`${parsedNote.leadingAnnotation.label} (${isBulletResolved ? 'Resolved' : 'Active'}): Click to toggle`}
-            >
-              <span className="leading-none">{parsedNote.leadingAnnotation.tag}</span>
-              {/* Dot on the right side of the badge */}
-              <svg className="w-2 h-2 shrink-0 overflow-visible" viewBox="0 0 8 8">
-                <circle
-                  cx="4"
-                  cy="4"
-                  r="3.2"
-                  fill={parsedNote.leadingAnnotation.color}
-                  opacity={isBulletResolved ? 0.6 : 1}
-                />
-                {isBulletResolved && (
-                  <line
-                    x1="1"
-                    y1="7"
-                    x2="7"
-                    y2="1"
-                    stroke="#2B2C30"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                  />
-                )}
-              </svg>
-            </button>
+        {isDraggable && (
+          <div
+            onMouseEnter={() => setCanDrag(true)}
+            onMouseLeave={() => {
+              if (!isDraggingSelf) setCanDrag(false);
+            }}
+            onPointerDown={() => setCanDrag(true)}
+            onPointerUp={() => {
+              if (!isDraggingSelf) setCanDrag(false);
+            }}
+            className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] items-center justify-center w-full h-full rounded transition-colors ${
+              isBeingDragged || isDraggingSelf ? 'flex' : 'hidden group-hover:flex'
+            }`}
+            title="Drag to reorder note"
+          >
+            <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
           </div>
-        ) : (
-          /* Normal Note: Drag Handle on hover, Resting Bullet at rest */
-          <>
-            {isDraggable && (
-              <div
-                onMouseEnter={() => setCanDrag(true)}
-                onMouseLeave={() => {
-                  if (!isDraggingSelf) setCanDrag(false);
-                }}
-                onPointerDown={() => setCanDrag(true)}
-                onPointerUp={() => {
-                  if (!isDraggingSelf) setCanDrag(false);
-                }}
-                className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] items-center justify-center w-full h-full rounded transition-colors ${
-                  isBeingDragged || isDraggingSelf ? 'flex' : 'hidden group-hover:flex'
-                }`}
-                title="Drag to reorder note"
-              >
-                <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
-              </div>
-            )}
-
-            <svg
-              className={`w-2 h-2 shrink-0 overflow-visible transition-opacity ${
-                isBeingDragged || isDraggingSelf
-                  ? 'hidden'
-                  : isDraggable
-                  ? 'block group-hover:hidden'
-                  : 'block'
-              }`}
-              viewBox="0 0 8 8"
-            >
-              <circle
-                cx="4"
-                cy="4"
-                r="3.2"
-                fill={bulletColor}
-                opacity={isBulletResolved ? 0.6 : 1}
-              />
-              {isBulletResolved && (
-                <line
-                  x1="1"
-                  y1="7"
-                  x2="7"
-                  y2="1"
-                  stroke="#2B2C30"
-                  strokeWidth="1.3"
-                  strokeLinecap="round"
-                />
-              )}
-            </svg>
-          </>
         )}
+
+        <svg
+          className={`w-2 h-2 shrink-0 overflow-visible transition-opacity ${
+            isBeingDragged || isDraggingSelf
+              ? 'hidden'
+              : isDraggable
+              ? 'block group-hover:hidden'
+              : 'block'
+          }`}
+          viewBox="0 0 8 8"
+        >
+          <circle
+            cx="4"
+            cy="4"
+            r="3.2"
+            fill={bulletColor}
+            opacity={isBulletResolved ? 0.6 : 1}
+          />
+          {isBulletResolved && (
+            <line
+              x1="1"
+              y1="7"
+              x2="7"
+              y2="1"
+              stroke="#2B2C30"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+          )}
+        </svg>
       </div>
 
       {/* Note Content with Realistic Graphite Strike Line & Micro-badges */}
@@ -538,7 +431,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           {isStruck ? (
             // Full note strike overrides inner diffs with graphite pencil strike
             <span className="line-through decoration-[#A19D94] decoration-2">
-              {displayedContent || (parsedNote.hasLeadingAnnotation ? '' : '(empty note)')}
+              {content || originalContent || '(empty note)'}
             </span>
           ) : hasEdits ? (
             // Render word-level diff with micro-badges recognized
@@ -564,7 +457,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               }`}
             >
               {renderAnnotatedText(
-                displayedContent || (parsedNote.hasLeadingAnnotation ? '' : '(empty note)')
+                content || originalContent || '(empty note)'
               )}
             </span>
           )}

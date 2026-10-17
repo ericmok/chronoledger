@@ -338,7 +338,7 @@ export const DayRow: React.FC<DayRowProps> = ({
             setActiveDragId(null);
           }
         }}
-        className={`flex-1 min-w-0 pl-7 sm:pl-9 pr-3 rounded-lg transition-colors ${
+        className={`flex-1 min-w-0 pr-3 rounded-lg transition-colors ${
           isDayDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
         }`}
         data-notes-column="true"

@@ -58,9 +58,9 @@ Enable users to search, filter, and aggregate all notes with semantic annotation
    - Resting note bullet mirrors resolution state.
 6. **Autocomplete & Quick-Tag Bar (`AnnotationAutocomplete.tsx`, `useAnnotationInput.ts`)**:
    - Keyboard-navigable popup on typing `@` with time suggestions (`@4` $\to$ `@4:00pm`).
-7. **Right-Aligned Leading Badge Anchor (`annotationUtils.ts`, `NoteCard.tsx`)**:
-   - Leading annotation badge replaces the resting note bullet on the left.
-   - Badge is right-aligned against the bullet column with dot on the right (`[ tag • ]`), perfectly aligning with resting bullets on untagged notes.
-   - Note body text starts at the primary text column, ensuring 100% vertical text alignment across all notes and clean multi-line wrapping.
-   - Full support for interactive resolution toggling (`[ ~~tag~~ ⊘ ]`) and hover drag handles (`:::`).
-   - Integrated across Day, Week, and Month note forms and columns.
+7. **Solid High-Contrast Label Chips & Re-Unified Left Slot (`annotationUtils.ts`, `NoteCard.tsx`)**:
+   - Saturated category backgrounds with bold white text (`#FFFFFF`) and micro-rounded corners.
+   - Removed internal badge dots to eliminate double-dot visual clutter.
+   - Standardized Left Slot across all notes: resting bullet (`•`) at rest, drag handle (`:::`) on hover.
+   - Restored full natural width across DayRow, WeekFocusPanel, and MonthNotesColumn without gutter offsets.
+   - Interactive resolution toggling (`@tag` $\leftrightarrow$ `~~@tag~~`), turning chips into muted oatmeal with strikethrough and applying a 45° pencil slash to the anchor bullet.

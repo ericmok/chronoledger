@@ -39,13 +39,16 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
     - ⏱️ `@4:00pm` / `@10:30am` (Slate Gray): Specific scheduled times.
     - 🔴 `@failed` / `@fail` (Ruby Red): Failed, rejected, or unsuccessful tasks and events.
     - ⚪ `@skipped` / `@missed` (Ash Gray): Intentionally skipped or missed items without crossing out note text.
-  - **Clean Micro-Badges**: Badges hide the literal `@` prefix inside rendered pill tags (e.g. `important`, `todo`), keeping the ledger typography clean while preserving raw `@tag` in text inputs.
-  - **Right-Aligned Leading Badge Anchor (Replaces Resting Dot)**:
-    - When a note begins with an annotation tag (e.g. `@todo Buy groceries`), the badge replaces the resting note bullet on the left entirely.
-    - The badge is right-aligned against the bullet column and bleeds naturally into the left margin, with its colored indicator dot positioned on the right side (`[ todo • ]`).
-    - The badge dot and regular note bullets remain 100% vertically aligned, and note body text begins directly at the primary text column across all notes.
-    - When resolved (`~~@todo~~`), the badge displays muted strikethrough text and a 45° graphite pencil slash on its right-side dot (`[ ~~todo~~ ⊘ ]`).
-    - Middle tags (e.g. `Call @wait for update`) retain standard inline micro-badge styling with the indicator dot on the left (`[ • wait ]`).
+  - **Solid High-Contrast Label Chips (No Inner Dot)**:
+    - Rendered as crisp stationery label chips with saturated category backgrounds and bold white text (`#FFFFFF`) with micro-rounded corners.
+    - Eliminates internal badge dots to prevent double-dot visual noise when notes begin with a tag.
+    - Badges hide the literal `@` prefix inside rendered chips (e.g. `IMPORTANT`, `TODO`), keeping ledger typography clean while preserving raw `@tag` in text inputs.
+    - When resolved (`~~@todo~~`), chips transition to a muted oatmeal tone (`#DDD6C8` background, `#71727A` text, line-through).
+    - Clicking any chip toggles its resolution state directly.
+  - **Re-Unified Left Slot Across All Notes**:
+    - Every note (tagged or untagged) features a standardized anchor slot with a colored resting bullet (`•`) at rest that smoothly reveals the reordering drag handle (`:::`) on hover.
+    - Zero horizontal layout shift, preserving full column width across daily notes and narrow weekly/monthly sidebars without clipping drag handles.
+    - Resting bullets display an authentic 45° graphite pencil slash when an item is resolved or struck through.
   - **Universal Resolution**: All annotations can be marked as resolved (`~~@tag~~`). Clicking any micro-badge toggles its resolution state directly. Striking out an entire note resolves all embedded tags automatically.
   - **Pencil-Slashed Notable Dots**: Date gutter dots track active and resolved annotations by count. Resolved dots remain visible at their date position, crossed out with a crisp 45° diagonal graphite pencil slash.
   - **CommonMark Backslash Escaping**:
