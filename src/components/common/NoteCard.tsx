@@ -112,11 +112,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     [content, originalContent]
   );
 
-  const bulletColor = useMemo(
-    () => (currentSplit.anchor ? currentSplit.anchor.color : colorTag || '#A19D94'),
-    [currentSplit.anchor, colorTag]
-  );
-
   const isBulletResolved = useMemo(
     () =>
       Boolean(
@@ -128,6 +123,20 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       ),
     [isStruck, currentSplit.anchor, parsedNote]
   );
+
+  const bulletColor = useMemo(() => {
+    if (currentSplit.anchor) {
+      return isBulletResolved && currentSplit.anchor.resolvedColor
+        ? currentSplit.anchor.resolvedColor
+        : currentSplit.anchor.color;
+    }
+    if (parsedNote.primaryAnnotation) {
+      return isBulletResolved && parsedNote.primaryAnnotation.resolvedColor
+        ? parsedNote.primaryAnnotation.resolvedColor
+        : parsedNote.primaryAnnotation.color;
+    }
+    return colorTag || '#A19D94';
+  }, [currentSplit.anchor, parsedNote.primaryAnnotation, isBulletResolved, colorTag]);
 
   const annotationInput = useAnnotationInput(editText, setEditText);
 
@@ -238,6 +247,10 @@ export const NoteCard: React.FC<NoteCardProps> = ({
    */
   const renderAnchorBadge = (anchor: ParsedAnnotation) => {
     const isResolved = Boolean(isStruck || anchor.isResolved);
+    const bgColor = isResolved ? (anchor.resolvedBgColor || '#F5F3EF') : anchor.bgColor;
+    const textColor = isResolved ? (anchor.resolvedTextColor || '#71727A') : anchor.textColor;
+    const bulletColor = isResolved ? (anchor.resolvedColor || anchor.color) : anchor.color;
+
     return (
       <button
         type="button"
@@ -270,13 +283,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
             : 'cursor-pointer hover:scale-105 active:scale-95'
         } ${
-          isResolved
-            ? 'line-through opacity-70 bg-[#DDD6C8] text-[#71727A]'
-            : ''
+          isResolved ? 'line-through opacity-75' : ''
         }`}
         style={{
-          backgroundColor: isResolved ? undefined : anchor.bgColor,
-          color: isResolved ? undefined : anchor.textColor,
+          backgroundColor: bgColor,
+          color: textColor,
           border: 'none',
           outline: 'none',
           boxShadow: 'none',
@@ -286,9 +297,10 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         <span className="w-2.5 h-2.5 flex items-center justify-center shrink-0">
           {isDraggable && (
             <GripVertical
-              className={`w-2.5 h-2.5 ${isResolved ? 'text-[#71727A]' : 'text-white'} ${
+              className={`w-2.5 h-2.5 ${
                 isBeingDragged || isDraggingSelf ? 'block' : 'hidden group-hover:block'
               }`}
+              style={{ color: textColor }}
             />
           )}
           <svg
@@ -305,8 +317,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               cx="4"
               cy="4"
               r="3.2"
-              fill={isResolved ? '#71727A' : '#FFFFFF'}
-              opacity={isResolved ? 0.7 : 0.95}
+              fill={bulletColor}
+              opacity={isResolved ? 0.65 : 1}
             />
             {isResolved && (
               <line
@@ -338,6 +350,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     isAdded = false
   ) => {
     const isResolved = Boolean(isStruck || badge.isResolved);
+    const bgColor = isResolved ? (badge.resolvedBgColor || '#F5F3EF') : badge.bgColor;
+    const textColor = isResolved ? (badge.resolvedTextColor || '#71727A') : badge.textColor;
+
     return (
       <button
         key={key}
@@ -357,12 +372,12 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           isDeleted
             ? 'cursor-default line-through decoration-[#2B2C30] decoration-[1.5px] opacity-50'
             : isResolved
-            ? 'cursor-pointer hover:scale-105 active:scale-95 line-through opacity-70 bg-[#DDD6C8] text-[#71727A]'
+            ? 'cursor-pointer hover:scale-105 active:scale-95 line-through opacity-75'
             : 'cursor-pointer hover:scale-105 active:scale-95'
         }`}
         style={{
-          backgroundColor: isResolved ? undefined : badge.bgColor,
-          color: isResolved ? undefined : badge.textColor,
+          backgroundColor: bgColor,
+          color: textColor,
           border: 'none',
           outline: 'none',
           boxShadow: 'none',

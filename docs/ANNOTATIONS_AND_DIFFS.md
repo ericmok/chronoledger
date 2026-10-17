@@ -91,7 +91,7 @@ export interface SplitNoteResult {
        |
        +---> splitNoteAnchorAndBody()
                |
-               +--- Anchor:   { tag: "todo", color: Emerald, isLeading: true }
+               +--- Anchor:   { tag: "todo", color: Sage (#83C5BE), isLeading: true }
                |              Rendered at x = 0 with negative left margin (-ml-5)
                |              Embeds bullet dot and hover drag handle.
                |
@@ -164,7 +164,31 @@ When the prose of a note is altered (`originalContent.bodyText` differs from `cu
 
 ---
 
-## 7. Cleaning and Finalizing Revisions
+## 7. Tinted Paper Wash and Color Harmony
+
+In early versions, badges were rendered as solid web chips with bright, saturated fills and stark white lettering. On an ivory parchment background, these heavy blocks broke the quiet rhythm of the page, drawing attention away from the words. Furthermore, when an item was resolved, its badge was turned completely gray, erasing any memory of which category it belonged to.
+
+To restore harmony with the rest of the ledger:
+
+1. **Shared Palette with Note Bullets**:
+   The semantic tag categories now derive directly from the ledger's note accent palette (`NOTE_ACCENT_COLORS`):
+   - `@todo`: Sage (`#83C5BE`)
+   - `@wait`: Terracotta (`#E29578`)
+   - `@celebrate`: Warm Ochre (`#E9C46A`)
+   - `@explore`: Lavender (`#9B5DE5`)
+   - `@thought`: Steel Blue (`#457B9D`)
+   - `@important`: Desert Crimson (`#D23B38`)
+   - `@time`: Muted Slate (`#71727A`)
+
+2. **Tinted Paper Wash Aesthetic**:
+   Instead of an opaque solid pill, each badge is rendered as a delicate watercolor wash—a pale, translucent tint resting gently on the paper—paired with deep, legible ink lettering of that same hue. The bullet dot at the margin remains rendered in the rich accent color, creating a clear visual anchor.
+
+3. **Warmer, Less Saturated Resolved States**:
+   When an annotation is resolved (`~~@tag~~`), it does not dissolve into a generic gray void. Instead, it retains its category hue, dialed slightly warmer, lighter, and less saturated. Accompanied by a gentle strikethrough and a graphite pencil slash across its bullet dot, the badge feels settled and complete while preserving its semantic meaning.
+
+---
+
+## 8. Cleaning and Finalizing Revisions
 
 In keeping with the ledger metaphor, edits remain visible so you can review what changed. When you are ready to settle the note into its final wording:
 
@@ -185,7 +209,7 @@ This callback is passed consistently through daily rows, weekly panels, and mont
 
 ---
 
-## 8. Considerations for Parameterized Tags
+## 9. Considerations for Parameterized Tags
 
 As notes grow more nuanced, tags may carry optional parameters:
 ```markdown

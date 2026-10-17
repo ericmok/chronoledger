@@ -59,10 +59,13 @@ export interface AnnotationConfig {
   aliases: string[];  // e.g. ["urgent", "star", "key"]
   label: string;
   description: string;
-  color: string;       // Dot / Bullet accent color
-  textColor: string;   // Micro-badge text
-  bgColor: string;     // Micro-badge background
-  borderColor: string; // Micro-badge border
+  color: string;               // Dot / Bullet accent color (Active)
+  textColor: string;           // Badge ink text color (Active - deep tone)
+  bgColor: string;             // Badge wash background color (Active - soft tinted paper wash)
+  borderColor: string;         // Micro-badge border
+  resolvedColor?: string;     // Dot / Bullet accent color (Resolved - same hue, dialed warmer/lighter)
+  resolvedTextColor?: string; // Badge ink text color (Resolved - same hue, dialed warmer/lighter)
+  resolvedBgColor?: string;   // Badge wash background color (Resolved - same hue, dialed warmer/lighter)
   gutterColor?: string; // Dot color on date gutter
   makesBold?: boolean; // Changes note text font to bold
   dimsText?: boolean;  // Dims note text
@@ -76,10 +79,13 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     aliases: ['urgent', 'star', 'key'],
     label: 'Important',
     description: 'High priority / critical task (adds red dot to date gutter & bold font)',
-    color: '#D23B38', // Desert crimson red
-    textColor: '#FFFFFF',
-    bgColor: '#C85250',
-    borderColor: '#B91C1C',
+    color: '#D23B38', // Desert Crimson
+    textColor: '#8C1D1B', // Deep crimson ink
+    bgColor: '#FCEBEA', // Soft crimson paper wash
+    borderColor: '#D23B3830',
+    resolvedColor: '#D99492',
+    resolvedTextColor: '#A65E5C',
+    resolvedBgColor: '#FCF3F2',
     gutterColor: '#D23B38',
     makesBold: true,
     priority: 1,
@@ -89,12 +95,15 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'wait',
     aliases: ['await', 'waiting', 'blocked', 'pending'],
     label: 'Waiting',
-    description: 'Waiting on external event, email, or blocker (adds orange dot)',
-    color: '#E07A5F', // Warm terracotta orange
-    textColor: '#FFFFFF',
-    bgColor: '#DE7351',
-    borderColor: '#9A3412',
-    gutterColor: '#E07A5F',
+    description: 'Waiting on external event, email, or blocker (adds terracotta dot)',
+    color: '#E29578', // Terracotta
+    textColor: '#8A3E26', // Deep terracotta ink
+    bgColor: '#FAECE6', // Soft terracotta paper wash
+    borderColor: '#E2957830',
+    resolvedColor: '#DFAC98',
+    resolvedTextColor: '#A97463',
+    resolvedBgColor: '#FAF2EF',
+    gutterColor: '#E29578',
     priority: 2,
   },
   celebrate: {
@@ -102,12 +111,15 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'celebrate',
     aliases: ['happy', 'birthday', 'party', 'fun', 'joy', 'milestone', 'cheers'],
     label: 'Happy Event',
-    description: 'Celebration, birthday, milestone, or happy event (adds golden yellow dot)',
-    color: '#F59E0B', // Radiant golden yellow / marigold
-    textColor: '#FFFFFF',
-    bgColor: '#D48216',
-    borderColor: '#92400E',
-    gutterColor: '#F59E0B',
+    description: 'Celebration, birthday, milestone, or happy event (adds golden ochre dot)',
+    color: '#E9C46A', // Warm Ochre
+    textColor: '#7D5705', // Deep amber ochre ink
+    bgColor: '#FAF3E1', // Soft warm ochre paper wash
+    borderColor: '#E9C46A30',
+    resolvedColor: '#DFC78B',
+    resolvedTextColor: '#9E8651',
+    resolvedBgColor: '#FCF8EE',
+    gutterColor: '#E9C46A',
     priority: 3,
   },
   explore: {
@@ -115,11 +127,14 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'explore',
     aliases: ['idea', 'question', 'unknown', 'research', 'brainstorm'],
     label: 'Explore / Idea',
-    description: 'Exploratory inquiry, unknown, research, or idea (adds purple dot)',
-    color: '#9B5DE5', // Vivid amethyst purple
-    textColor: '#FFFFFF',
-    bgColor: '#8B5BB5',
-    borderColor: '#6B21A8',
+    description: 'Exploratory inquiry, unknown, research, or idea (adds lavender dot)',
+    color: '#9B5DE5', // Lavender / Amethyst
+    textColor: '#5A229E', // Deep amethyst ink
+    bgColor: '#F4ECFC', // Soft lavender paper wash
+    borderColor: '#9B5DE530',
+    resolvedColor: '#B693E3',
+    resolvedTextColor: '#8B71A8',
+    resolvedBgColor: '#F9F4FD',
     gutterColor: '#9B5DE5',
     priority: 4,
   },
@@ -128,12 +143,15 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'thought',
     aliases: ['revelation', 'insight', 'reflection', 'note'],
     label: 'Thought',
-    description: 'Revelation, reflection, journal entry, or insight (adds blue dot)',
-    color: '#4A90E2', // Sky blue / cerulean
-    textColor: '#FFFFFF',
-    bgColor: '#3B7EBD',
-    borderColor: '#1E40AF',
-    gutterColor: '#4A90E2',
+    description: 'Revelation, reflection, journal entry, or insight (adds steel blue dot)',
+    color: '#457B9D', // Steel Blue / Slate
+    textColor: '#1B4766', // Deep slate blue ink
+    bgColor: '#EBF2F6', // Soft slate paper wash
+    borderColor: '#457B9D30',
+    resolvedColor: '#7FA1B5',
+    resolvedTextColor: '#688699',
+    resolvedBgColor: '#F2F6F9',
+    gutterColor: '#457B9D',
     priority: 5,
   },
   todo: {
@@ -141,12 +159,15 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'todo',
     aliases: ['task', 'action'],
     label: 'To-Do',
-    description: 'Actionable task item (adds green dot)',
-    color: '#2E8540', // Crisp botanical emerald green
-    textColor: '#FFFFFF',
-    bgColor: '#388E52',
-    borderColor: '#14532D',
-    gutterColor: '#2E8540',
+    description: 'Actionable task item (adds sage dot)',
+    color: '#83C5BE', // Sage / Aqua
+    textColor: '#1C544E', // Deep forest sage ink
+    bgColor: '#E4F1EF', // Soft sage paper wash
+    borderColor: '#83C5BE30',
+    resolvedColor: '#A0C4C0',
+    resolvedTextColor: '#6C8F8B',
+    resolvedBgColor: '#EFF6F5',
+    gutterColor: '#83C5BE',
     priority: 6,
   },
   time: {
@@ -155,11 +176,14 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     aliases: ['event', 'sched', 'schedule'],
     label: 'Scheduled Event',
     description: 'Time-of-day scheduled event or appointment (adds slate dot)',
-    color: '#8E8F95', // Muted slate gray
-    textColor: '#FFFFFF',
-    bgColor: '#6B7280',
-    borderColor: '#334155',
-    gutterColor: '#8E8F95',
+    color: '#71727A', // Muted slate gray
+    textColor: '#36373D', // Deep graphite ink
+    bgColor: '#F0EFEA', // Soft parchment wash
+    borderColor: '#71727A30',
+    resolvedColor: '#9D9DA3',
+    resolvedTextColor: '#83838A',
+    resolvedBgColor: '#F6F5F2',
+    gutterColor: '#71727A',
     priority: 7,
   },
   failed: {
@@ -167,12 +191,15 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'failed',
     aliases: ['fail', 'failure', 'rejected', 'unsuccessful'],
     label: 'Failed',
-    description: 'Failed, rejected, or unsuccessful task/event (adds red dot)',
-    color: '#DC2626', // Ruby red
-    textColor: '#FFFFFF',
-    bgColor: '#C84E4B',
-    borderColor: '#B91C1C',
-    gutterColor: '#DC2626',
+    description: 'Failed, rejected, or unsuccessful task/event (adds ruby dot)',
+    color: '#C84E4B', // Ruby muted red
+    textColor: '#872321', // Deep ruby ink
+    bgColor: '#FCEBEA', // Soft ruby wash
+    borderColor: '#C84E4B30',
+    resolvedColor: '#D89593',
+    resolvedTextColor: '#A46765',
+    resolvedBgColor: '#FCF3F2',
+    gutterColor: '#C84E4B',
     priority: 8,
   },
   skipped: {
@@ -182,9 +209,12 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     label: 'Skipped',
     description: 'Missed or postponed task (dimmed with line-through)',
     color: '#A19D94', // Muted graphite ash
-    textColor: '#FFFFFF',
-    bgColor: '#8A857C',
-    borderColor: '#4B5563',
+    textColor: '#57544D', // Deep pencil ash ink
+    bgColor: '#F3F1EC', // Soft ash paper wash
+    borderColor: '#A19D9430',
+    resolvedColor: '#BDBAB2',
+    resolvedTextColor: '#949087',
+    resolvedBgColor: '#F7F6F3',
     dimsText: true,
     priority: 9,
   },
@@ -195,9 +225,12 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     label: 'Tag',
     description: 'Custom annotation',
     color: '#71727A',
-    textColor: '#FFFFFF',
-    bgColor: '#6B7280',
-    borderColor: '#374151',
+    textColor: '#3E3F45',
+    bgColor: '#F1EFEA',
+    borderColor: '#71727A30',
+    resolvedColor: '#9D9DA3',
+    resolvedTextColor: '#83838A',
+    resolvedBgColor: '#F5F4F1',
     priority: 99,
   },
 };
@@ -217,6 +250,9 @@ export interface ParsedAnnotation {
   textColor: string;
   bgColor: string;
   borderColor: string;
+  resolvedColor?: string;
+  resolvedTextColor?: string;
+  resolvedBgColor?: string;
   gutterColor?: string;
   makesBold?: boolean;
   dimsText?: boolean;
@@ -242,6 +278,9 @@ export function resolveAnnotation(tag: string, isResolved = false): ParsedAnnota
       textColor: config.textColor,
       bgColor: config.bgColor,
       borderColor: config.borderColor,
+      resolvedColor: config.resolvedColor,
+      resolvedTextColor: config.resolvedTextColor,
+      resolvedBgColor: config.resolvedBgColor,
       gutterColor: config.gutterColor,
       priority: config.priority,
       isTime: true,
@@ -262,6 +301,9 @@ export function resolveAnnotation(tag: string, isResolved = false): ParsedAnnota
         textColor: config.textColor,
         bgColor: config.bgColor,
         borderColor: config.borderColor,
+        resolvedColor: config.resolvedColor,
+        resolvedTextColor: config.resolvedTextColor,
+        resolvedBgColor: config.resolvedBgColor,
         gutterColor: config.gutterColor,
         makesBold: config.makesBold,
         dimsText: config.dimsText,
@@ -282,6 +324,9 @@ export function resolveAnnotation(tag: string, isResolved = false): ParsedAnnota
     textColor: fallback.textColor,
     bgColor: fallback.bgColor,
     borderColor: fallback.borderColor,
+    resolvedColor: fallback.resolvedColor,
+    resolvedTextColor: fallback.resolvedTextColor,
+    resolvedBgColor: fallback.resolvedBgColor,
     priority: fallback.priority,
     isResolved,
   };
@@ -527,14 +572,14 @@ export function toggleAnnotationResolution(content: string, rawTag: string): str
 }
 
 // Determines the color of the note's bullet
-export function getNoteBulletColor(content: string, fallbackColor?: string): string {
+export function getNoteBulletColor(content: string, fallbackColor?: string, isStruck?: boolean): string {
   if (!content) return fallbackColor || '#A19D94';
-  const { leadingAnnotation, primaryAnnotation } = parseNoteContent(content);
+  const { leadingAnnotation, primaryAnnotation } = parseNoteContent(content, isStruck);
   if (leadingAnnotation) {
-    return leadingAnnotation.color;
+    return isStruck && leadingAnnotation.resolvedColor ? leadingAnnotation.resolvedColor : leadingAnnotation.color;
   }
   if (primaryAnnotation) {
-    return primaryAnnotation.color;
+    return isStruck && primaryAnnotation.resolvedColor ? primaryAnnotation.resolvedColor : primaryAnnotation.color;
   }
   return fallbackColor || '#A19D94';
 }
@@ -568,10 +613,11 @@ export function getGutterDotsForNotes(
         seenTypes.add(ann.type);
         hasAnnotationDots = true;
         const isResolved = Boolean(note.isStruck || ann.isResolved);
+        const resolvedDotColor = ann.resolvedColor || ann.gutterColor;
 
         dots.push({
           id: `${note.id}-${ann.type}`,
-          color: ann.gutterColor,
+          color: isResolved && resolvedDotColor ? resolvedDotColor : (ann.gutterColor || ann.color),
           type: ann.type,
           isStruck: note.isStruck,
           isResolved,
@@ -650,42 +696,42 @@ export const SUGGESTED_TAGS: QuickTagOption[] = [
   {
     tag: 'important',
     label: '@important',
-    description: 'Urgent / critical priority (adds red date dot & bold font)',
+    description: 'Urgent / critical priority (adds crimson date dot & bold font)',
     color: ANNOTATION_CONFIGS.important.color,
     type: 'important',
   },
   {
     tag: 'wait',
     label: '@wait',
-    description: 'Waiting on external event, email, or blocker (adds orange dot)',
+    description: 'Waiting on external event, email, or blocker (adds terracotta dot)',
     color: ANNOTATION_CONFIGS.wait.color,
     type: 'wait',
   },
   {
     tag: 'celebrate',
     label: '@celebrate',
-    description: 'Happy event, celebration, birthday, or milestone (adds golden yellow dot)',
+    description: 'Happy event, celebration, birthday, or milestone (adds warm ochre dot)',
     color: ANNOTATION_CONFIGS.celebrate.color,
     type: 'celebrate',
   },
   {
     tag: 'todo',
     label: '@todo',
-    description: 'Actionable to-do item (adds green dot)',
+    description: 'Actionable to-do item (adds sage dot)',
     color: ANNOTATION_CONFIGS.todo.color,
     type: 'todo',
   },
   {
     tag: 'explore',
     label: '@explore',
-    description: 'Exploratory idea, inquiry, research, or unknown (adds purple dot)',
+    description: 'Exploratory idea, inquiry, research, or unknown (adds lavender dot)',
     color: ANNOTATION_CONFIGS.explore.color,
     type: 'explore',
   },
   {
     tag: 'thought',
     label: '@thought',
-    description: 'Insight, reflection, journal entry, or revelation (adds blue dot)',
+    description: 'Insight, reflection, journal entry, or revelation (adds steel blue dot)',
     color: ANNOTATION_CONFIGS.thought.color,
     type: 'thought',
   },
@@ -699,7 +745,7 @@ export const SUGGESTED_TAGS: QuickTagOption[] = [
   {
     tag: 'failed',
     label: '@failed',
-    description: 'Failed, rejected, or unsuccessful task/event (adds red dot)',
+    description: 'Failed, rejected, or unsuccessful task/event (adds ruby dot)',
     color: ANNOTATION_CONFIGS.failed.color,
     type: 'failed',
   },
