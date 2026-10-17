@@ -199,13 +199,14 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   const renderAnnotatedText = (
     text: string,
     isDeleted = false,
-    isAdded = false
+    isAdded = false,
+    allowLeadingFusion = false
   ) => {
     const { segments } = parseNoteContent(text);
     return segments.map((seg, idx) => {
       if (seg.type === 'badge' && seg.annotation) {
         const badge = seg.annotation;
-        const isLeading = Boolean(seg.isLeading);
+        const isLeading = Boolean(allowLeadingFusion && !isDeleted && !isAdded && seg.isLeading);
         const isResolved = Boolean(isStruck || badge.isResolved);
 
         return (
@@ -233,12 +234,14 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             onPointerUp={() => {
               if (isLeading && !isDraggingSelf) setCanDrag(false);
             }}
-            className={`inline-flex items-center gap-1.5 ${
+            className={`inline-flex items-center gap-1 ${
               isLeading
                 ? isComfortable
                   ? '-ml-5 mr-1.5 pl-1.5 pr-2 py-[2px]'
                   : '-ml-4 mr-1.5 pl-1 pr-1.5 py-[1.5px]'
-                : 'mx-0.5 px-1 py-[2px]'
+                : isComfortable
+                ? 'mx-0.5 px-1.5 py-[2px]'
+                : 'mx-0.5 px-1 py-[1.5px]'
             } rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
               isLeading && isDraggable
                 ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
@@ -246,25 +249,27 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 ? 'cursor-default'
                 : 'cursor-pointer hover:scale-105 active:scale-95'
             } ${
-              isResolved
+              isDeleted
+                ? 'line-through decoration-[#D23B38] decoration-[1.5px] bg-[#FDEDEC] text-[#D23B38] opacity-85'
+                : isResolved
                 ? 'line-through opacity-70 bg-[#DDD6C8] text-[#71727A]'
-                : isDeleted
-                ? 'line-through opacity-50'
                 : ''
             }`}
             style={{
-              backgroundColor: isResolved ? undefined : badge.bgColor,
-              color: isResolved ? undefined : badge.textColor,
+              backgroundColor: isDeleted ? '#FDEDEC' : isResolved ? undefined : badge.bgColor,
+              color: isDeleted ? '#D23B38' : isResolved ? undefined : badge.textColor,
               border: 'none',
               outline: 'none',
               boxShadow: 'none',
             }}
             title={
               isDeleted
-                ? `${badge.label} (Deleted)`
+                ? `${badge.label} (Deleted tag)`
                 : isAdded
                 ? `${badge.label} (Newly added tag): Click to toggle`
-                : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle • Drag to reorder`
+                : isLeading
+                ? `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle • Drag to reorder`
+                : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
             }
           >
             {/* For leading badge: Encompass the dot inside! */}
@@ -309,14 +314,15 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               </span>
             )}
 
-            {isAdded && <span className="opacity-80 font-bold select-none">+</span>}
+            {isDeleted && <span className="opacity-80 font-bold select-none mr-0.5">−</span>}
+            {isAdded && <span className="opacity-80 font-bold select-none mr-0.5">+</span>}
             <span className="leading-none">{badge.tag}</span>
           </button>
         );
       }
 
       if (seg.type === 'text') {
-        if (idx === 0 && seg.text.trim() === '' && parsedNote.hasLeadingAnnotation) {
+        if (idx === 0 && seg.text.trim() === '' && allowLeadingFusion && parsedNote.hasLeadingAnnotation) {
           // Drop leading whitespace before leading badge so it starts flush at negative margin
           return null;
         }
@@ -444,8 +450,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
       )}
 
-      {/* Standalone Left Slot: Rendered only when there is NO leading annotation */}
-      {!parsedNote.hasLeadingAnnotation && (
+      {/* Standalone Left Slot: Rendered when note has no leading annotation OR when viewing revision diffs */}
+      {(!parsedNote.hasLeadingAnnotation || hasEdits) && (
         <div
           className={`absolute ${
             isComfortable
@@ -512,7 +518,12 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           {isStruck ? (
             // Full note strike overrides inner diffs with graphite pencil strike
             <span className="line-through decoration-[#A19D94] decoration-2">
-              {renderAnnotatedText(content || originalContent || '(empty note)')}
+              {renderAnnotatedText(
+                content || originalContent || '(empty note)',
+                false,
+                false,
+                true
+              )}
             </span>
           ) : hasEdits ? (
             // Render word-level diff with micro-badges recognized
@@ -526,7 +537,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                   {renderAnnotatedText(
                     chunk.value,
                     chunk.type === 'deleted',
-                    chunk.type === 'added'
+                    chunk.type === 'added',
+                    false
                   )}
                 </React.Fragment>
               ))}
@@ -538,7 +550,10 @@ export const NoteCard: React.FC<NoteCardProps> = ({
               }`}
             >
               {renderAnnotatedText(
-                content || originalContent || '(empty note)'
+                content || originalContent || '(empty note)',
+                false,
+                false,
+                true
               )}
             </span>
           )}
