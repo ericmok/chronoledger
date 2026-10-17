@@ -39,16 +39,16 @@ All notes carry a subtle grip icon on hover for reordering.
 
 ### Plaintext Annotations
 Typing `@` anywhere in a note opens an autocomplete menu for common categories drawing from a canonical palette:
-- `@todo`: Actionable items (Green `#51C391`).
-- `@important`: High-priority items that warrant bolder weight (Red `#F47290`).
-- `@wait`: Things dependent on someone else or an external blocker (Orange `#F5AC6C`).
-- `@celebrate`: Gatherings, birthdays, and milestones (Yellow `#EADA25`).
-- `@explore`: Research or open questions (Purple `#D097F7`).
-- `@thought`: Ideas, observations, and reflections (Blue `#4FA3F2`).
-- `@4:00pm` / `@10:30am`: Scheduled times and appointments (Teal `#81DACE`).
-- `@failed`: Unsuccessful or rejected tasks (Muted Red `#D86B6B`).
-- `@skipped`: Tasks left behind or postponed (Light Gray `#9FB1C1`).
-- Custom tags (e.g., `@reading`, `@finance`) receive a neutral gray chip (`#6F7880`) and dynamic contrast text.
+- `@todo`: Actionable items (Green).
+- `@important`: High-priority items that warrant bolder weight (Red).
+- `@wait`: Things dependent on someone else or an external blocker (Orange).
+- `@celebrate`: Gatherings, birthdays, and milestones (Yellow).
+- `@explore`: Research or open questions (Purple).
+- `@thought`: Ideas, observations, and reflections (Blue).
+- `@4:00pm` / `@10:30am`: Scheduled times and appointments (Teal).
+- `@failed`: Unsuccessful or rejected tasks (Muted Red).
+- `@skipped`: Tasks left behind or postponed (Light Gray).
+- Custom tags (e.g., `@reading`, `@finance`) receive a neutral gray chip and dynamic contrast text.
 
 Leading tags fuse into the left margin of the note card, absorbing the bullet dot so the text aligns cleanly. Clicking any badge toggles its resolution (`@todo` $\leftrightarrow$ `~~@todo~~`), rendering the tag in a warm muted tone without disturbing the sentence.
 

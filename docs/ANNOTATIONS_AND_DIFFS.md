@@ -67,21 +67,21 @@ export interface NoteItem {
 
 All semantic tags, note bullet dots, and date gutter dots draw from a shared 10-color canonical palette defined in `src/utils/canonicalColors.ts`:
 
-| Category | Primary Tag & Aliases | Solid Chip (Default) | Wash Tint | Meaning & Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| **Important** | `@important`, `@urgent`, `@star`, `@key` | `#F47290` (Red) | `#F79EAA` | High-priority or critical tasks. Renders note text in bold and adds a red dot to the date column. |
-| **Waiting** | `@wait`, `@await`, `@waiting`, `@blocked`, `@pending` | `#F5AC6C` (Orange) | `#FFB06B` | Dependent on external reply, delivery, or blocker. Adds an orange dot to the date column. |
-| **Happy Event** | `@celebrate`, `@happy`, `@birthday`, `@party`, `@fun`, `@joy`, `@milestone` | `#EADA25` (Yellow) | `#FFE3B2` | Celebrations, milestones, and happy occasions. Adds a yellow dot to the date column. |
-| **Explore / Idea** | `@explore`, `@idea`, `@question`, `@unknown`, `@research`, `@brainstorm` | `#D097F7` (Purple) | `#DBB3F6` | Open questions, research inquiries, or exploratory ideas. Adds a purple dot. |
-| **Thought** | `@thought`, `@revelation`, `@insight`, `@reflection`, `@note` | `#4FA3F2` (Blue) | `#98C8F4` | Journal observations and reflections. Adds a blue dot to the date column. |
-| **To-Do** | `@todo`, `@task`, `@action` | `#51C391` (Green) | `#90E6AE` | Standard actionable items. Adds a green dot to the date column. |
-| **Scheduled Event** | `@time`, `@event`, `@sched`, or time patterns (e.g. `@4:00pm`, `@10:30am`) | `#81DACE` (Teal) | `#81DACE` | Time-of-day appointments. Adds a teal dot to the date column. |
-| **Failed** | `@failed`, `@fail`, `@failure`, `@rejected`, `@unsuccessful` | `#D86B6B` (Muted Red) | `#E5C8C8` | Abandoned or unsuccessful attempts. Adds a muted red dot. |
-| **Skipped** | `@skipped`, `@missed`, `@postponed`, `@dropped`, `@canceled` | `#9FB1C1` (Light Gray) | `#D7C9C9` | Postponed or skipped tasks. Dims note text; does not add a gutter dot. |
-| **Custom** | Any arbitrary `@word` (e.g., `@reading`, `@finance`) | `#6F7880` (Gray) | `#A5B4C2` | Ad-hoc user tags. Excluded from date gutter dots by default. |
+| Category | Primary Tag & Aliases | Color | Meaning & Timeline Behavior |
+| :--- | :--- | :--- | :--- |
+| **Important** | `@important`, `@urgent`, `@star`, `@key` | Red | High-priority or critical tasks. Renders note text in bold and adds a red indicator dot to the date column. |
+| **Waiting** | `@wait`, `@await`, `@waiting`, `@blocked`, `@pending` | Orange | Dependent on external reply, delivery, or blocker. Adds an orange dot to the date column. |
+| **Happy Event** | `@celebrate`, `@happy`, `@birthday`, `@party`, `@fun`, `@joy`, `@milestone` | Yellow | Celebrations, milestones, and happy occasions. Adds a yellow dot to the date column. |
+| **Explore / Idea** | `@explore`, `@idea`, `@question`, `@unknown`, `@research`, `@brainstorm` | Purple | Open questions, research inquiries, or exploratory ideas. Adds a purple dot to the date column. |
+| **Thought** | `@thought`, `@revelation`, `@insight`, `@reflection`, `@note` | Blue | Journal observations and reflections. Adds a blue dot to the date column. |
+| **To-Do** | `@todo`, `@task`, `@action` | Green | Standard actionable items. Adds a green dot to the date column. |
+| **Scheduled Event** | `@time`, `@event`, `@sched`, or time patterns (e.g. `@4:00pm`, `@10:30am`) | Teal | Time-of-day appointments. Adds a teal dot to the date column. |
+| **Failed** | `@failed`, `@fail`, `@failure`, `@rejected`, `@unsuccessful` | Muted Red | Abandoned or unsuccessful attempts. Adds a muted red dot to the date column. |
+| **Skipped** | `@skipped`, `@missed`, `@postponed`, `@dropped`, `@canceled` | Light Gray | Postponed or skipped tasks. Dims note text; does not add a gutter dot. |
+| **Custom** | Any arbitrary `@word` (e.g., `@reading`, `@finance`) | Gray | Ad-hoc user tags. Excluded from date gutter dots by default. |
 
 #### Color & Typography Behavior
-- **Dynamic Text Contrast**: Rather than hardcoding text colors, chip badges evaluate relative luminance ($L = 0.299R + 0.587G + 0.114B$). High-luminance chips (Yellow `#EADA25`, Orange `#F5AC6C`, Teal `#81DACE`, Purple `#D097F7`, Light Gray `#9FB1C1`) render deep charcoal text (`#2B2C30`), while deeper hues (Red `#F47290`, Green `#51C391`, Blue `#4FA3F2`, Muted Red `#D86B6B`, Gray `#6F7880`) use crisp white (`#FFFFFF`).
+- **Dynamic Text Contrast**: Rather than hardcoding text colors, chip badges evaluate background luminance so text remains readable across all tones—lighter badges (Yellow, Orange, Teal, Purple, Light Gray) render in charcoal text, while deeper badges (Red, Green, Blue, Muted Red, Gray) render in crisp white text.
 - **Warm Resolution Math**: Resolving a tag (`~~@tag~~`) calculates a warmer, desaturated hue (+4° toward the warm spectrum, $-35\%$ saturation, $+28\%$ lightness) instead of flattening to neutral gray.
 - **Typography & Case**: Badges are typeset in **Inter** (`font-sans font-semibold`) and preserve the natural typed case without artificial uppercase transformation.
 
@@ -113,7 +113,7 @@ export interface SplitNoteResult {
        |
        +---> splitNoteAnchorAndBody()
                |
-               +--- Anchor:   { tag: "todo", color: Green (#51C391), isLeading: true }
+               +--- Anchor:   { tag: "todo", color: "green", isLeading: true }
                |              Rendered at x = 0 with negative left margin (-ml-5)
                |              Embeds bullet dot and hover drag handle.
                |
