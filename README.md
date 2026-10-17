@@ -40,10 +40,12 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
     - 🔴 `@failed` / `@fail` (Ruby Red): Failed, rejected, or unsuccessful tasks and events.
     - ⚪ `@skipped` / `@missed` (Ash Gray): Intentionally skipped or missed items without crossing out note text.
   - **Clean Micro-Badges**: Badges hide the literal `@` prefix inside rendered pill tags (e.g. `important`, `todo`), keeping the ledger typography clean while preserving raw `@tag` in text inputs.
-  - **Prefix Dot Elision (Visual De-cluttering)**:
-    - When a note begins with an annotation tag (e.g. `@todo Buy groceries`), the redundant inner dot inside the micro-badge is elided.
-    - The note's resting bullet on the left adopts the category color of the leading tag and acts as its anchor dot, eliminating redundant "double-dot stutter" (`[•] [• todo]`) while maintaining bullet alignment across all notes and natural multi-line text wrapping.
-    - When resolved (`~~@todo~~`), the resting bullet displays the 45° graphite pencil slash without competing lines inside the badge. Middle tags (e.g. `Call @wait for update`) retain their inner colored indicator dot.
+  - **Right-Aligned Leading Badge Anchor (Replaces Resting Dot)**:
+    - When a note begins with an annotation tag (e.g. `@todo Buy groceries`), the badge replaces the resting note bullet on the left entirely.
+    - The badge is right-aligned against the bullet column and bleeds naturally into the left margin, with its colored indicator dot positioned on the right side (`[ todo • ]`).
+    - The badge dot and regular note bullets remain 100% vertically aligned, and note body text begins directly at the primary text column across all notes.
+    - When resolved (`~~@todo~~`), the badge displays muted strikethrough text and a 45° graphite pencil slash on its right-side dot (`[ ~~todo~~ ⊘ ]`).
+    - Middle tags (e.g. `Call @wait for update`) retain standard inline micro-badge styling with the indicator dot on the left (`[ • wait ]`).
   - **Universal Resolution**: All annotations can be marked as resolved (`~~@tag~~`). Clicking any micro-badge toggles its resolution state directly. Striking out an entire note resolves all embedded tags automatically.
   - **Pencil-Slashed Notable Dots**: Date gutter dots track active and resolved annotations by count. Resolved dots remain visible at their date position, crossed out with a crisp 45° diagonal graphite pencil slash.
   - **CommonMark Backslash Escaping**:

@@ -22,14 +22,18 @@
  * - Boundaries: Tags must occur at start of string or following whitespace/delimiters (` `, `(`, `[`, etc.).
  *   Email addresses (`user@domain.com`) are unaffected.
  *
- * ## Prefix Dot Elision (Leading Badge Optimization)
+ * ## Right-Aligned Leading Badge Anchor (Replaces Resting Dot)
  * - When a note begins with an annotation tag (e.g. `@todo Buy groceries`):
- *   - The badge's inner indicator dot is suppressed (elided).
- *   - The note's resting bullet on the left adopts the category color of the leading tag and acts as its anchor dot.
- *   - This prevents redundant "double-dot stutter" (`[•] [• todo]`) while preserving bullet-column alignment.
- *   - When toggled to resolved (`~~@todo~~`), the resting bullet displays the 45° pencil slash,
- *     while the badge displays strikethrough text without visual slash collision.
- *   - Badges located in the middle of a note (e.g. `Call @wait for update`) retain their inner colored indicator dot.
+ *   - The badge replaces the resting dot entirely in the left slot.
+ *   - The badge is right-aligned against the bullet column and bleeds naturally into the left margin.
+ *   - The badge displays its indicator dot on the right side (`[ tag • ]`), perfectly aligning with
+ *     the vertical resting dot column of untagged notes.
+ *   - The note body text begins directly at the primary text column, so all notes have perfectly
+ *     vertically aligned text on the left, with multi-line notes wrapping flush.
+ *   - When toggled to resolved (`~~@todo~~`), the badge renders muted with strikethrough and a 45°
+ *     pencil slash on its right-side dot.
+ *   - Badges located in the middle of a note (e.g. `Call @wait for update`) retain standard inline
+ *     micro-badge styling with the indicator dot on the left (`[ • wait ]`).
  *
  * ## Notable Dots (Date Gutter & Radar)
  * - Tracks unique annotation categories per note.

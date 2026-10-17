@@ -130,7 +130,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
               setActiveDragId(null);
             }
           }}
-          className={`flex-1 overflow-y-auto pr-0.5 transition-colors ${
+          className={`flex-1 overflow-y-auto pl-6 sm:pl-8 pr-0.5 transition-colors ${
             isWeekDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
           }`}
         >

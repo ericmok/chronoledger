@@ -58,8 +58,9 @@ Enable users to search, filter, and aggregate all notes with semantic annotation
    - Resting note bullet mirrors resolution state.
 6. **Autocomplete & Quick-Tag Bar (`AnnotationAutocomplete.tsx`, `useAnnotationInput.ts`)**:
    - Keyboard-navigable popup on typing `@` with time suggestions (`@4` $\to$ `@4:00pm`).
-7. **Prefix Dot Elision (`annotationUtils.ts`, `NoteCard.tsx`)**:
-   - Suppresses inner badge indicator dot when the tag is the first non-whitespace content in the note (`[•] [todo]`).
-   - Note's resting bullet dynamically adopts leading tag's color and slash resolution state.
-   - Preserves bullet-column alignment, hover grip handles (`:::`), and natural multi-line wrapping.
-   - Integrated into Day, Week, and Month note forms.
+7. **Right-Aligned Leading Badge Anchor (`annotationUtils.ts`, `NoteCard.tsx`)**:
+   - Leading annotation badge replaces the resting note bullet on the left.
+   - Badge is right-aligned against the bullet column with dot on the right (`[ tag • ]`), perfectly aligning with resting bullets on untagged notes.
+   - Note body text starts at the primary text column, ensuring 100% vertical text alignment across all notes and clean multi-line wrapping.
+   - Full support for interactive resolution toggling (`[ ~~tag~~ ⊘ ]`) and hover drag handles (`:::`).
+   - Integrated across Day, Week, and Month note forms and columns.
