@@ -6,7 +6,7 @@ A calendar and personal ledger that treats time as a continuous surface rather t
 
 Most digital tools divide time into pages: a month grid, a week column, an isolated day view. When a month ends, the next begins on an empty screen, disconnecting today from yesterday. When an entry is revised, the previous thought vanishes without a trace.
 
-ChronoLedger approaches scheduling and note-keeping more like a paper scroll or an open ledger book. Days flow vertically without page turns. Notes carry light annotations that settle quietly into the margin. When an entry is edited, the older words remain crossed out in soft ink until you choose to accept the revision.
+ChronoLedger approaches scheduling and note-keeping more like a paper scroll or an open ledger book. Days flow vertically without page turns. Notes carry light annotations that settle quietly into the margin. When an entry is edited, the older words remain crossed out in soft ink until you choose to clean the revision.
 
 ![ChronoLedger Demo Screenshot](docs/assets/chronoledger-demo.png)
 
@@ -54,7 +54,7 @@ Leading tags fuse into the left margin of the note card, absorbing the bullet do
 In an ink notebook, corrections are crossed out with a single stroke, preserving the context of earlier plans. ChronoLedger follows this habit:
 - Editing a note strikes through deleted words in muted red and highlights new words in soft green.
 - Deleted tags are displayed with reduced opacity and a strikethrough, without unnecessary minus signs.
-- A small eraser icon button sits beside the revisions, allowing you to clean the scribbles and finalize the text whenever you are ready.
+- When a note is hovered or focused, a small eraser icon button appears beside the revisions, allowing you to clean the scribbles and finalize the text whenever you are ready.
 
 *A detailed explanation of anchor fusing, diff algorithms, and tag semantics can be found in [docs/ANNOTATIONS_AND_DIFFS.md](docs/ANNOTATIONS_AND_DIFFS.md).*
 

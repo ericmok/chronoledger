@@ -631,7 +631,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             </span>
           )}
 
-          {/* Clean Revisions Action (Eraser Icon) */}
+          {/* Clean Revisions Action (Eraser Icon) - Revealed on hover / focus */}
           {hasEdits && !isStruck && (
             <span className="inline-flex items-center gap-1 ml-1.5 align-middle select-none">
               {content === '' && (
@@ -652,7 +652,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                     onUpdate(id, content || '');
                   }
                 }}
-                className="p-1 rounded bg-[#EAE3D6]/70 hover:bg-[#D5CDC0] text-[#71727A] hover:text-[#2B2C30] cursor-pointer transition-colors shadow-2xs inline-flex items-center justify-center align-middle"
+                className="p-1 rounded bg-[#EAE3D6]/70 hover:bg-[#D5CDC0] text-[#71727A] hover:text-[#2B2C30] cursor-pointer transition-opacity opacity-0 group-hover:opacity-100 focus:opacity-100 group-focus-within:opacity-100 shadow-2xs inline-flex items-center justify-center align-middle"
                 title="Clean revision scribbles"
                 aria-label="Clean revision scribbles"
               >

@@ -47,7 +47,7 @@ Notes are represented simply as markdown strings, accompanied by an optional rec
 export interface NoteItem {
   id: string;
   content: string;             // Current raw markdown (e.g., "@todo Prepare summary @project")
-  originalContent?: string;    // Text prior to unaccepted edits; undefined when no diff exists
+  originalContent?: string;    // Pre-revision markdown snapshot for diff rendering; undefined when diffs are cleared
   isStruck: boolean;           // Entire note strikeout (e.g., canceled or completed thought)
   parentDates: string[];       // Date keys (YYYY-MM-DD)
   colorTag?: string;           // Optional fallback tint
@@ -169,12 +169,13 @@ When the prose of a note is altered (`originalContent.bodyText` differs from `cu
 In keeping with the ledger metaphor, edits remain visible so you can review what changed. When you are ready to settle the note into its final wording:
 
 ```
-[ Note Text with Diffs ]  [ ⌫ Eraser ]
+[ Note Text with Diffs ]  [ ⌫ Eraser (revealed on hover / focus) ]
 ```
 
-1. Clicking the small **Eraser** button triggers `acceptNoteRevision(noteId)` in `useCalendarState`.
-2. The note's `originalContent` field is cleared (`undefined`).
-3. The revision diffs lift away, leaving only the clean, finalized prose.
+1. A small **Eraser** button appears beside the revisions when the note is moused over or receives keyboard focus.
+2. Clicking it triggers `acceptNoteRevision(noteId)` in `useCalendarState`.
+3. The note's `originalContent` field is cleared (`undefined`).
+4. The revision diffs lift away, leaving only the clean, finalized prose.
 
 This callback is passed consistently through daily rows, weekly panels, and monthly columns:
 - `App.tsx`
