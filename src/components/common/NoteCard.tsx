@@ -220,7 +220,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 onUpdate(id, newContent);
               }
             }}
-            className={`inline-flex items-center justify-center px-1.5 py-0.5 mx-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+            className={`inline-flex items-center justify-center px-1 py-[3px] mx-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
               isDeleted ? 'cursor-default' : 'cursor-pointer hover:scale-105 active:scale-95'
             } ${
               isResolved
