@@ -54,7 +54,7 @@ Leading tags fuse into the left margin of the note card, absorbing the bullet do
 In an ink notebook, corrections are crossed out with a single stroke, preserving the context of earlier plans. ChronoLedger follows this habit:
 - Editing a note strikes through deleted words in muted red and highlights new words in soft green.
 - Deleted tags are displayed with reduced opacity and a strikethrough, without unnecessary minus signs.
-- An **`✓ Accept`** button sits beside the edit badge, allowing you to finalize the text and clear the diff whenever you are ready.
+- A small eraser icon button sits beside the revisions, allowing you to clean the scribbles and finalize the text whenever you are ready.
 
 *A detailed explanation of anchor fusing, diff algorithms, and tag semantics can be found in [docs/ANNOTATIONS_AND_DIFFS.md](docs/ANNOTATIONS_AND_DIFFS.md).*
 

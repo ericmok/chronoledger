@@ -164,17 +164,17 @@ When the prose of a note is altered (`originalContent.bodyText` differs from `cu
 
 ---
 
-## 7. Accepting Revisions
+## 7. Cleaning and Finalizing Revisions
 
-In keeping with the ledger metaphor, edits remain visible so you can review what changed. Once you are comfortable with the note's new phrasing, you can accept the revision:
+In keeping with the ledger metaphor, edits remain visible so you can review what changed. When you are ready to settle the note into its final wording:
 
 ```
-[ Note Text with Diffs ]  [ EDITED ] [ ✓ Accept ]
+[ Note Text with Diffs ]  [ ⌫ Eraser ]
 ```
 
-1. Clicking **`✓ Accept`** triggers `acceptNoteRevision(noteId)` in `useCalendarState`.
+1. Clicking the small **Eraser** button triggers `acceptNoteRevision(noteId)` in `useCalendarState`.
 2. The note's `originalContent` field is cleared (`undefined`).
-3. The note returns to standard rendering, showing only the finalized prose.
+3. The revision diffs lift away, leaving only the clean, finalized prose.
 
 This callback is passed consistently through daily rows, weekly panels, and monthly columns:
 - `App.tsx`

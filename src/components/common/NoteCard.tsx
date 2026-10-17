@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Strikethrough, Pencil, Trash2, Check, X, GripVertical } from 'lucide-react';
+import { Strikethrough, Pencil, Trash2, Check, X, GripVertical, Eraser } from 'lucide-react';
 import { computeWordDiff } from '../../utils/diffUtils';
 import {
   parseNoteContent,
@@ -631,23 +631,17 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             </span>
           )}
 
-          {/* Audit Trail Badge & Clean/Accept Button */}
+          {/* Clean Revisions Action (Eraser Icon) */}
           {hasEdits && !isStruck && (
             <span className="inline-flex items-center gap-1 ml-1.5 align-middle select-none">
-              <span
-                className={`text-[8px] font-mono px-1 py-0.2 rounded border uppercase tracking-wider ${
-                  content === ''
-                    ? 'text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]'
-                    : 'text-[#1E7B48] bg-[#E8F5E9] border-[#C8E6C9]'
-                }`}
-                title={
-                  content === ''
-                    ? 'All text deleted (crossed out)'
-                    : `Original: "${originalContent}"`
-                }
-              >
-                {content === '' ? 'deleted' : 'edited'}
-              </span>
+              {content === '' && (
+                <span
+                  className="text-[8px] font-mono px-1 py-0.2 rounded border uppercase tracking-wider text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]"
+                  title="All text deleted (crossed out)"
+                >
+                  deleted
+                </span>
+              )}
               <button
                 type="button"
                 onClick={(e) => {
@@ -658,10 +652,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                     onUpdate(id, content || '');
                   }
                 }}
-                className="text-[9px] font-mono px-1 py-0.2 rounded bg-[#EAE3D6] hover:bg-[#D5CDC0] text-[#2B2C30] cursor-pointer transition-colors shadow-2xs font-medium"
-                title="Accept revision and finalize note"
+                className="p-1 rounded bg-[#EAE3D6]/70 hover:bg-[#D5CDC0] text-[#71727A] hover:text-[#2B2C30] cursor-pointer transition-colors shadow-2xs inline-flex items-center justify-center align-middle"
+                title="Clean revision scribbles"
+                aria-label="Clean revision scribbles"
               >
-                ✓ Accept
+                <Eraser className="w-2.5 h-2.5" />
               </button>
             </span>
           )}
