@@ -54,11 +54,14 @@ ChronoLedger blends the continuous spatial awareness of physical wall scrolls an
   - **CommonMark Backslash Escaping**:
     - Typing `\@todo` escapes the tag so it renders as clean plain text `@todo` without turning into a badge.
     - The escaping backslash is consumed in read mode for notebook aesthetics, but preserved in raw storage so opening edit mode displays `\@todo` losslessly (`\\@todo` renders as literal `\` followed by an active badge).
-- **Visual Revision Diffs**:
+- **Visual Revision Diffs & Ledger Audit Trail**:
   - Double-click any note to edit in-place.
-  - Deleted words are struck through in low-opacity red ink.
-  - Newly added words appear in soft green.
-  - Completely emptied notes display as crossed-out tasks with an `EDITED` / `DELETED` status tag.
+  - Deleted words are struck through in low-opacity red ink (`opacity-60`); deleted tags render as badges with lower opacity (`opacity-50`) without minus prefixes.
+  - Newly added words appear in soft green (`#1E7B48`), and added tags display with a `+` prefix.
+  - Notes display an `EDITED` audit badge with an instant **`✓ Accept`** action to finalize revisions and clean the ledger.
+  - **Anchor Fusing**: Leading tags fuse seamlessly into the anchor bullet at $x = 0$ with integrated drag handles and zero horizontal layout shift.
+  - **Resolution-Aware Diffing**: Resolving tags (`@tag` $\leftrightarrow$ `~~@tag~~`) is treated as a lifecycle transition, never triggering phantom diffs or tag duplications.
+  - 📖 *For comprehensive technical architecture, data model, and diff algorithms, see the [Annotations & Semantic Diffs Specification](docs/ANNOTATIONS_AND_DIFFS.md).*
 - **Freeform Margin & Markup Tools**:
   - **Pencil (`P`)**: Natural pressure-sensitive freehand sketching in margins and across days using RoughJS and Perfect-Freehand.
   - **Timeline Arrow (`A`)**: Drag between two dates across days or weeks to visually link projects and deadlines.
