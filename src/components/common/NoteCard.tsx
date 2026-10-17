@@ -220,20 +220,21 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 onUpdate(id, newContent);
               }
             }}
-            className={`inline-flex items-center justify-center px-1.5 py-0.5 mx-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none ${
+            className={`inline-flex items-center justify-center px-1.5 py-0.5 mx-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
               isDeleted ? 'cursor-default' : 'cursor-pointer hover:scale-105 active:scale-95'
             } ${
               isResolved
                 ? 'line-through opacity-70 bg-[#DDD6C8] text-[#71727A]'
                 : isDeleted
                 ? 'line-through opacity-50'
-                : isAdded
-                ? 'ring-1 ring-[#1E7B48]/30'
                 : ''
             }`}
             style={{
               backgroundColor: isResolved ? undefined : badge.bgColor,
               color: isResolved ? undefined : badge.textColor,
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none',
             }}
             title={
               isDeleted
