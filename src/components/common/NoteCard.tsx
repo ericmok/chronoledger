@@ -239,9 +239,12 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             title={
               isDeleted
                 ? `${badge.label} (Deleted)`
+                : isAdded
+                ? `${badge.label} (Newly added tag): Click to toggle`
                 : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
             }
           >
+            {isAdded && <span className="opacity-80 mr-0.5 font-bold select-none">+</span>}
             <span>{badge.tag}</span>
           </button>
         );
