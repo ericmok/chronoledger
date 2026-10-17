@@ -284,7 +284,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           isComfortable
             ? '-ml-5 mr-1.5 pl-1.5 pr-2 py-[3.5px]'
             : '-ml-4 mr-1.5 pl-1 pr-1.5 py-[2.5px]'
-        } rounded text-[11px] font-sans font-semibold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+        } rounded text-[11px] font-sans font-semibold select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
           isDraggable
             ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
             : 'cursor-pointer hover:scale-105 active:scale-95'
@@ -358,6 +358,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     const isResolved = Boolean(isStruck || badge.isResolved);
     const bgColor = isResolved ? badge.resolvedBgColor : badge.bgColor;
     const textColor = isResolved ? badge.resolvedTextColor : badge.textColor;
+    const bulletColor = isResolved
+      ? (badge.resolvedBulletColor || badge.resolvedColor)
+      : (badge.bulletColor || badge.color);
 
     return (
       <button
@@ -373,8 +376,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           }
         }}
         className={`inline-flex items-center gap-1 ${
-          isComfortable ? 'mx-0.5 px-2 py-[3.5px]' : 'mx-0.5 px-1.5 py-[2.5px]'
-        } rounded text-[11px] font-sans font-semibold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+          isComfortable ? 'mx-0.5 pl-1.5 pr-2 py-[3.5px]' : 'mx-0.5 pl-1 pr-1.5 py-[2.5px]'
+        } rounded text-[11px] font-sans font-semibold select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
           isDeleted
             ? 'cursor-default line-through decoration-[#2B2C30] decoration-[1.5px] opacity-50'
             : isResolved
@@ -397,6 +400,28 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         }
       >
         {isAdded && <span className="opacity-80 font-bold select-none mr-0.5">+</span>}
+        <span className="w-2.5 h-2.5 flex items-center justify-center shrink-0">
+          <svg className="w-2 h-2 overflow-visible" viewBox="0 0 8 8">
+            <circle
+              cx="4"
+              cy="4"
+              r="3.2"
+              fill={bulletColor}
+              opacity={isResolved ? 0.65 : 1}
+            />
+            {isResolved && (
+              <line
+                x1="1"
+                y1="7"
+                x2="7"
+                y2="1"
+                stroke="#2B2C30"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+        </span>
         <span className="leading-none">{badge.tag}</span>
       </button>
     );
