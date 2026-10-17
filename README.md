@@ -1,200 +1,136 @@
 # ChronoLedger
 
-> **Tactile, continuous analog calendar & visual ledger designed for clarity, flow, and focus.**
+A calendar and personal ledger that treats time as a continuous surface rather than discrete boxes.
 
-ChronoLedger blends the continuous spatial awareness of physical wall scrolls and stationery planners with modern digital flexibility. It reimagines traditional grid calendars into an infinite vertical timeline paired with an interconnected month jigsaw radar and freeform margin markup tools.
+---
+
+Most digital tools divide time into pages: a month grid, a week column, an isolated day view. When a month ends, the next begins on an empty screen, disconnecting today from yesterday. When an entry is revised, the previous thought vanishes without a trace.
+
+ChronoLedger approaches scheduling and note-keeping more like a paper scroll or an open ledger book. Days flow vertically without page turns. Notes carry light annotations that settle quietly into the margin. When an entry is edited, the older words remain crossed out in soft ink until you choose to accept the revision.
 
 ![ChronoLedger Demo Screenshot](docs/assets/chronoledger-demo.png)
 
 ---
 
-## ✨ Features
+## Observations on the Design
 
-- **Infinite Vertical Timeline**: Continuous paper roll displaying months and weeks without artificial page boundaries. Seamlessly scroll across months and years with squarish date cells and red week separator lines.
-- **Infinite Bidirectional Month Radar**:
-  - Continuous, virtualized multi-month sidebar on the right for long-range planning and rapid jump navigation.
-  - Smooth bidirectional infinite scrolling with dynamic month loading and scroll offset stabilization.
-  - **1st-of-Month Alignment**: Every month aligns cleanly on the 1st of the month for spatial predictability across years.
-  - One-click **Today** snap button to return instantly to the active month.
-- **12-Month Subtle Seasonal Gradient Palette**:
-  - Distinct ambient color cues assigned to all 12 months across the year:
-    - 🌱 **Spring (Mar, Apr, May)**: Soft sage and mint greens.
-    - ☀️ **Summer (Jun, Jul, Aug)**: Warm sunshine ambers and light yellows.
-    - 🍂 **Autumn (Sep, Oct, Nov)**: Gentle terracotta, peach, and russet oranges.
-    - ❄️ **Winter (Dec, Jan, Feb)**: Subtle frosty blues and cool cyans.
-  - Harmoniously tints radar tiles, gutters, and monthly note headers, providing instantaneous spatial and temporal orientation when scrolling long distances.
-- **Three-Tier Note Hierarchy & Drag-and-Drop Reordering**:
-  - **Day Notes**: Quick-entry inputs and tactile note cards attached directly to dates.
-  - **Week Notes**: Dedicated weekly focus objectives with responsive viewports that expand naturally as tasks accumulate.
-  - **Month Notes**: Long-term monthly notes anchored in the margin gutter and jigsaw radar.
-  - **Reordering**: Smooth drag handles (`:::`) on all daily, weekly, and monthly notes for intuitive reorganization. Newly created notes append to the bottom of lists.
-- **Semantic Note Annotations, Micro-Badges & Notable Dots**:
-  - **Type `@` anywhere in a note** (with keyboard-driven autocomplete and quick-tag bar) to attach rich metadata:
-    - 🔴 `@important` (Desert Crimson): Critical priorities; bolds note text and renders red dots in the date gutter.
-    - 🟢 `@todo` (Emerald Green): Actionable items and tasks.
-    - 🟠 `@wait` / `@await` (Terracotta Orange): Items blocked by or waiting on external events.
-    - 🟡 `@celebrate` / `@happy` (Marigold Yellow): Birthdays, milestones, and happy celebrations.
-    - 🟣 `@explore` / `@idea` (Amethyst Purple): Exploratory research, ideas, and unknown territory.
-    - 🔵 `@thought` / `@revelation` (Estuary Blue): Insights, reflections, and realizations.
-    - ⏱️ `@4:00pm` / `@10:30am` (Slate Gray): Specific scheduled times.
-    - 🔴 `@failed` / `@fail` (Ruby Red): Failed, rejected, or unsuccessful tasks and events.
-    - ⚪ `@skipped` / `@missed` (Ash Gray): Intentionally skipped or missed items without crossing out note text.
-  - **Solid High-Contrast Label Chips (No Inner Dot)**:
-    - Rendered as crisp stationery label chips with saturated category backgrounds and bold white text (`#FFFFFF`) with micro-rounded corners.
-    - Eliminates internal badge dots to prevent double-dot visual noise when notes begin with a tag.
-    - Badges hide the literal `@` prefix inside rendered chips (e.g. `IMPORTANT`, `TODO`), keeping ledger typography clean while preserving raw `@tag` in text inputs.
-    - When resolved (`~~@todo~~`), chips transition to a muted oatmeal tone (`#DDD6C8` background, `#71727A` text, line-through).
-    - Clicking any chip toggles its resolution state directly.
-  - **Re-Unified Left Slot Across All Notes**:
-    - Every note (tagged or untagged) features a standardized anchor slot with a colored resting bullet (`•`) at rest that smoothly reveals the reordering drag handle (`:::`) on hover.
-    - Zero horizontal layout shift, preserving full column width across daily notes and narrow weekly/monthly sidebars without clipping drag handles.
-    - Resting bullets display an authentic 45° graphite pencil slash when an item is resolved or struck through.
-  - **Universal Resolution**: All annotations can be marked as resolved (`~~@tag~~`). Clicking any micro-badge toggles its resolution state directly. Striking out an entire note resolves all embedded tags automatically.
-  - **Pencil-Slashed Notable Dots**: Date gutter dots track active and resolved annotations by count. Resolved dots remain visible at their date position, crossed out with a crisp 45° diagonal graphite pencil slash.
-  - **CommonMark Backslash Escaping**:
-    - Typing `\@todo` escapes the tag so it renders as clean plain text `@todo` without turning into a badge.
-    - The escaping backslash is consumed in read mode for notebook aesthetics, but preserved in raw storage so opening edit mode displays `\@todo` losslessly (`\\@todo` renders as literal `\` followed by an active badge).
-- **Visual Revision Diffs & Ledger Audit Trail**:
-  - Double-click any note to edit in-place.
-  - Deleted words are struck through in low-opacity red ink (`opacity-60`); deleted tags render as badges with lower opacity (`opacity-50`) without minus prefixes.
-  - Newly added words appear in soft green (`#1E7B48`), and added tags display with a `+` prefix.
-  - Notes display an `EDITED` audit badge with an instant **`✓ Accept`** action to finalize revisions and clean the ledger.
-  - **Anchor Fusing**: Leading tags fuse seamlessly into the anchor bullet at $x = 0$ with integrated drag handles and zero horizontal layout shift.
-  - **Resolution-Aware Diffing**: Resolving tags (`@tag` $\leftrightarrow$ `~~@tag~~`) is treated as a lifecycle transition, never triggering phantom diffs or tag duplications.
-  - 📖 *For comprehensive technical architecture, data model, and diff algorithms, see the [Annotations & Semantic Diffs Specification](docs/ANNOTATIONS_AND_DIFFS.md).*
-- **Freeform Margin & Markup Tools**:
-  - **Pencil (`P`)**: Natural pressure-sensitive freehand sketching in margins and across days using RoughJS and Perfect-Freehand.
-  - **Timeline Arrow (`A`)**: Drag between two dates across days or weeks to visually link projects and deadlines.
-  - **Continuous Painting Eraser (`E`)**: Real-time hit-testing eraser that lets you brush naturally over strokes to remove them.
-- **First-Class Circled Dates**:
-  - Double-click any day number on the vertical timeline or radar grid to circle it with an authentic Rough.js hand-drawn ink ring.
-  - Single-click an existing circle to cycle through the color palette (Light Gray → Red → Yellow-Orange → Golden Yellow → Purple → Green → Blue).
-  - Deterministically seeded so sketchy pen lines never jitter or re-randomize across re-renders or window resizes.
-- **Full History Engine (Undo / Redo)**:
-  - `⌘Z` / `Ctrl+Z` to undo actions (note deletions, edits, strikethroughs, circled dates, sketches, erasures, reordering).
-  - `⌘⇧Z` / `Ctrl+Shift+Z` / `Ctrl+Y` to redo.
-  - Native browser undo is fully preserved when typing inside text boxes.
-- **Embedded SQLite Database Auto-Sync (`data/chronoledger.sqlite`)**:
-  - Live atomic synchronization between browser and disk-persisted SQLite database.
-  - High-performance WAL (Write-Ahead Logging) mode and transactional batch writes.
-  - Offline-first dual-layer storage: instant browser `localStorage` plus debounced background SQLite commit.
-  - Tactile visual sync status badge in the header indicating live sync state and timestamp.
-- **Zero-Dependency Production Server & Docker Support**:
-  - Ready for local deployment or containerized hosting with Docker and Docker Compose.
-  - Built-in zero-dependency Node.js HTTP server.
-  - Full JSON backup export and import for data portability and privacy.
+### The Continuous Timeline
+Days and weeks follow one another down the page. Rather than flipping between separate calendar screens, you scroll through time as an unbroken column. Subtle separator lines mark seven-day weeks, giving structure to the flow without partitioning it.
+
+### The Month Radar
+Along the right margin sits an interlocking jigsaw grid of months. It provides long-range orientation, allowing you to sense the shape of the year and jump between seasons without losing your place on the timeline.
+
+### Seasonal Palettes
+As the calendar rolls through the year, the interface gently transitions through four muted seasonal palettes:
+- **Spring (March – May)**: Faint sage and mint greens.
+- **Summer (June – August)**: Warm ambers and pale yellows.
+- **Autumn (September – November)**: Soft terracotta and rust tones.
+- **Winter (December – February)**: Muted slate blues and cool grays.
+
+These ambient tints appear in the radar and section headers, giving a quiet sense of the passing year.
+
+### Notes Across Horizons
+Plans naturally exist at different scales:
+- **Daily Notes**: Observations, tasks, and appointments attached directly to a date.
+- **Weekly Focus**: Notes that belong to a seven-day span rather than a single afternoon.
+- **Monthly Reflections**: Broader themes and ongoing intentions set beside the month radar.
+
+All notes carry a subtle grip icon on hover for reordering.
+
+### Plaintext Annotations
+Typing `@` anywhere in a note opens an autocomplete menu for common categories:
+- `@todo`: Actionable items.
+- `@important`: Priorities that warrant bolder weight.
+- `@wait`: Things dependent on someone else or an external date.
+- `@thought`: Ideas, observations, and reflections.
+- `@celebrate`: Gatherings, birthdays, and milestones.
+- `@explore`: Research or open questions.
+- `@4:00pm` / `@10:30am`: Scheduled times.
+- `@skipped` / `@failed`: Tasks left behind or unfulfilled.
+
+Leading tags fuse into the left margin of the note card, absorbing the bullet dot so the text aligns cleanly. Clicking any badge toggles its resolution (`@todo` $\leftrightarrow$ `~~@todo~~`), rendering the tag in a muted tone without disturbing the sentence.
+
+### Visible Revisions and the Ledger Metaphor
+In an ink notebook, corrections are crossed out with a single stroke, preserving the context of earlier plans. ChronoLedger follows this habit:
+- Editing a note strikes through deleted words in muted red and highlights new words in soft green.
+- Deleted tags are displayed with reduced opacity and a strikethrough, without unnecessary minus signs.
+- An **`✓ Accept`** button sits beside the edit badge, allowing you to finalize the text and clear the diff whenever you are ready.
+
+*A detailed explanation of anchor fusing, diff algorithms, and tag semantics can be found in [docs/ANNOTATIONS_AND_DIFFS.md](docs/ANNOTATIONS_AND_DIFFS.md).*
+
+### Marginalia and Hand-Drawn Marks
+Some thoughts are best recorded informally:
+- **Pencil (`P`)**: Freehand sketching in the margins and across days using pressure-sensitive ink lines.
+- **Timeline Arrow (`A`)**: Drawing curved lines between dates to indicate spans, deadlines, or dependencies.
+- **Circled Dates**: Double-clicking any date number draws a hand-drawn circle around it, resembling pen on paper.
+- **Eraser (`E`)**: Gently brushing over sketched marks to lift them from the page.
 
 ---
 
-## ⌨️ Keyboard Shortcuts
+## Keyboard Shortcuts
 
 | Shortcut | Action |
 | :--- | :--- |
-| `⌘Z` / `Ctrl+Z` | Undo last action (delete, edit, strike, circle, drawing) |
-| `⌘⇧Z` / `Ctrl+Shift+Z` / `Ctrl+Y` | Redo action |
-| `T` | Jump to Today |
-| `M` | Toggle Month Radar Sidebar |
-| `V` | Select / Note Pointer Tool |
-| `P` | Pencil Sketching Tool |
-| `A` | Timeline Arrow Tool |
-| `E` | Continuous Painting Eraser |
+| `⌘Z` / `Ctrl+Z` | Undo last action |
+| `⌘⇧Z` / `Ctrl+Shift+Z` | Redo action |
+| `T` | Return to Today |
+| `M` | Toggle Month Radar sidebar |
+| `V` | Pointer / select tool |
+| `P` | Pencil tool |
+| `A` | Timeline arrow tool |
+| `E` | Eraser tool |
 
 ---
 
-## 🚀 Getting Started
+## Architecture and Persistence
+
+The application is written with React 19 and TypeScript, using Tailwind CSS and TanStack Virtual for smooth rendering across long timelines.
+
+### Dual-Layer Storage
+1. **Local Storage**: Every edit, note, and drawing is written immediately to browser storage so work is not lost if a tab closes.
+2. **Embedded SQLite**: Changes are synchronized in the background to an embedded SQLite database (`data/chronoledger.sqlite`) using Node's built-in `node:sqlite` engine with Write-Ahead Logging (`WAL`).
+
+### Backup and Portability
+The header includes simple **Export** and **Import** options for saving and restoring your calendar as a plain JSON file.
+
+---
+
+## Getting Started
 
 ### Prerequisites
-
-- Node.js (v18+)
+- Node.js (v18 or higher)
 - npm
 
 ### Development
-
 ```bash
-# Clone the repository
 git clone git@github.com:ericmok/chronoledger.git
 cd chronoledger
-
-# Install dependencies
 npm install
-
-# Start Vite development server
 npm run dev
 ```
 
-Visit [http://localhost:5173](http://localhost:5173) in your browser.
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-### Building for Production
-
+### Building
 ```bash
 npm run build
 ```
 
-### Running the Standalone Production Server
-
-ChronoLedger comes with a lightweight, zero-dependency Node.js static server:
-
+### Running Locally with the Built-in Server
 ```bash
 npm start
 # Server listens on port 3000 (or PORT env variable)
 ```
 
-### Docker Deployment
-
+### Docker
 ```bash
 docker compose up -d
 ```
 
-Access the app on `http://localhost:3000`.
+Visit `http://localhost:3000`.
 
 ---
 
-## 🛠️ Architecture
-
-- **React 19 & TypeScript**: Fully typed component hierarchy with modular separation:
-  - `src/components/VerticalCalendar.tsx`: Infinite timeline canvas.
-  - `src/components/DayRow.tsx`: Date row with weekday badges, today highlighting, and note list.
-  - `src/components/WeekFocusPanel.tsx`: Dedicated week ledger and objectives.
-  - `src/components/JigsawMonthGrid.tsx`: Interlocking month grid radar.
-  - `src/components/DrawingCanvas.tsx`: SVG vector layer for RoughJS sketches, arrows, and circles.
-- **Storage & Database Layer**:
-  - `server/db.js`: Embedded SQLite database driver powered by Node's built-in `node:sqlite`. Provides WAL mode, transactional writes, and schema tables (`notes`, `week_notes`, `month_notes`, `drawings`, `settings`, `metadata`).
-  - `src/services/storage.ts`: Dual-layer storage manager handling instant `localStorage` caching, REST API communication, and JSON backup export/import.
-- **State Management**:
-  - `src/hooks/useCalendarState.ts`: History stack snapshots, mutation debouncing, tool configuration, and live SQLite database synchronization.
-
----
-
-## 🛡️ Data Persistence & Safeguards
-
-ChronoLedger implements a multi-tier, zero-loss persistence and synchronization architecture designed to keep user notes, goals, and margin sketches safe at all times:
-
-### 1. Dual-Layer Storage
-- **Tier 1 (Instant Local Storage)**: Every note addition, edit, strikethrough, or sketch is written synchronously to browser `localStorage`. You never lose work if the network drops or the tab closes abruptly.
-- **Tier 2 (Embedded SQLite with WAL)**: Mutations are debounced (600ms) and committed atomically to an embedded SQLite database at `data/chronoledger.sqlite` using Node's native `node:sqlite` engine with Write-Ahead Logging (`PRAGMA journal_mode = WAL;`).
-
-### 2. Non-Destructive Safe Merging (`safeMerge`)
-- During application startup / hydration, the client does **not** blindly overwrite local notes with remote data.
-- Instead, collections are merged non-destructively:
-  - Items existing only in local storage are preserved and queued to sync to SQLite.
-  - Items existing only in SQLite are adopted.
-  - Items existing in both sources resolve conflicts using the newest `updatedAt` / `createdAt` timestamp.
-- This ensures offline edits or notes entered before sync initialization are never dropped.
-
-### 3. Emergency Recovery Snapshots
-- Before any remote sync transaction runs during hydration, ChronoLedger automatically saves an emergency pre-sync snapshot to `chrono_ledger_recovery_snapshot_v1` in browser storage.
-- **Console Disaster Recovery**: If you ever need to restore your pre-sync state immediately, open the browser developer console and run:
-  ```javascript
-  __chronoledger_restore_snapshot()
-  ```
-  This immediately recovers all notes, drawings, and settings from the recovery snapshot.
-
-### 4. Backup Export & Import
-- Use the **Export** button in the header to download an unencrypted, fully portable JSON snapshot (`chronoledger-backup-YYYY-MM-DD.json`).
-- Use the **Import** button to restore from any backup file at any time.
-
----
-
-## 📄 License
+## License
 
 MIT
