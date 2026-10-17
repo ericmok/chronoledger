@@ -5,6 +5,8 @@ import { Header } from './components/Header';
 import { VerticalCalendar } from './components/VerticalCalendar';
 import { AddNoteModal } from './components/AddNoteModal';
 import { JigsawMonthGrid } from './components/JigsawMonthGrid';
+import { AuthModal } from './components/auth/AuthModal';
+import { checkAuthSession, logoutUser, type UserProfile } from './services/auth';
 
 export function App() {
   const {
@@ -48,9 +50,43 @@ export function App() {
     syncStatus,
     lastSyncedAt,
     forceSync,
+    rehydrateRemoteCalendar,
+    clearCalendarState,
   } = useCalendarState();
 
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [unclaimedCount, setUnclaimedCount] = useState(0);
+  const [isFirstSetup, setIsFirstSetup] = useState(false);
 
+  useEffect(() => {
+    checkAuthSession().then((res) => {
+      if (res.authenticated && res.user) {
+        setCurrentUser(res.user);
+      } else {
+        setUnclaimedCount(res.unclaimedCount);
+        setIsFirstSetup(Boolean(res.isFirstSetup));
+        if (res.isFirstSetup || res.unclaimedCount > 0) {
+          setIsAuthModalOpen(true);
+        }
+      }
+    });
+  }, []);
+
+  const handleAuthSuccess = async (user: UserProfile) => {
+    setCurrentUser(user);
+    setIsAuthModalOpen(false);
+    await rehydrateRemoteCalendar();
+  };
+
+  const handleLogout = async () => {
+    await logoutUser();
+    setCurrentUser(null);
+    clearCalendarState();
+    const session = await checkAuthSession();
+    setUnclaimedCount(session.unclaimedCount);
+    setIsFirstSetup(Boolean(session.isFirstSetup));
+  };
 
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -143,6 +179,9 @@ export function App() {
         syncStatus={syncStatus}
         lastSyncedAt={lastSyncedAt}
         onForceSync={forceSync}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Container: Infinite Vertical Roll (Left) + Continuous Jigsaw Month Radar (Right) */}
@@ -215,6 +254,15 @@ export function App() {
         isOpen={isAddNoteOpen}
         onClose={() => setIsAddNoteOpen(false)}
         onSave={(content, parentDates, colorTag) => addNote(content, parentDates, colorTag)}
+      />
+
+      {/* Auth & Migration Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        unclaimedCount={unclaimedCount}
+        isFirstSetup={isFirstSetup}
       />
     </div>
   );

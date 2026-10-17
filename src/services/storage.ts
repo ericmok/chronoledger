@@ -72,6 +72,7 @@ export function createDefaultNotes(): NoteItem[] {
       content: 'Review quarterly architecture and security plan with team @important',
       parentDates: [todayStr],
       isStruck: false,
+      isDemo: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -80,6 +81,7 @@ export function createDefaultNotes(): NoteItem[] {
       content: 'Finalize server migration roadmap @important',
       parentDates: [todayStr],
       isStruck: false,
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -87,6 +89,7 @@ export function createDefaultNotes(): NoteItem[] {
       content: 'Tokyo Design & Engineering Offsite @4:00pm',
       parentDates: [tomorrowStr, dayAfterStr],
       isStruck: false,
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -94,6 +97,7 @@ export function createDefaultNotes(): NoteItem[] {
       content: 'Draft proposal for client team @wait on legal team brief',
       parentDates: [tomorrowStr],
       isStruck: false,
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -101,6 +105,7 @@ export function createDefaultNotes(): NoteItem[] {
       content: 'Explore zero-latency state sync @explore',
       parentDates: [dayAfterStr],
       isStruck: false,
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -108,6 +113,7 @@ export function createDefaultNotes(): NoteItem[] {
       content: 'The simplest abstractions are discovered, not designed @thought',
       parentDates: [nextWeek1Str],
       isStruck: false,
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -116,6 +122,7 @@ export function createDefaultNotes(): NoteItem[] {
       parentDates: [todayStr],
       isStruck: true,
       strikeStyle: 'single',
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
   ];
@@ -136,6 +143,7 @@ export function createDefaultWeekNotes(): WeekNote[] {
       parentWeeks: [currentWeekKey],
       isStruck: false,
       colorTag: '#E29578',
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -144,6 +152,7 @@ export function createDefaultWeekNotes(): WeekNote[] {
       parentWeeks: [currentWeekKey, nextWeekKey],
       isStruck: false,
       colorTag: '#83C5BE',
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -151,6 +160,8 @@ export function createDefaultWeekNotes(): WeekNote[] {
       content: 'Feature: Search & filter all @todo notes across timeline (Cmd+K / Ledger drawer) @todo @explore',
       parentWeeks: [currentWeekKey],
       isStruck: false,
+      colorTag: '#EADA25',
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
   ];
@@ -175,6 +186,7 @@ export function createDefaultMonthNotes(): MonthNote[] {
       parentMonths: [thisMonthKey],
       isStruck: false,
       colorTag: '#E29578',
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
     {
@@ -183,6 +195,7 @@ export function createDefaultMonthNotes(): MonthNote[] {
       parentMonths: [thisMonthKey, nextMonthKey, monthAfterKey],
       isStruck: false,
       colorTag: '#83C5BE',
+      isDemo: true,
       createdAt: new Date().toISOString(),
     },
   ];
@@ -464,7 +477,9 @@ export interface RemoteCalendarResponse {
 
 export async function fetchRemoteCalendar(): Promise<RemoteCalendarResponse | null> {
   try {
-    const res = await fetch('/api/calendar');
+    const res = await fetch('/api/calendar', {
+      credentials: 'include',
+    });
     if (!res.ok) return null;
     return (await res.json()) as RemoteCalendarResponse;
   } catch (err) {
@@ -487,6 +502,7 @@ export async function saveRemoteCalendar(data: {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!res.ok) return null;

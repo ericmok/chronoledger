@@ -55,157 +55,191 @@ export function useCalendarState() {
     currentStateRef.current = { notes, weekNotes, monthNotes, drawings, circledDates };
   }, [notes, weekNotes, monthNotes, drawings, circledDates]);
 
-  // Initial SQLite hydration with safe non-destructive merging
-  useEffect(() => {
-    let isCancelled = false;
-
-    /**
-     * Non-destructive collection reconciliation:
-     * 1. Unions items from both local (localStorage) and remote (SQLite).
-     * 2. If an item exists in both sources, the version with the newer timestamp (updatedAt/createdAt) wins.
-     * 3. Prevents any offline or un-synced client-side notes from ever being dropped or overwritten.
-     */
-    function safeMerge<T extends { id: string; createdAt?: string; updatedAt?: string }>(
-      localList: T[],
-      remoteList: T[]
-    ): T[] {
-      const map = new Map<string, T>();
-      for (const item of localList) {
+  /**
+   * Non-destructive collection reconciliation:
+   * 1. Unions items from both local (localStorage) and remote (SQLite).
+   * 2. If an item exists in both sources, the version with the newer timestamp (updatedAt/createdAt) wins.
+   * 3. Prevents any offline or un-synced client-side notes from ever being dropped or overwritten.
+   */
+  function safeMerge<T extends { id: string; createdAt?: string; updatedAt?: string }>(
+    localList: T[],
+    remoteList: T[]
+  ): T[] {
+    const map = new Map<string, T>();
+    for (const item of localList) {
+      map.set(item.id, item);
+    }
+    for (const item of remoteList) {
+      const localItem = map.get(item.id);
+      if (!localItem) {
         map.set(item.id, item);
-      }
-      for (const item of remoteList) {
-        const localItem = map.get(item.id);
-        if (!localItem) {
+      } else {
+        const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
+        const remoteTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+        if (remoteTime >= localTime) {
           map.set(item.id, item);
-        } else {
-          // If the item exists in both sets, compare timestamps so the newest edit wins
-          const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
-          const remoteTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
-          if (remoteTime >= localTime) {
-            map.set(item.id, item);
-          }
         }
       }
-      return Array.from(map.values());
+    }
+    return Array.from(map.values());
+  }
+
+  const rehydrateRemoteCalendar = useCallback(async () => {
+    // 1. Emergency local recovery snapshot: captured synchronously before any network/SQLite hydration
+    try {
+      localStorage.setItem(
+        'chrono_ledger_recovery_snapshot_v1',
+        JSON.stringify(currentStateRef.current)
+      );
+    } catch (e) {
+      console.debug('[ChronoLedger] Snapshot storage skipped (quota/privacy mode):', e);
     }
 
-    async function hydrate() {
-      // 1. Emergency local recovery snapshot: captured synchronously before any network/SQLite hydration
-      try {
-        localStorage.setItem(
-          'chrono_ledger_recovery_snapshot_v1',
-          JSON.stringify(currentStateRef.current)
-        );
-      } catch (e) {
-        console.debug('[ChronoLedger] Snapshot storage skipped (quota/privacy mode):', e);
-      }
-
-      // Expose recovery helper on window for zero-friction disaster recovery in browser console
-      if (typeof window !== 'undefined') {
-        (window as unknown as { __chronoledger_restore_snapshot?: () => boolean }).__chronoledger_restore_snapshot = () => {
-          try {
-            const raw = localStorage.getItem('chrono_ledger_recovery_snapshot_v1');
-            if (!raw) {
-              console.warn('[ChronoLedger] No recovery snapshot found in localStorage.');
-              return false;
-            }
-            const snapshot = JSON.parse(raw);
-            if (snapshot.notes) setNotes(snapshot.notes);
-            if (snapshot.weekNotes) setWeekNotes(snapshot.weekNotes);
-            if (snapshot.monthNotes) setMonthNotes(snapshot.monthNotes);
-            if (snapshot.drawings) setDrawings(snapshot.drawings);
-            console.info('[ChronoLedger] Successfully restored state from recovery snapshot!', snapshot);
-            return true;
-          } catch (err) {
-            console.error('[ChronoLedger] Failed to restore recovery snapshot:', err);
-            return false;
-          }
-        };
-      }
-
+    setSyncStatus('syncing');
+    try {
       const remote = await fetchRemoteCalendar();
-      if (isCancelled) return;
-
-      if (remote) {
-        if (remote.hasData) {
-          // Non-destructive merge: preserve any local items while adopting remote items
-          const mergedNotes = safeMerge(currentStateRef.current.notes, remote.notes);
-          const mergedWeekNotes = safeMerge(currentStateRef.current.weekNotes, remote.weekNotes);
-          const mergedMonthNotes = safeMerge(currentStateRef.current.monthNotes, remote.monthNotes);
-          const mergedDrawings = safeMerge(currentStateRef.current.drawings, remote.drawings);
-          const mergedCircledDates = {
-            ...currentStateRef.current.circledDates,
-            ...(remote.circledDates || {}),
-          };
-
-          setNotes(mergedNotes);
-          setWeekNotes(mergedWeekNotes);
-          setMonthNotes(mergedMonthNotes);
-          setDrawings(mergedDrawings);
-          setCircledDates(mergedCircledDates);
-          if (remote.settings) {
-            setSettings(remote.settings);
-          }
-
-          storage.saveNotes(mergedNotes);
-          storage.saveWeekNotes(mergedWeekNotes);
-          storage.saveMonthNotes(mergedMonthNotes);
-          storage.saveDrawings(mergedDrawings);
-          storage.saveCircledDates(mergedCircledDates);
-          if (remote.settings) {
-            storage.saveSettings(remote.settings);
-          }
-
-          // If local had extra items not yet in remote, sync merged set back to SQLite
-          if (
-            mergedNotes.length !== remote.notes.length ||
-            mergedWeekNotes.length !== remote.weekNotes.length ||
-            mergedMonthNotes.length !== remote.monthNotes.length ||
-            mergedDrawings.length !== remote.drawings.length ||
-            Object.keys(mergedCircledDates).length !== Object.keys(remote.circledDates || {}).length
-          ) {
-            saveRemoteCalendar({
-              notes: mergedNotes,
-              weekNotes: mergedWeekNotes,
-              monthNotes: mergedMonthNotes,
-              drawings: mergedDrawings,
-              circledDates: mergedCircledDates,
-              settings: remote.settings || storage.loadSettings(),
-            });
-          }
-
-          setLastSyncedAt(remote.syncedAt || new Date().toISOString());
-          setSyncStatus('synced');
-        } else {
-          // Remote SQLite database is empty: seed it from current client state
-          const snapshot = currentStateRef.current;
-          const currentSettings = storage.loadSettings();
-          const result = await saveRemoteCalendar({
-            notes: snapshot.notes,
-            weekNotes: snapshot.weekNotes,
-            monthNotes: snapshot.monthNotes,
-            drawings: snapshot.drawings,
-            circledDates: snapshot.circledDates,
-            settings: currentSettings,
-          });
-          if (result && result.ok) {
-            setLastSyncedAt(result.syncedAt || new Date().toISOString());
-            setSyncStatus('synced');
-          } else {
-            setSyncStatus('synced');
-          }
-        }
-      } else {
+      if (!remote) {
         setSyncStatus('offline');
+        return false;
+      }
+
+      if (remote.hasData) {
+        // Discard untouched demo notes before merging with remote notes
+        const activeLocalNotes = currentStateRef.current.notes.filter((n) => !n.isDemo);
+        const activeLocalWeekNotes = currentStateRef.current.weekNotes.filter((wn) => !wn.isDemo);
+        const activeLocalMonthNotes = currentStateRef.current.monthNotes.filter((mn) => !mn.isDemo);
+        const activeLocalDrawings = currentStateRef.current.drawings;
+        const activeLocalCircledDates = currentStateRef.current.circledDates;
+
+        const mergedNotes = safeMerge(activeLocalNotes, remote.notes);
+        const mergedWeekNotes = safeMerge(activeLocalWeekNotes, remote.weekNotes);
+        const mergedMonthNotes = safeMerge(activeLocalMonthNotes, remote.monthNotes);
+        const mergedDrawings = safeMerge(activeLocalDrawings, remote.drawings);
+        const mergedCircledDates = {
+          ...activeLocalCircledDates,
+          ...(remote.circledDates || {}),
+        };
+
+        setNotes(mergedNotes);
+        setWeekNotes(mergedWeekNotes);
+        setMonthNotes(mergedMonthNotes);
+        setDrawings(mergedDrawings);
+        setCircledDates(mergedCircledDates);
+        if (remote.settings) {
+          setSettings(remote.settings);
+        }
+
+        storage.saveNotes(mergedNotes);
+        storage.saveWeekNotes(mergedWeekNotes);
+        storage.saveMonthNotes(mergedMonthNotes);
+        storage.saveDrawings(mergedDrawings);
+        storage.saveCircledDates(mergedCircledDates);
+        if (remote.settings) {
+          storage.saveSettings(remote.settings);
+        }
+
+        // If local had extra items not yet in remote, sync merged set back to SQLite
+        if (
+          mergedNotes.length !== remote.notes.length ||
+          mergedWeekNotes.length !== remote.weekNotes.length ||
+          mergedMonthNotes.length !== remote.monthNotes.length ||
+          mergedDrawings.length !== remote.drawings.length ||
+          Object.keys(mergedCircledDates).length !== Object.keys(remote.circledDates || {}).length
+        ) {
+          await saveRemoteCalendar({
+            notes: mergedNotes,
+            weekNotes: mergedWeekNotes,
+            monthNotes: mergedMonthNotes,
+            drawings: mergedDrawings,
+            circledDates: mergedCircledDates,
+            settings: remote.settings || storage.loadSettings(),
+          });
+        }
+
+        setLastSyncedAt(remote.syncedAt || new Date().toISOString());
+        setSyncStatus('synced');
+      } else {
+        // Remote is empty, seed it with current genuine notes (discard untouched demo notes)
+        const snapshot = currentStateRef.current;
+        const activeNotes = snapshot.notes.filter((n) => !n.isDemo);
+        const activeWeekNotes = snapshot.weekNotes.filter((wn) => !wn.isDemo);
+        const activeMonthNotes = snapshot.monthNotes.filter((mn) => !mn.isDemo);
+        const currentSettings = storage.loadSettings();
+        const result = await saveRemoteCalendar({
+          notes: activeNotes,
+          weekNotes: activeWeekNotes,
+          monthNotes: activeMonthNotes,
+          drawings: snapshot.drawings,
+          circledDates: snapshot.circledDates,
+          settings: currentSettings,
+        });
+        if (result && result.ok) {
+          setLastSyncedAt(result.syncedAt || new Date().toISOString());
+        }
+        setSyncStatus('synced');
       }
       isHydratedRef.current = true;
+      return true;
+    } catch (err) {
+      console.debug('Failed to rehydrate remote calendar:', err);
+      setSyncStatus('offline');
+      return false;
+    }
+  }, []);
+
+  // Initial SQLite hydration with safe non-destructive merging
+  useEffect(() => {
+    // Expose recovery helper on window for zero-friction disaster recovery in browser console
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __chronoledger_restore_snapshot?: () => boolean }).__chronoledger_restore_snapshot = () => {
+        try {
+          const raw = localStorage.getItem('chrono_ledger_recovery_snapshot_v1');
+          if (!raw) {
+            console.warn('[ChronoLedger] No recovery snapshot found in localStorage.');
+            return false;
+          }
+          const snapshot = JSON.parse(raw);
+          if (snapshot.notes) setNotes(snapshot.notes);
+          if (snapshot.weekNotes) setWeekNotes(snapshot.weekNotes);
+          if (snapshot.monthNotes) setMonthNotes(snapshot.monthNotes);
+          if (snapshot.drawings) setDrawings(snapshot.drawings);
+          console.info('[ChronoLedger] Successfully restored state from recovery snapshot!', snapshot);
+          return true;
+        } catch (err) {
+          console.error('[ChronoLedger] Failed to restore recovery snapshot:', err);
+          return false;
+        }
+      };
     }
 
-    hydrate();
-    return () => {
-      isCancelled = true;
+    rehydrateRemoteCalendar();
+  }, [rehydrateRemoteCalendar]);
+
+  // Refresh remote state on tab visibility change or window focus (prevents stale multi-device overwrites)
+  useEffect(() => {
+    let lastRefreshed = Date.now();
+
+    const handleVisibilityOrFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        const now = Date.now();
+        // Throttle to at most once every 3 seconds to avoid spamming on rapid window switching
+        if (now - lastRefreshed > 3000) {
+          lastRefreshed = now;
+          rehydrateRemoteCalendar();
+        }
+      }
     };
-  }, []);
+
+    if (typeof window !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.addEventListener('focus', handleVisibilityOrFocus);
+
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+        window.removeEventListener('focus', handleVisibilityOrFocus);
+      };
+    }
+  }, [rehydrateRemoteCalendar]);
 
   const recordHistory = useCallback((force = false) => {
     const now = Date.now();
@@ -367,6 +401,33 @@ export function useCalendarState() {
     }
   }, [notes, weekNotes, monthNotes, drawings, circledDates, settings]);
 
+  const clearCalendarState = useCallback(() => {
+    if (syncDebounceRef.current) {
+      window.clearTimeout(syncDebounceRef.current);
+    }
+    setNotes([]);
+    setWeekNotes([]);
+    setMonthNotes([]);
+    setDrawings([]);
+    setCircledDates({});
+    storage.saveNotes([]);
+    storage.saveWeekNotes([]);
+    storage.saveMonthNotes([]);
+    storage.saveDrawings([]);
+    storage.saveCircledDates({});
+    try {
+      localStorage.removeItem('chrono_ledger_recovery_snapshot_v1');
+    } catch {
+      // ignore
+    }
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
+    setSyncStatus('offline');
+    setLastSyncedAt(null);
+  }, []);
+
   // Date notes
   const addNote = useCallback((content: string, parentDates: string[], colorTag?: string) => {
     recordHistory(true);
@@ -385,7 +446,20 @@ export function useCalendarState() {
   const toggleStrikeNote = useCallback((noteId: string) => {
     recordHistory(true);
     setNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
+      prev.map((n) => {
+        if (n.id !== noteId) return n;
+        const isStruck = !n.isStruck;
+        if (n.isDemo) {
+          return {
+            ...n,
+            id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            isStruck,
+            isDemo: false,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return { ...n, isStruck };
+      })
     );
   }, [recordHistory]);
 
@@ -411,7 +485,7 @@ export function useCalendarState() {
     setNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          return {
+          const updated: NoteItem = {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
@@ -419,6 +493,11 @@ export function useCalendarState() {
             colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
+          if (n.isDemo) {
+            updated.id = `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+            updated.isDemo = false;
+          }
+          return updated;
         }
         return n;
       })
@@ -428,13 +507,37 @@ export function useCalendarState() {
   const acceptNoteRevision = useCallback((noteId: string) => {
     recordHistory(true);
     setNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
+      prev.map((n) => {
+        if (n.id !== noteId) return n;
+        const updated: NoteItem = { ...n, originalContent: undefined, updatedAt: new Date().toISOString() };
+        if (n.isDemo) {
+          updated.id = `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+          updated.isDemo = false;
+        }
+        return updated;
+      })
     );
     setWeekNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
+      prev.map((n) => {
+        if (n.id !== noteId) return n;
+        const updated: WeekNote = { ...n, originalContent: undefined, updatedAt: new Date().toISOString() };
+        if (n.isDemo) {
+          updated.id = `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+          updated.isDemo = false;
+        }
+        return updated;
+      })
     );
     setMonthNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
+      prev.map((n) => {
+        if (n.id !== noteId) return n;
+        const updated: MonthNote = { ...n, originalContent: undefined, updatedAt: new Date().toISOString() };
+        if (n.isDemo) {
+          updated.id = `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+          updated.isDemo = false;
+        }
+        return updated;
+      })
     );
   }, [recordHistory]);
 
@@ -448,10 +551,18 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote = sourceNote;
-        if (targetDate && (!sourceNote.parentDates.includes(targetDate) || sourceNote.parentDates.length === 1)) {
+        let updatedSourceNote: NoteItem = sourceNote;
+        if (sourceNote.isDemo) {
           updatedSourceNote = {
             ...sourceNote,
+            id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            isDemo: false,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        if (targetDate && (!sourceNote.parentDates.includes(targetDate) || sourceNote.parentDates.length === 1)) {
+          updatedSourceNote = {
+            ...updatedSourceNote,
             parentDates: [targetDate],
             updatedAt: new Date().toISOString(),
           };
@@ -481,8 +592,10 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        const updatedSourceNote = {
+        const updatedSourceNote: NoteItem = {
           ...sourceNote,
+          id: sourceNote.isDemo ? `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : sourceNote.id,
+          isDemo: false,
           parentDates: [targetDate],
           updatedAt: new Date().toISOString(),
         };
@@ -532,7 +645,20 @@ export function useCalendarState() {
   const toggleStrikeWeekNote = useCallback((noteId: string) => {
     recordHistory(true);
     setWeekNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
+      prev.map((n) => {
+        if (n.id !== noteId) return n;
+        const isStruck = !n.isStruck;
+        if (n.isDemo) {
+          return {
+            ...n,
+            id: `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            isStruck,
+            isDemo: false,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return { ...n, isStruck };
+      })
     );
   }, [recordHistory]);
 
@@ -558,7 +684,7 @@ export function useCalendarState() {
     setWeekNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          return {
+          const updated: WeekNote = {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
@@ -566,6 +692,11 @@ export function useCalendarState() {
             colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
+          if (n.isDemo) {
+            updated.id = `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+            updated.isDemo = false;
+          }
+          return updated;
         }
         return n;
       })
@@ -582,10 +713,18 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote = sourceNote;
-        if (targetWeek && (!sourceNote.parentWeeks.includes(targetWeek) || sourceNote.parentWeeks.length === 1)) {
+        let updatedSourceNote: WeekNote = sourceNote;
+        if (sourceNote.isDemo) {
           updatedSourceNote = {
             ...sourceNote,
+            id: `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            isDemo: false,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        if (targetWeek && (!sourceNote.parentWeeks.includes(targetWeek) || sourceNote.parentWeeks.length === 1)) {
+          updatedSourceNote = {
+            ...updatedSourceNote,
             parentWeeks: [targetWeek],
             updatedAt: new Date().toISOString(),
           };
@@ -615,8 +754,10 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        const updatedSourceNote = {
+        const updatedSourceNote: WeekNote = {
           ...sourceNote,
+          id: sourceNote.isDemo ? `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : sourceNote.id,
+          isDemo: false,
           parentWeeks: [targetWeek],
           updatedAt: new Date().toISOString(),
         };
@@ -666,7 +807,20 @@ export function useCalendarState() {
   const toggleStrikeMonthNote = useCallback((noteId: string) => {
     recordHistory(true);
     setMonthNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
+      prev.map((n) => {
+        if (n.id !== noteId) return n;
+        const isStruck = !n.isStruck;
+        if (n.isDemo) {
+          return {
+            ...n,
+            id: `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            isStruck,
+            isDemo: false,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return { ...n, isStruck };
+      })
     );
   }, [recordHistory]);
 
@@ -692,7 +846,7 @@ export function useCalendarState() {
     setMonthNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          return {
+          const updated: MonthNote = {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
@@ -700,6 +854,11 @@ export function useCalendarState() {
             colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
+          if (n.isDemo) {
+            updated.id = `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+            updated.isDemo = false;
+          }
+          return updated;
         }
         return n;
       })
@@ -716,10 +875,18 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote = sourceNote;
-        if (targetMonth && (!sourceNote.parentMonths.includes(targetMonth) || sourceNote.parentMonths.length === 1)) {
+        let updatedSourceNote: MonthNote = sourceNote;
+        if (sourceNote.isDemo) {
           updatedSourceNote = {
             ...sourceNote,
+            id: `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            isDemo: false,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        if (targetMonth && (!sourceNote.parentMonths.includes(targetMonth) || sourceNote.parentMonths.length === 1)) {
+          updatedSourceNote = {
+            ...updatedSourceNote,
             parentMonths: [targetMonth],
             updatedAt: new Date().toISOString(),
           };
@@ -749,8 +916,10 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        const updatedSourceNote = {
+        const updatedSourceNote: MonthNote = {
           ...sourceNote,
+          id: sourceNote.isDemo ? `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : sourceNote.id,
+          isDemo: false,
           parentMonths: [targetMonth],
           updatedAt: new Date().toISOString(),
         };
@@ -942,6 +1111,8 @@ export function useCalendarState() {
     syncStatus,
     lastSyncedAt,
     forceSync,
+    rehydrateRemoteCalendar,
+    clearCalendarState,
   };
 }
 

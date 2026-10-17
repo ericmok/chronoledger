@@ -93,6 +93,14 @@ The application is written with React 19 and TypeScript, using Tailwind CSS and 
 1. **Local Storage**: Every edit, note, and drawing is written immediately to browser storage so work is not lost if a tab closes.
 2. **Embedded SQLite**: Changes are synchronized in the background to an embedded SQLite database (`data/chronoledger.sqlite`) using Node's built-in `node:sqlite` engine with Write-Ahead Logging (`WAL`).
 
+### Multi-User Authentication & Guest Sandbox
+- **Guest Mode**: Unauthenticated visitors can create notes, circle dates, and explore the app locally without an account.
+- **Argon2 Auth & Dual-Mode Sessions**: Secure accounts with rolling 30-day sessions via `HttpOnly` cookies (for web) and Bearer tokens (for Rust, iOS, and CLI clients).
+- **Zero-Pollution Guest Promotion**: When signing in from guest mode, genuine user notes merge into your account, while untouched demo notes are silently discarded.
+- **Logout Privacy Wipe**: Signing out immediately clears in-memory notes and local storage, restoring a clean guest canvas and protecting private notes on shared devices.
+
+*A detailed specification and state flowchart of the session lifecycle can be found in [docs/AUTH_AND_SESSIONS.md](docs/AUTH_AND_SESSIONS.md).*
+
 ### Backup and Portability
 The header includes simple **Export** and **Import** options for saving and restoring your calendar as a plain JSON file.
 

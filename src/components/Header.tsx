@@ -13,9 +13,12 @@ import {
   Undo,
   Redo,
   Database,
-  RefreshCw
+  RefreshCw,
+  User,
+  LogOut
 } from 'lucide-react';
 import type { CalendarSettings, DrawingTool } from '../types/calendar';
+import type { UserProfile } from '../services/auth';
 
 interface HeaderProps {
   settings: CalendarSettings;
@@ -33,6 +36,9 @@ interface HeaderProps {
   syncStatus?: 'synced' | 'syncing' | 'offline';
   lastSyncedAt?: string | null;
   onForceSync?: () => void;
+  currentUser?: UserProfile | null;
+  onOpenAuthModal?: () => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -51,6 +57,9 @@ export const Header: React.FC<HeaderProps> = ({
   syncStatus,
   lastSyncedAt,
   onForceSync,
+  currentUser,
+  onOpenAuthModal,
+  onLogout,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -192,10 +201,12 @@ export const Header: React.FC<HeaderProps> = ({
         {syncStatus && (
           <button
             type="button"
-            onClick={onForceSync}
+            onClick={currentUser ? onForceSync : onOpenAuthModal}
             className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
             title={
-              syncStatus === 'synced'
+              !currentUser
+                ? 'Guest Mode: Notes are saved locally in your browser. Click Sign In to sync & protect your ledger.'
+                : syncStatus === 'synced'
                 ? `SQLite Synced ${lastSyncedAt ? `(${new Date(lastSyncedAt).toLocaleTimeString()})` : ''}. Click to re-sync.`
                 : syncStatus === 'syncing'
                 ? 'Syncing changes to SQLite database...'
@@ -206,14 +217,52 @@ export const Header: React.FC<HeaderProps> = ({
               <RefreshCw className="w-3 h-3 text-[#E29578] animate-spin" />
             ) : syncStatus === 'synced' ? (
               <Database className="w-3 h-3 text-[#2A9D8F]" />
+            ) : !currentUser ? (
+              <Database className="w-3 h-3 text-[#8C827A]" />
             ) : (
               <Database className="w-3 h-3 text-[#E76F51] opacity-70" />
             )}
             <span className="hidden xl:inline">
-              {syncStatus === 'synced' ? 'SQLite' : syncStatus === 'syncing' ? 'Syncing…' : 'Offline'}
+              {!currentUser
+                ? 'Guest'
+                : syncStatus === 'synced'
+                ? 'SQLite'
+                : syncStatus === 'syncing'
+                ? 'Syncing…'
+                : 'Offline'}
             </span>
           </button>
         )}
+
+        {/* User Account / Auth Pill */}
+        {currentUser ? (
+          <div className="flex items-center gap-1.5 pl-2 pr-1.5 py-1 text-[11px] font-mono rounded-md bg-[#F2EDE4] text-[#2B2C30] border border-[#DDD6C8] shadow-2xs">
+            <User className="w-3.5 h-3.5 text-[#2B2C30] shrink-0" />
+            <span className="max-w-[120px] truncate font-medium" title={currentUser.email}>
+              {currentUser.email.split('@')[0]}
+            </span>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="ml-0.5 text-[#8C827A] hover:text-[#D23B38] p-0.5 rounded transition-colors cursor-pointer"
+                title="Sign out of account"
+              >
+                <LogOut className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        ) : onOpenAuthModal ? (
+          <button
+            type="button"
+            onClick={onOpenAuthModal}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-medium rounded-md bg-[#2B2C30] text-[#FAF8F5] hover:bg-[#3D3E42] transition-colors cursor-pointer shadow-xs"
+            title="Sign in or create account to sync across devices"
+          >
+            <User className="w-3 h-3 text-[#FAF8F5]" />
+            <span>Sign In</span>
+          </button>
+        ) : null}
 
         {/* Backup / Export */}
         {onExportBackup && (

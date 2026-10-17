@@ -55,6 +55,7 @@ export interface NoteItem {
   strikeStyle?: 'single' | 'double' | 'scribble';
   colorTag?: string;
   createdAt: string;
+  isDemo?: boolean;
 }
 
 export interface MonthNote {
@@ -66,6 +67,7 @@ export interface MonthNote {
   isStruck: boolean;
   colorTag?: string;
   createdAt: string;
+  isDemo?: boolean;
 }
 
 export interface WeekNote {
@@ -77,6 +79,7 @@ export interface WeekNote {
   isStruck: boolean;
   colorTag?: string;
   createdAt: string;
+  isDemo?: boolean;
 }
 
 export const NOTE_ACCENT_COLORS = [

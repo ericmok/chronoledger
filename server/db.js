@@ -2,6 +2,16 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  registerUser,
+  loginUser,
+  logoutUser,
+  authenticateRequest,
+  getUserCount,
+  getUnclaimedCount,
+  createSessionCookie,
+  clearSessionCookie,
+} from './auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +44,7 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS notes (
       id TEXT PRIMARY KEY,
+      user_id TEXT,
       content TEXT NOT NULL,
       original_content TEXT,
       parent_dates TEXT NOT NULL,
@@ -46,6 +57,7 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
 
     CREATE TABLE IF NOT EXISTS week_notes (
       id TEXT PRIMARY KEY,
+      user_id TEXT,
       content TEXT NOT NULL,
       original_content TEXT,
       parent_weeks TEXT NOT NULL,
@@ -58,6 +70,7 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
 
     CREATE TABLE IF NOT EXISTS month_notes (
       id TEXT PRIMARY KEY,
+      user_id TEXT,
       content TEXT NOT NULL,
       original_content TEXT,
       parent_months TEXT NOT NULL,
@@ -70,6 +83,7 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
 
     CREATE TABLE IF NOT EXISTS drawings (
       id TEXT PRIMARY KEY,
+      user_id TEXT,
       type TEXT NOT NULL,
       color TEXT NOT NULL,
       stroke_width REAL NOT NULL,
@@ -83,17 +97,37 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
 
     CREATE TABLE IF NOT EXISTS circled_dates (
       date_key TEXT PRIMARY KEY,
+      user_id TEXT,
       color TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS settings (
       id TEXT PRIMARY KEY DEFAULT 'default',
+      user_id TEXT,
       week_starts_on INTEGER NOT NULL DEFAULT 0,
       show_struck_items INTEGER NOT NULL DEFAULT 1,
       active_tool TEXT NOT NULL DEFAULT 'select',
       ink_color TEXT NOT NULL DEFAULT '#2B2C30',
+      badge_theme TEXT DEFAULT 'solid',
       updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL COLLATE NOCASE,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      device_name TEXT,
+      client_type TEXT,
+      ip_address TEXT,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS metadata (
@@ -161,8 +195,6 @@ export function migrateDatabase(db) {
         WHERE id = ?
       `);
 
-      // Baseline desktop notes column geometry:
-      // Left margin of notes column is ~204px, width is ~468px in standard desktop layout.
       const BASELINE_COL_LEFT = 204;
       const BASELINE_COL_WIDTH = 468;
 
@@ -205,7 +237,7 @@ export function migrateDatabase(db) {
       console.log(`[DB Migration] Applied schema v2: migrated ${legacyArrows.length} arrows with semantic anchors.`);
     } catch (err) {
       db.exec('ROLLBACK;');
-      console.error('[DB Migration Error]:', err);
+      console.error('[DB Migration Error schema v2]:', err);
       throw err;
     }
   }
@@ -241,17 +273,98 @@ export function migrateDatabase(db) {
       throw err;
     }
   }
+
+  // Schema v4: Multi-user auth, sessions, and user_id scoping
+  if (currentVersion < 4) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      // 1. Ensure users and sessions tables exist
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL COLLATE NOCASE,
+          password_hash TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS sessions (
+          token_hash TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          device_name TEXT,
+          client_type TEXT,
+          ip_address TEXT,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+      `);
+
+      // 2. Helper to add user_id column to existing data tables
+      const addColumnIfNotExists = (tableName, colName, colDef) => {
+        const tableCols = db.prepare(`PRAGMA table_info(${tableName})`).all();
+        const existingNames = new Set(tableCols.map((c) => c.name));
+        if (!existingNames.has(colName)) {
+          db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${colName} ${colDef};`);
+        }
+      };
+
+      addColumnIfNotExists('notes', 'user_id', 'TEXT');
+      addColumnIfNotExists('week_notes', 'user_id', 'TEXT');
+      addColumnIfNotExists('month_notes', 'user_id', 'TEXT');
+      addColumnIfNotExists('drawings', 'user_id', 'TEXT');
+      addColumnIfNotExists('circled_dates', 'user_id', 'TEXT');
+      addColumnIfNotExists('settings', 'user_id', 'TEXT');
+      addColumnIfNotExists('settings', 'badge_theme', "TEXT DEFAULT 'solid'");
+
+      // 3. Create indices on user_id for high-speed scoped queries
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
+        CREATE INDEX IF NOT EXISTS idx_week_notes_user_id ON week_notes(user_id);
+        CREATE INDEX IF NOT EXISTS idx_month_notes_user_id ON month_notes(user_id);
+        CREATE INDEX IF NOT EXISTS idx_drawings_user_id ON drawings(user_id);
+        CREATE INDEX IF NOT EXISTS idx_circled_dates_user_id ON circled_dates(user_id);
+      `);
+
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES ('schema_version', '4')
+        ON CONFLICT(key) DO UPDATE SET value = '4'
+      `).run();
+
+      db.exec('COMMIT;');
+      console.log('[DB Migration] Applied schema v4: multi-user auth and sessions initialized.');
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      console.error('[DB Migration Error schema v4]:', err);
+      throw err;
+    }
+  }
 }
 
 /**
- * Reads all calendar data from the SQLite database.
+ * Reads calendar data from SQLite, optionally filtered by user_id.
+ * If userId is null, returns legacy unassigned data.
  */
-export function getCalendarData(db = getDatabase()) {
-  const noteRows = db.prepare('SELECT * FROM notes ORDER BY rowid ASC').all();
-  const weekNoteRows = db.prepare('SELECT * FROM week_notes ORDER BY rowid ASC').all();
-  const monthNoteRows = db.prepare('SELECT * FROM month_notes ORDER BY rowid ASC').all();
-  const drawingRows = db.prepare('SELECT * FROM drawings ORDER BY created_at ASC').all();
-  const settingsRow = db.prepare('SELECT * FROM settings WHERE id = ?').get('default');
+export function getCalendarData(db = getDatabase(), userId = null) {
+  let noteRows, weekNoteRows, monthNoteRows, drawingRows, circledRows, settingsRow;
+
+  if (userId) {
+    noteRows = db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
+    weekNoteRows = db.prepare('SELECT * FROM week_notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
+    monthNoteRows = db.prepare('SELECT * FROM month_notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
+    drawingRows = db.prepare('SELECT * FROM drawings WHERE user_id = ? ORDER BY created_at ASC').all(userId);
+    circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id = ? ORDER BY created_at ASC').all(userId);
+    settingsRow = db.prepare('SELECT * FROM settings WHERE user_id = ? OR id = ?').get(userId, userId);
+  } else {
+    noteRows = db.prepare('SELECT * FROM notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
+    weekNoteRows = db.prepare('SELECT * FROM week_notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
+    monthNoteRows = db.prepare('SELECT * FROM month_notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
+    drawingRows = db.prepare('SELECT * FROM drawings WHERE user_id IS NULL ORDER BY created_at ASC').all();
+    circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id IS NULL ORDER BY created_at ASC').all();
+    settingsRow = db.prepare("SELECT * FROM settings WHERE user_id IS NULL OR id = 'default'").get();
+  }
+
   const metaRows = db.prepare('SELECT * FROM metadata').all();
 
   const notes = noteRows.map((r) => ({
@@ -305,7 +418,6 @@ export function getCalendarData(db = getDatabase()) {
     createdAt: r.created_at,
   }));
 
-  const circledRows = db.prepare('SELECT * FROM circled_dates ORDER BY created_at ASC').all();
   const circledDates = {};
   for (const r of circledRows) {
     circledDates[r.date_key] = { color: r.color, createdAt: r.created_at };
@@ -318,6 +430,7 @@ export function getCalendarData(db = getDatabase()) {
       showStruckItems: Boolean(settingsRow.show_struck_items),
       activeTool: settingsRow.active_tool,
       inkColor: settingsRow.ink_color,
+      badgeTheme: settingsRow.badge_theme || 'solid',
     };
   }
 
@@ -326,7 +439,12 @@ export function getCalendarData(db = getDatabase()) {
     metaMap[m.key] = m.value;
   }
 
-  const hasData = notes.length > 0 || weekNotes.length > 0 || monthNotes.length > 0 || drawings.length > 0 || Object.keys(circledDates).length > 0;
+  const hasData =
+    notes.length > 0 ||
+    weekNotes.length > 0 ||
+    monthNotes.length > 0 ||
+    drawings.length > 0 ||
+    Object.keys(circledDates).length > 0;
 
   return {
     notes,
@@ -336,28 +454,35 @@ export function getCalendarData(db = getDatabase()) {
     circledDates,
     settings,
     syncedAt: metaMap['last_synced_at'] || null,
-    schemaVersion: Number(metaMap['schema_version']) || 1,
+    schemaVersion: Number(metaMap['schema_version']) || 4,
     hasData,
   };
 }
 
 /**
- * Saves all calendar data into SQLite within a single atomic transaction.
+ * Saves calendar data into SQLite within a single atomic transaction, scoped by user_id.
  */
-export function saveCalendarData(db = getDatabase(), data) {
+export function saveCalendarData(db = getDatabase(), data, userId = null) {
   if (!data) throw new Error('No calendar data provided');
 
   db.exec('BEGIN TRANSACTION;');
   try {
+    // 1. Day Notes
     if (Array.isArray(data.notes)) {
-      db.exec('DELETE FROM notes;');
+      if (userId) {
+        db.prepare('DELETE FROM notes WHERE user_id = ?').run(userId);
+      } else {
+        db.exec('DELETE FROM notes WHERE user_id IS NULL;');
+      }
+
       const insertNote = db.prepare(`
-        INSERT INTO notes (id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const n of data.notes) {
         insertNote.run(
           n.id,
+          userId || null,
           n.content || '',
           n.originalContent || null,
           JSON.stringify(n.parentDates || []),
@@ -370,15 +495,22 @@ export function saveCalendarData(db = getDatabase(), data) {
       }
     }
 
+    // 2. Week Notes
     if (Array.isArray(data.weekNotes)) {
-      db.exec('DELETE FROM week_notes;');
+      if (userId) {
+        db.prepare('DELETE FROM week_notes WHERE user_id = ?').run(userId);
+      } else {
+        db.exec('DELETE FROM week_notes WHERE user_id IS NULL;');
+      }
+
       const insertWeekNote = db.prepare(`
-        INSERT INTO week_notes (id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const wn of data.weekNotes) {
         insertWeekNote.run(
           wn.id,
+          userId || null,
           wn.content || '',
           wn.originalContent || null,
           JSON.stringify(wn.parentWeeks || []),
@@ -391,15 +523,22 @@ export function saveCalendarData(db = getDatabase(), data) {
       }
     }
 
+    // 3. Month Notes
     if (Array.isArray(data.monthNotes)) {
-      db.exec('DELETE FROM month_notes;');
+      if (userId) {
+        db.prepare('DELETE FROM month_notes WHERE user_id = ?').run(userId);
+      } else {
+        db.exec('DELETE FROM month_notes WHERE user_id IS NULL;');
+      }
+
       const insertMonthNote = db.prepare(`
-        INSERT INTO month_notes (id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const mn of data.monthNotes) {
         insertMonthNote.run(
           mn.id,
+          userId || null,
           mn.content || '',
           mn.originalContent || null,
           JSON.stringify(mn.parentMonths || []),
@@ -412,15 +551,22 @@ export function saveCalendarData(db = getDatabase(), data) {
       }
     }
 
+    // 4. Drawings
     if (Array.isArray(data.drawings)) {
-      db.exec('DELETE FROM drawings;');
+      if (userId) {
+        db.prepare('DELETE FROM drawings WHERE user_id = ?').run(userId);
+      } else {
+        db.exec('DELETE FROM drawings WHERE user_id IS NULL;');
+      }
+
       const insertDrawing = db.prepare(`
-        INSERT INTO drawings (id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_offset, end_offset, points, created_at, start_anchor, end_anchor)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO drawings (id, user_id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_offset, end_offset, points, created_at, start_anchor, end_anchor)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const d of data.drawings) {
         insertDrawing.run(
           d.id,
+          userId || null,
           d.type || 'freehand',
           d.color || '#2B2C30',
           d.strokeWidth || 2,
@@ -436,11 +582,17 @@ export function saveCalendarData(db = getDatabase(), data) {
       }
     }
 
+    // 5. Circled Dates
     if (data.circledDates && typeof data.circledDates === 'object') {
-      db.exec('DELETE FROM circled_dates;');
+      if (userId) {
+        db.prepare('DELETE FROM circled_dates WHERE user_id = ?').run(userId);
+      } else {
+        db.exec('DELETE FROM circled_dates WHERE user_id IS NULL;');
+      }
+
       const insertCircled = db.prepare(`
-        INSERT INTO circled_dates (date_key, color, created_at)
-        VALUES (?, ?, ?)
+        INSERT INTO circled_dates (date_key, user_id, color, created_at)
+        VALUES (?, ?, ?, ?)
       `);
       const entries = Array.isArray(data.circledDates)
         ? data.circledDates
@@ -450,27 +602,34 @@ export function saveCalendarData(db = getDatabase(), data) {
             createdAt: (v && v.createdAt) || new Date().toISOString(),
           }));
       for (const c of entries) {
-        insertCircled.run(c.dateKey, c.color || '#D23B38', c.createdAt || new Date().toISOString());
+        insertCircled.run(c.dateKey, userId || null, c.color || '#D23B38', c.createdAt || new Date().toISOString());
       }
     }
 
+    // 6. Settings
     if (data.settings) {
       const s = data.settings;
+      const settingsId = userId || 'default';
       const upsertSettings = db.prepare(`
-        INSERT INTO settings (id, week_starts_on, show_struck_items, active_tool, ink_color, updated_at)
-        VALUES ('default', ?, ?, ?, ?, ?)
+        INSERT INTO settings (id, user_id, week_starts_on, show_struck_items, active_tool, ink_color, badge_theme, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
+          user_id = excluded.user_id,
           week_starts_on = excluded.week_starts_on,
           show_struck_items = excluded.show_struck_items,
           active_tool = excluded.active_tool,
           ink_color = excluded.ink_color,
+          badge_theme = excluded.badge_theme,
           updated_at = excluded.updated_at
       `);
       upsertSettings.run(
+        settingsId,
+        userId || null,
         s.weekStartsOn ?? 0,
         s.showStruckItems ? 1 : 0,
         s.activeTool || 'select',
         s.inkColor || '#2B2C30',
+        s.badgeTheme || 'solid',
         new Date().toISOString()
       );
     }
@@ -482,7 +641,7 @@ export function saveCalendarData(db = getDatabase(), data) {
     `);
     const now = new Date().toISOString();
     setMeta.run('last_synced_at', now);
-    setMeta.run('schema_version', '3');
+    setMeta.run('schema_version', '4');
 
     db.exec('COMMIT;');
     return { ok: true, syncedAt: now };
@@ -492,28 +651,57 @@ export function saveCalendarData(db = getDatabase(), data) {
   }
 }
 
-function sendJsonResponse(res, statusCode, data) {
+function readRequestBody(req, maxBytes = 25 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > maxBytes) {
+        req.destroy();
+        reject(new Error('Payload exceeds maximum allowed size'));
+      }
+    });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (err) {
+        reject(new Error('Invalid JSON payload: ' + err.message));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function sendJsonResponse(req, res, statusCode, data, extraHeaders = {}) {
   const payload = JSON.stringify(data);
-  res.writeHead(statusCode, {
+  const origin = req.headers['origin'] || '*';
+  const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(payload),
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  });
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    ...extraHeaders,
+  };
+  res.writeHead(statusCode, headers);
   res.end(payload);
 }
 
 /**
  * Handles incoming HTTP requests for `/api/*`.
+ * Dispatches auth, session, and calendar requests with full multi-user support.
  */
 export function handleApiRequest(req, res, db = getDatabase()) {
-  // CORS Preflight
+  const origin = req.headers['origin'] || '*';
+
+  // 1. CORS Preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     });
     res.end();
     return true;
@@ -522,18 +710,22 @@ export function handleApiRequest(req, res, db = getDatabase()) {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
 
-  // 1. Health check
+  // 2. Health check
   if (pathname === '/api/health' && req.method === 'GET') {
-    const data = getCalendarData(db);
-    sendJsonResponse(res, 200, {
+    const session = authenticateRequest(req, db);
+    const data = getCalendarData(db, session?.userId || null);
+    sendJsonResponse(req, res, 200, {
       status: 'ok',
       engine: 'sqlite',
       databasePath: DEFAULT_DB_PATH,
+      authenticated: Boolean(session),
+      user: session ? { id: session.userId, email: session.email } : null,
       counts: {
         notes: data.notes.length,
         weekNotes: data.weekNotes.length,
         monthNotes: data.monthNotes.length,
         drawings: data.drawings.length,
+        circledDates: Object.keys(data.circledDates || {}).length,
       },
       lastSyncedAt: data.syncedAt,
       uptime: process.uptime(),
@@ -541,38 +733,178 @@ export function handleApiRequest(req, res, db = getDatabase()) {
     return true;
   }
 
-  // 2. Calendar Data GET
-  if (pathname === '/api/calendar' && req.method === 'GET') {
-    try {
-      const data = getCalendarData(db);
-      sendJsonResponse(res, 200, data);
-    } catch (err) {
-      console.error('SQLite Read Error:', err);
-      sendJsonResponse(res, 500, { error: 'Failed to read SQLite database' });
+  // 3. Auth: GET /api/auth/me
+  if (pathname === '/api/auth/me' && req.method === 'GET') {
+    const session = authenticateRequest(req, db);
+    const totalUsers = getUserCount(db);
+    const unclaimedCount = getUnclaimedCount(db);
+
+    if (session) {
+      sendJsonResponse(req, res, 200, {
+        authenticated: true,
+        user: {
+          id: session.userId,
+          email: session.email,
+          createdAt: session.userCreatedAt,
+        },
+        device: {
+          name: session.deviceName,
+          type: session.clientType,
+        },
+        totalUsers,
+        unclaimedCount,
+      });
+    } else {
+      sendJsonResponse(req, res, 200, {
+        authenticated: false,
+        user: null,
+        totalUsers,
+        unclaimedCount,
+        isFirstSetup: totalUsers === 0,
+      });
     }
     return true;
   }
 
-  // 3. Calendar Data POST (Atomic sync)
-  if (pathname === '/api/calendar' && req.method === 'POST') {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk;
-      if (body.length > 25 * 1024 * 1024) {
-        req.destroy();
-      }
-    });
+  // 4. Auth: POST /api/auth/register
+  if (pathname === '/api/auth/register' && req.method === 'POST') {
+    readRequestBody(req)
+      .then(async (body) => {
+        const ip = req.socket?.remoteAddress;
+        const result = await registerUser(db, {
+          email: body.email,
+          password: body.password,
+          clientName: body.clientName,
+          clientType: body.clientType,
+          ipAddress: ip,
+        });
 
-    req.on('end', () => {
-      try {
-        const payload = JSON.parse(body);
-        const result = saveCalendarData(db, payload);
-        sendJsonResponse(res, 200, result);
-      } catch (err) {
-        console.error('SQLite Write Error:', err);
-        sendJsonResponse(res, 500, { error: 'Failed to write to SQLite database', details: err.message });
+        const isSecure = req.socket?.encrypted || req.headers['x-forwarded-proto'] === 'https';
+        const cookieHeader = createSessionCookie(result.token, isSecure);
+
+        sendJsonResponse(
+          req,
+          res,
+          201,
+          {
+            ok: true,
+            token: result.token,
+            user: result.user,
+            migratedCount: result.migratedCount,
+          },
+          { 'Set-Cookie': cookieHeader }
+        );
+      })
+      .catch((err) => {
+        sendJsonResponse(req, res, 400, { ok: false, error: err.message });
+      });
+    return true;
+  }
+
+  // 5. Auth: POST /api/auth/login
+  if (pathname === '/api/auth/login' && req.method === 'POST') {
+    readRequestBody(req)
+      .then(async (body) => {
+        const ip = req.socket?.remoteAddress;
+        const result = await loginUser(db, {
+          email: body.email,
+          password: body.password,
+          clientName: body.clientName,
+          clientType: body.clientType,
+          ipAddress: ip,
+        });
+
+        if (!result) {
+          sendJsonResponse(req, res, 401, { ok: false, error: 'Invalid email or password' });
+          return;
+        }
+
+        const isSecure = req.socket?.encrypted || req.headers['x-forwarded-proto'] === 'https';
+        const cookieHeader = createSessionCookie(result.token, isSecure);
+
+        sendJsonResponse(
+          req,
+          res,
+          200,
+          {
+            ok: true,
+            token: result.token,
+            user: result.user,
+          },
+          { 'Set-Cookie': cookieHeader }
+        );
+      })
+      .catch((err) => {
+        sendJsonResponse(req, res, 400, { ok: false, error: err.message });
+      });
+    return true;
+  }
+
+  // 6. Auth: POST /api/auth/logout
+  if (pathname === '/api/auth/logout' && req.method === 'POST') {
+    const session = authenticateRequest(req, db);
+    if (session?.token) {
+      logoutUser(db, session.token);
+    }
+    const clearCookie = clearSessionCookie();
+    sendJsonResponse(req, res, 200, { ok: true }, { 'Set-Cookie': clearCookie });
+    return true;
+  }
+
+  // 7. Calendar Data GET
+  if (pathname === '/api/calendar' && req.method === 'GET') {
+    try {
+      const session = authenticateRequest(req, db);
+      const totalUsers = getUserCount(db);
+
+      if (!session) {
+        // If no user has registered yet, allow initial read of unassigned legacy data
+        if (totalUsers === 0) {
+          const data = getCalendarData(db, null);
+          sendJsonResponse(req, res, 200, {
+            ...data,
+            isFirstSetup: true,
+            requiresAuth: true,
+          });
+          return true;
+        }
+        sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+        return true;
       }
-    });
+
+      const data = getCalendarData(db, session.userId);
+      sendJsonResponse(req, res, 200, data);
+    } catch (err) {
+      console.error('SQLite Read Error:', err);
+      sendJsonResponse(req, res, 500, { error: 'Failed to read SQLite database' });
+    }
+    return true;
+  }
+
+  // 8. Calendar Data POST (Atomic sync)
+  if (pathname === '/api/calendar' && req.method === 'POST') {
+    readRequestBody(req)
+      .then((payload) => {
+        const session = authenticateRequest(req, db);
+        const totalUsers = getUserCount(db);
+
+        if (!session) {
+          if (totalUsers === 0) {
+            const result = saveCalendarData(db, payload, null);
+            sendJsonResponse(req, res, 200, result);
+            return;
+          }
+          sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+          return;
+        }
+
+        const result = saveCalendarData(db, payload, session.userId);
+        sendJsonResponse(req, res, 200, result);
+      })
+      .catch((err) => {
+        console.error('SQLite Write Error:', err);
+        sendJsonResponse(req, res, 500, { error: 'Failed to write to SQLite database', details: err.message });
+      });
     return true;
   }
 
