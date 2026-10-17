@@ -33,26 +33,26 @@ flowchart TD
     %% Branch 2: Not Logged In
     CheckSession -- "401 / No Session" --> CheckLocal{"Local Storage Has<br>Existing Data?"}
     
-    CheckLocal -- "Empty (1st Time Guest)" --> SeedDemo["Seed Initial Sample Notes<br>(Tagged: isDemo = true)"]
-    CheckLocal -- "Has Guest Notes" --> LoadGuest["Load Existing Guest Sandbox<br>(Demo notes + user scratch notes)"]
+    CheckLocal -- "Empty (1st Time Guest)" --> SeedDemo["Seed Starter Notes<br>(from DEMO_NOTE_BLUEPRINTS)"]
+    CheckLocal -- "Has Guest Notes" --> LoadGuest["Load Existing Guest Sandbox<br>(Starter notes + user scratch notes)"]
     
     SeedDemo --> GuestCanvas["Guest Mode: Header shows [ 🗄️ Guest ]"]
     LoadGuest --> GuestCanvas
     
     GuestCanvas --> GuestEdits{"Guest Action"}
-    GuestEdits -- "Edits a Demo Note" --> StripDemo["Strip isDemo flag & re-ID!<br>Note is converted to genuine user note"]
-    GuestEdits -- "Creates New Note / Drawing" --> NewUserItem["Created with isDemo = false"]
-    GuestEdits -- "Leaves Demo Note Untouched" --> KeepDemo["Retains isDemo = true"]
+    GuestEdits -- "Edits a Demo Note" --> EditNote["Stored normally in localStorage<br>(Mutators remain clean, no flag juggling)"]
+    GuestEdits -- "Creates New Note / Drawing" --> NewUserItem["Assigned fresh ID<br>(e.g. note-1729...)"]
+    GuestEdits -- "Leaves Demo Note Untouched" --> UntouchedNote["Content matches canonical blueprint"]
 
-    StripDemo --> GuestCanvas
+    EditNote --> GuestCanvas
     NewUserItem --> GuestCanvas
-    KeepDemo --> GuestCanvas
+    UntouchedNote --> GuestCanvas
 
     %% Transition: Guest Decides to Log In
     GuestCanvas --> TriggerLogin["User clicks 'Sign In' or 'Sign Up'"]
     TriggerLogin --> AuthSuccess{"Auth Successful?"}
     
-    AuthSuccess -- "Yes" --> FilterLocal["Step 1: Pre-Merge Filter<br>Discard all notes with isDemo === true<br>Keep only genuine/edited guest notes"]
+    AuthSuccess -- "Yes" --> FilterLocal["Step 1: Pre-Merge Filter (filterAndPromoteGuestNotes)<br>Diff against DEMO_BLUEPRINT_MAP:<br>• Discard identical untouched demo notes<br>• Promote edited demo notes with real IDs<br>• Preserve all user-authored notes"]
     FilterLocal --> SafeMerge["Step 2: safeMerge(FilteredGuestNotes, UserAccountNotes)"]
     SafeMerge --> PushServer["Step 3: Save Merged Ledger to SQLite Server"]
     PushServer --> RenderUserNotes
@@ -71,8 +71,8 @@ ChronoLedger deterministically handles six entry points:
 
 | Entry Point | Client State | System Action |
 | :--- | :--- | :--- |
-| **1. First-Time Visitor** | No cookies, empty `localStorage` | Boots in **Guest Mode**. Seeds initial sample notes tagged with `isDemo: true`. Header displays `[ 🗄️ Guest ]` and `[ Sign In ]`. |
-| **2. Returning Guest** | No cookies, existing `localStorage` | Restores local scratchpad. Demo notes that were untouched remain tagged `isDemo: true`. Any edited or newly created items are preserved locally. |
+| **1. First-Time Visitor** | No cookies, empty `localStorage` | Boots in **Guest Mode**. Seeds initial starter notes from `DEMO_NOTE_BLUEPRINTS`. Header displays `[ 🗄️ Guest ]` and `[ Sign In ]`. |
+| **2. Returning Guest** | No cookies, existing `localStorage` | Restores local scratchpad. Demo notes that remain untouched match `DEMO_BLUEPRINT_MAP` and will be discarded on login. Any edited or newly created items are preserved locally. |
 | **3. Returning Authenticated User** | Valid 30-day session cookie | Seamlessly boots into private account. Calls `GET /api/calendar` to fetch the user's private ledger from SQLite. Header displays `[ 👤 email ]` and `[ 🗄️ SQLite ]`. |
 | **4. Expired Session** | Cookie >30 days old or revoked | `/api/auth/me` returns `401`. App preserves unsynced in-progress text in local storage and sets status to `[ ⚠️ Re-auth ]`, allowing one-click re-authentication without losing work. |
 | **5. Account Switcher** | User logs out of Alice, logs into Bob | Logging out of Alice completely wipes memory and `localStorage`. Logging into Bob loads only Bob's private notes—guaranteeing zero cross-account data leakage. |
@@ -80,20 +80,22 @@ ChronoLedger deterministically handles six entry points:
 
 ---
 
-## 4. The Demo Note Protocol (Zero Pollution Guarantee)
+## 4. The Demo Note Protocol (Single Source of Truth)
 
 When a guest explores the application, the calendar displays sample notes (e.g., *"Tokyo Design Offsite"*, *"Review architecture plan"*). If that guest subsequently registers or logs into an existing account, **their personal account must not be polluted with sample notes**.
 
-To achieve this cleanly without burdening every note mutator in the codebase with special-case flags:
+To achieve this cleanly without duplicating strings or burdening every note mutator in the codebase with special-case flags:
 
-1. **Clean Mutators (Zero Overhead During Editing)**:
-   All 18 note mutators (`toggleStrike`, `update`, `reorder`, `move`, etc.) remain completely clean, idiomatic state operations. They have zero awareness of demo notes, and do not mutate IDs or toggle flags mid-session.
-2. **Pristine Template Diffing (`filterAndPromoteGuestNotes`)**:
-   Because the initial starter notes have canonical IDs and contents (`PRISTINE_DEMO_TEMPLATES`), we evaluate notes strictly at the moment of login/rehydration:
-   * **Untouched Demo Notes**: If a note's ID matches a demo note and its content and strike status are identical to the pristine template, it is identified as untouched demo fluff and discarded.
-   * **Edited Demo Notes**: If a user typed new content or struck/unstruck a demo note, it differs from the template. It is automatically promoted with a fresh non-colliding ID (`note-${Date.now()}-${random}`) and preserved.
-   * **User-Authored Notes**: Any note created by the user has a custom ID not in the template map, so it is preserved 100%.
-3. **Friction-Free Merge on Login**:
+1. **Single Source of Truth (`src/services/demoNotes.ts`)**:
+   `DEMO_DAY_NOTE_BLUEPRINTS`, `DEMO_WEEK_NOTE_BLUEPRINTS`, and `DEMO_MONTH_NOTE_BLUEPRINTS` define the canonical starter notes in one place. Both note generation and login verification derive directly from these blueprints.
+2. **Clean Mutators (Zero Runtime Overhead)**:
+   All 18 note mutators (`toggleStrike`, `update`, `reorder`, `move`, etc.) remain completely clean, idiomatic state operations. They have zero awareness of demo notes and do not mutate IDs or toggle flags mid-session.
+3. **Pristine Template Diffing (`filterAndPromoteGuestNotes`)**:
+   Because starter notes have canonical IDs and contents in `DEMO_BLUEPRINT_MAP`, we evaluate notes strictly at the moment of login/rehydration:
+   * **Untouched Demo Notes**: If a note's ID matches a demo blueprint and its content and strike status are identical to the blueprint, it is identified as untouched demo fluff and discarded.
+   * **Edited Demo Notes**: If a user typed new content or struck/unstruck a demo note, it differs from the blueprint. It is automatically promoted with a fresh non-colliding ID (`note-${Date.now()}-${random}`) and preserved.
+   * **User-Authored Notes**: Any note created by the user has a custom ID not in the blueprint map, so it is preserved 100%.
+4. **Friction-Free Merge on Login**:
    When authenticating:
    ```ts
    // Discard untouched demo notes; promote any edited demo notes to persistent IDs
