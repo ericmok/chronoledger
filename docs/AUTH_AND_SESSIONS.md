@@ -84,29 +84,24 @@ ChronoLedger deterministically handles six entry points:
 
 When a guest explores the application, the calendar displays sample notes (e.g., *"Tokyo Design Offsite"*, *"Review architecture plan"*). If that guest subsequently registers or logs into an existing account, **their personal account must not be polluted with sample notes**.
 
-To achieve this without asking cumbersome confirmation dialogs:
+To achieve this cleanly without burdening every note mutator in the codebase with special-case flags:
 
-1. **Tagging**: All initial default notes (`createDefaultNotes()`, `createDefaultWeekNotes()`, `createDefaultMonthNotes()`) include:
-   ```ts
-   isDemo: true
-   ```
-2. **Loss of Demo Status upon Edit**:
-   The moment a user interacts with a demo note:
-   * Editing text or revising content
-   * Checking off / toggling strikethrough (`isStruck`)
-   * Moving to another date
-   * Changing accent colors
-   
-   The note's `isDemo` flag is set to `false`, and its ID is regenerated to a unique timestamped ID (`note-${Date.now()}-${random}`). It is now officially a genuine user note.
+1. **Clean Mutators (Zero Overhead During Editing)**:
+   All 18 note mutators (`toggleStrike`, `update`, `reorder`, `move`, etc.) remain completely clean, idiomatic state operations. They have zero awareness of demo notes, and do not mutate IDs or toggle flags mid-session.
+2. **Pristine Template Diffing (`filterAndPromoteGuestNotes`)**:
+   Because the initial starter notes have canonical IDs and contents (`PRISTINE_DEMO_TEMPLATES`), we evaluate notes strictly at the moment of login/rehydration:
+   * **Untouched Demo Notes**: If a note's ID matches a demo note and its content and strike status are identical to the pristine template, it is identified as untouched demo fluff and discarded.
+   * **Edited Demo Notes**: If a user typed new content or struck/unstruck a demo note, it differs from the template. It is automatically promoted with a fresh non-colliding ID (`note-${Date.now()}-${random}`) and preserved.
+   * **User-Authored Notes**: Any note created by the user has a custom ID not in the template map, so it is preserved 100%.
 3. **Friction-Free Merge on Login**:
    When authenticating:
    ```ts
-   // Discard untouched demo notes before merging
-   const genuineLocalNotes = localNotes.filter(note => !note.isDemo);
-   const mergedNotes = safeMerge(genuineLocalNotes, remoteUserNotes);
+   // Discard untouched demo notes; promote any edited demo notes to persistent IDs
+   const activeLocalNotes = filterAndPromoteGuestNotes(currentStateRef.current.notes, 'note');
+   const mergedNotes = safeMerge(activeLocalNotes, remoteUserNotes);
    ```
    * Untouched demo notes silently evaporate.
-   * Any guest note the user authored or customized is merged into their private account and saved to SQLite.
+   * Any guest work the user created or edited is seamlessly merged into their private account and persisted to SQLite.
 
 ---
 

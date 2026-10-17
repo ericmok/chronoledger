@@ -21,6 +21,79 @@ export interface HistorySnapshot {
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline';
 
+/**
+ * Non-destructive collection reconciliation:
+ * 1. Unions items from both local (localStorage) and remote (SQLite).
+ * 2. If an item exists in both sources, the version with the newer timestamp (updatedAt/createdAt) wins.
+ * 3. Prevents any offline or un-synced client-side notes from ever being dropped or overwritten.
+ */
+function safeMerge<T extends { id: string; createdAt?: string; updatedAt?: string }>(
+  localList: T[],
+  remoteList: T[]
+): T[] {
+  const map = new Map<string, T>();
+  for (const item of localList) {
+    map.set(item.id, item);
+  }
+  for (const item of remoteList) {
+    const localItem = map.get(item.id);
+    if (!localItem) {
+      map.set(item.id, item);
+    } else {
+      const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
+      const remoteTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+      if (remoteTime >= localTime) {
+        map.set(item.id, item);
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
+/**
+ * Canonical content and default struck status of demo starter notes.
+ * Used on login to identify and drop untouched demo notes without polluting the user's account,
+ * while seamlessly merging and re-identifying any note the user actually interacted with.
+ */
+const PRISTINE_DEMO_TEMPLATES: Record<string, { content: string; isStruck: boolean }> = {
+  'demo-1': { content: 'Review quarterly architecture and security plan with team @important', isStruck: false },
+  'demo-2': { content: 'Finalize server migration roadmap @important', isStruck: false },
+  'demo-3': { content: 'Tokyo Design & Engineering Offsite @4:00pm', isStruck: false },
+  'demo-4': { content: 'Draft proposal for client team @wait on legal team brief', isStruck: false },
+  'demo-5': { content: 'Explore zero-latency state sync @explore', isStruck: false },
+  'demo-6': { content: 'The simplest abstractions are discovered, not designed @thought', isStruck: false },
+  'demo-7': { content: 'Completed initial user interviews @skipped', isStruck: true },
+  'wnote-1': { content: 'Week 42 Focus: 3-Tier temporal planning (Day → Week → Month)', isStruck: false },
+  'wnote-2': { content: '2-Week Sprint (Spanning W42 – W43)', isStruck: false },
+  'wnote-3': { content: 'Feature: Search & filter all @todo notes across timeline (Cmd+K / Ledger drawer) @todo @explore', isStruck: false },
+  'mnote-1': { content: 'October Focus: Ship continuous jigsaw calendar', isStruck: false },
+  'mnote-2': { content: 'Q4 Product Initiative (Spanning Oct – Dec)', isStruck: false },
+};
+
+function filterAndPromoteGuestNotes<T extends { id: string; content: string; isStruck?: boolean }>(
+  items: T[],
+  idPrefix: string
+): T[] {
+  return items
+    .filter((item) => {
+      const template = PRISTINE_DEMO_TEMPLATES[item.id];
+      if (!template) return true; // User authored this note; keep it
+      // Discard if completely untouched: content and struck status match starter template
+      const isUntouched = item.content.trim() === template.content.trim() && Boolean(item.isStruck) === template.isStruck;
+      return !isUntouched;
+    })
+    .map((item) => {
+      // If a user edited an initial demo note, give it a real persistent unique ID
+      if (PRISTINE_DEMO_TEMPLATES[item.id]) {
+        return {
+          ...item,
+          id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        };
+      }
+      return item;
+    });
+}
+
 export function useCalendarState() {
   const [notes, setNotes] = useState<NoteItem[]>(() => storage.loadNotes());
   const [weekNotes, setWeekNotes] = useState<WeekNote[]>(() => storage.loadWeekNotes());
@@ -55,35 +128,6 @@ export function useCalendarState() {
     currentStateRef.current = { notes, weekNotes, monthNotes, drawings, circledDates };
   }, [notes, weekNotes, monthNotes, drawings, circledDates]);
 
-  /**
-   * Non-destructive collection reconciliation:
-   * 1. Unions items from both local (localStorage) and remote (SQLite).
-   * 2. If an item exists in both sources, the version with the newer timestamp (updatedAt/createdAt) wins.
-   * 3. Prevents any offline or un-synced client-side notes from ever being dropped or overwritten.
-   */
-  function safeMerge<T extends { id: string; createdAt?: string; updatedAt?: string }>(
-    localList: T[],
-    remoteList: T[]
-  ): T[] {
-    const map = new Map<string, T>();
-    for (const item of localList) {
-      map.set(item.id, item);
-    }
-    for (const item of remoteList) {
-      const localItem = map.get(item.id);
-      if (!localItem) {
-        map.set(item.id, item);
-      } else {
-        const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
-        const remoteTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
-        if (remoteTime >= localTime) {
-          map.set(item.id, item);
-        }
-      }
-    }
-    return Array.from(map.values());
-  }
-
   const rehydrateRemoteCalendar = useCallback(async () => {
     // 1. Emergency local recovery snapshot: captured synchronously before any network/SQLite hydration
     try {
@@ -104,10 +148,10 @@ export function useCalendarState() {
       }
 
       if (remote.hasData) {
-        // Discard untouched demo notes before merging with remote notes
-        const activeLocalNotes = currentStateRef.current.notes.filter((n) => !n.isDemo);
-        const activeLocalWeekNotes = currentStateRef.current.weekNotes.filter((wn) => !wn.isDemo);
-        const activeLocalMonthNotes = currentStateRef.current.monthNotes.filter((mn) => !mn.isDemo);
+        // Discard untouched demo notes; promote any edited demo notes to genuine IDs
+        const activeLocalNotes = filterAndPromoteGuestNotes(currentStateRef.current.notes, 'note');
+        const activeLocalWeekNotes = filterAndPromoteGuestNotes(currentStateRef.current.weekNotes, 'wnote');
+        const activeLocalMonthNotes = filterAndPromoteGuestNotes(currentStateRef.current.monthNotes, 'mnote');
         const activeLocalDrawings = currentStateRef.current.drawings;
         const activeLocalCircledDates = currentStateRef.current.circledDates;
 
@@ -161,9 +205,9 @@ export function useCalendarState() {
       } else {
         // Remote is empty, seed it with current genuine notes (discard untouched demo notes)
         const snapshot = currentStateRef.current;
-        const activeNotes = snapshot.notes.filter((n) => !n.isDemo);
-        const activeWeekNotes = snapshot.weekNotes.filter((wn) => !wn.isDemo);
-        const activeMonthNotes = snapshot.monthNotes.filter((mn) => !mn.isDemo);
+        const activeNotes = filterAndPromoteGuestNotes(snapshot.notes, 'note');
+        const activeWeekNotes = filterAndPromoteGuestNotes(snapshot.weekNotes, 'wnote');
+        const activeMonthNotes = filterAndPromoteGuestNotes(snapshot.monthNotes, 'mnote');
         const currentSettings = storage.loadSettings();
         const result = await saveRemoteCalendar({
           notes: activeNotes,
@@ -446,20 +490,7 @@ export function useCalendarState() {
   const toggleStrikeNote = useCallback((noteId: string) => {
     recordHistory(true);
     setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== noteId) return n;
-        const isStruck = !n.isStruck;
-        if (n.isDemo) {
-          return {
-            ...n,
-            id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            isStruck,
-            isDemo: false,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return { ...n, isStruck };
-      })
+      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
     );
   }, [recordHistory]);
 
@@ -485,7 +516,7 @@ export function useCalendarState() {
     setNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          const updated: NoteItem = {
+          return {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
@@ -493,11 +524,6 @@ export function useCalendarState() {
             colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
-          if (n.isDemo) {
-            updated.id = `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-            updated.isDemo = false;
-          }
-          return updated;
         }
         return n;
       })
@@ -507,37 +533,13 @@ export function useCalendarState() {
   const acceptNoteRevision = useCallback((noteId: string) => {
     recordHistory(true);
     setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== noteId) return n;
-        const updated: NoteItem = { ...n, originalContent: undefined, updatedAt: new Date().toISOString() };
-        if (n.isDemo) {
-          updated.id = `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-          updated.isDemo = false;
-        }
-        return updated;
-      })
+      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
     );
     setWeekNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== noteId) return n;
-        const updated: WeekNote = { ...n, originalContent: undefined, updatedAt: new Date().toISOString() };
-        if (n.isDemo) {
-          updated.id = `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-          updated.isDemo = false;
-        }
-        return updated;
-      })
+      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
     );
     setMonthNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== noteId) return n;
-        const updated: MonthNote = { ...n, originalContent: undefined, updatedAt: new Date().toISOString() };
-        if (n.isDemo) {
-          updated.id = `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-          updated.isDemo = false;
-        }
-        return updated;
-      })
+      prev.map((n) => (n.id === noteId ? { ...n, originalContent: undefined, updatedAt: new Date().toISOString() } : n))
     );
   }, [recordHistory]);
 
@@ -551,18 +553,10 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote: NoteItem = sourceNote;
-        if (sourceNote.isDemo) {
-          updatedSourceNote = {
-            ...sourceNote,
-            id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            isDemo: false,
-            updatedAt: new Date().toISOString(),
-          };
-        }
+        let updatedSourceNote = sourceNote;
         if (targetDate && (!sourceNote.parentDates.includes(targetDate) || sourceNote.parentDates.length === 1)) {
           updatedSourceNote = {
-            ...updatedSourceNote,
+            ...sourceNote,
             parentDates: [targetDate],
             updatedAt: new Date().toISOString(),
           };
@@ -592,10 +586,8 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        const updatedSourceNote: NoteItem = {
+        const updatedSourceNote = {
           ...sourceNote,
-          id: sourceNote.isDemo ? `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : sourceNote.id,
-          isDemo: false,
           parentDates: [targetDate],
           updatedAt: new Date().toISOString(),
         };
@@ -645,20 +637,7 @@ export function useCalendarState() {
   const toggleStrikeWeekNote = useCallback((noteId: string) => {
     recordHistory(true);
     setWeekNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== noteId) return n;
-        const isStruck = !n.isStruck;
-        if (n.isDemo) {
-          return {
-            ...n,
-            id: `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            isStruck,
-            isDemo: false,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return { ...n, isStruck };
-      })
+      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
     );
   }, [recordHistory]);
 
@@ -684,7 +663,7 @@ export function useCalendarState() {
     setWeekNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          const updated: WeekNote = {
+          return {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
@@ -692,11 +671,6 @@ export function useCalendarState() {
             colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
-          if (n.isDemo) {
-            updated.id = `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-            updated.isDemo = false;
-          }
-          return updated;
         }
         return n;
       })
@@ -713,18 +687,10 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote: WeekNote = sourceNote;
-        if (sourceNote.isDemo) {
-          updatedSourceNote = {
-            ...sourceNote,
-            id: `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            isDemo: false,
-            updatedAt: new Date().toISOString(),
-          };
-        }
+        let updatedSourceNote = sourceNote;
         if (targetWeek && (!sourceNote.parentWeeks.includes(targetWeek) || sourceNote.parentWeeks.length === 1)) {
           updatedSourceNote = {
-            ...updatedSourceNote,
+            ...sourceNote,
             parentWeeks: [targetWeek],
             updatedAt: new Date().toISOString(),
           };
@@ -754,10 +720,8 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        const updatedSourceNote: WeekNote = {
+        const updatedSourceNote = {
           ...sourceNote,
-          id: sourceNote.isDemo ? `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : sourceNote.id,
-          isDemo: false,
           parentWeeks: [targetWeek],
           updatedAt: new Date().toISOString(),
         };
@@ -807,20 +771,7 @@ export function useCalendarState() {
   const toggleStrikeMonthNote = useCallback((noteId: string) => {
     recordHistory(true);
     setMonthNotes((prev) =>
-      prev.map((n) => {
-        if (n.id !== noteId) return n;
-        const isStruck = !n.isStruck;
-        if (n.isDemo) {
-          return {
-            ...n,
-            id: `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            isStruck,
-            isDemo: false,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return { ...n, isStruck };
-      })
+      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
     );
   }, [recordHistory]);
 
@@ -846,7 +797,7 @@ export function useCalendarState() {
     setMonthNotes((prev) =>
       prev.map((n) => {
         if (n.id === noteId) {
-          const updated: MonthNote = {
+          return {
             ...n,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
@@ -854,11 +805,6 @@ export function useCalendarState() {
             colorTag: newColorTag !== undefined ? (newColorTag || undefined) : n.colorTag,
             updatedAt: new Date().toISOString(),
           };
-          if (n.isDemo) {
-            updated.id = `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-            updated.isDemo = false;
-          }
-          return updated;
         }
         return n;
       })
@@ -875,18 +821,10 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote: MonthNote = sourceNote;
-        if (sourceNote.isDemo) {
-          updatedSourceNote = {
-            ...sourceNote,
-            id: `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-            isDemo: false,
-            updatedAt: new Date().toISOString(),
-          };
-        }
+        let updatedSourceNote = sourceNote;
         if (targetMonth && (!sourceNote.parentMonths.includes(targetMonth) || sourceNote.parentMonths.length === 1)) {
           updatedSourceNote = {
-            ...updatedSourceNote,
+            ...sourceNote,
             parentMonths: [targetMonth],
             updatedAt: new Date().toISOString(),
           };
@@ -916,10 +854,8 @@ export function useCalendarState() {
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        const updatedSourceNote: MonthNote = {
+        const updatedSourceNote = {
           ...sourceNote,
-          id: sourceNote.isDemo ? `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` : sourceNote.id,
-          isDemo: false,
           parentMonths: [targetMonth],
           updatedAt: new Date().toISOString(),
         };
