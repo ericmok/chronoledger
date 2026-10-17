@@ -285,7 +285,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             ? '-ml-5 mr-1.5 pl-1.5 pr-2 py-[3.5px]'
             : '-ml-4 mr-1.5 pl-1 pr-1.5 py-[2.5px]'
         } rounded text-[11px] font-sans font-semibold select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
-          isAdded ? '-rotate-[4deg]' : ''
+          isAdded ? '-rotate-[3deg]' : ''
         } ${
           isDraggable
             ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
@@ -380,7 +380,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         className={`inline-flex items-center gap-1 ${
           isComfortable ? 'mx-0.5 pl-1.5 pr-2 py-[3.5px]' : 'mx-0.5 pl-1 pr-1.5 py-[2.5px]'
         } rounded text-[11px] font-sans font-semibold select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
-          isAdded ? '-rotate-[4deg]' : ''
+          isAdded ? '-rotate-[3deg]' : ''
         } ${
           isDeleted
             ? 'cursor-default line-through decoration-[#2B2C30] decoration-[1.5px] opacity-50'
