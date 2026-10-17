@@ -403,7 +403,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         setLocalDropIndicator(null);
         onDrop?.(e, id, pos);
       }}
-      className={`group relative transition-all duration-150 cursor-pointer ${
+      className={`group relative flex items-start transition-all duration-150 cursor-pointer ${
         isMinimal
           ? 'py-1.5 px-0.5 text-xs border-b border-[#D5CDC0]'
           : isComfortable
@@ -447,8 +447,12 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       {/* Standalone Left Slot: Rendered only when there is NO leading annotation */}
       {!parsedNote.hasLeadingAnnotation && (
         <div
-          className={`absolute left-0.5 ${
-            isComfortable ? 'top-1 w-5 h-5' : 'top-0.5 w-4 h-4'
+          className={`absolute ${
+            isComfortable
+              ? 'left-2 top-1 w-5 h-5'
+              : isMinimal
+              ? 'left-0.5 top-0.5 w-4 h-4'
+              : 'left-1 top-0.5 w-4 h-4'
           } flex items-center justify-center shrink-0 pointer-events-auto`}
         >
           {isDraggable && (
@@ -503,7 +507,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       )}
 
       {/* Note Content */}
-      <div className={`${isComfortable ? 'pl-5' : 'pl-4'} min-w-0`}>
+      <div className={`flex-1 min-w-0 ${isComfortable ? 'pl-5' : 'pl-4'}`}>
         <div className="relative inline font-sans leading-relaxed break-words">
           {isStruck ? (
             // Full note strike overrides inner diffs with graphite pencil strike
