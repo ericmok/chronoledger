@@ -80,12 +80,16 @@ export interface WeekNote {
 }
 
 export const NOTE_ACCENT_COLORS = [
-  '#E29578', // Terracotta
-  '#83C5BE', // Sage / Aqua
-  '#E9C46A', // Warm Ochre
-  '#9B5DE5', // Lavender / Purple
-  '#F15BB5', // Rose / Pink
-  '#457B9D', // Slate / Steel Blue
+  '#F47290', // Red
+  '#F5AC6C', // Orange
+  '#EADA25', // Yellow
+  '#51C391', // Green
+  '#81DACE', // Teal
+  '#4FA3F2', // Blue
+  '#D097F7', // Purple
+  '#D86B6B', // Muted Red
+  '#6F7880', // Gray
+  '#9FB1C1', // Light Gray
 ] as const;
 
 export type NoteAccentColor = typeof NOTE_ACCENT_COLORS[number];

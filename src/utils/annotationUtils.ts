@@ -41,6 +41,18 @@
  * - Resolved annotations render at their date position with an authentic 45° diagonal pencil slash.
  */
 
+import {
+  CANONICAL_COLORS,
+  type CanonicalColorName,
+  type CanonicalColorDefinition,
+} from './canonicalColors';
+
+export {
+  CANONICAL_COLORS,
+  type CanonicalColorName,
+  type CanonicalColorDefinition,
+};
+
 export type AnnotationCategory =
   | 'important'
   | 'wait'
@@ -204,13 +216,16 @@ export function getWashResolvedTextColor(baseColor: string): string {
   return hslToHex((h + 4) % 360, Math.round(s * 0.38), 45);
 }
 
+
 export interface AnnotationConfig {
   type: AnnotationCategory;
   primaryTag: string; // e.g. "important"
   aliases: string[];  // e.g. ["urgent", "star", "key"]
   label: string;
   description: string;
+  colorName?: CanonicalColorName;
   color: string;               // Base category accent color (solid chip, bullet dot, gutter dot)
+  washColor?: string;          // Light background color for wash badges
   showInGutter?: boolean;      // Whether to show a summary dot in the date column (defaults to true)
   makesBold?: boolean;         // Changes note text font to bold
   dimsText?: boolean;          // Dims note text
@@ -224,7 +239,9 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     aliases: ['urgent', 'star', 'key'],
     label: 'Important',
     description: 'High priority / critical task (adds red dot to date gutter & bold font)',
-    color: '#D23B38', // Desert Crimson
+    colorName: 'red',
+    color: CANONICAL_COLORS.red.solid,
+    washColor: CANONICAL_COLORS.red.wash,
     makesBold: true,
     priority: 1,
   },
@@ -233,8 +250,10 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'wait',
     aliases: ['await', 'waiting', 'blocked', 'pending'],
     label: 'Waiting',
-    description: 'Waiting on external event, email, or blocker (adds terracotta dot)',
-    color: '#DE7351', // Terracotta
+    description: 'Waiting on external event, email, or blocker (adds orange dot)',
+    colorName: 'orange',
+    color: CANONICAL_COLORS.orange.solid,
+    washColor: CANONICAL_COLORS.orange.wash,
     priority: 2,
   },
   celebrate: {
@@ -242,8 +261,10 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'celebrate',
     aliases: ['happy', 'birthday', 'party', 'fun', 'joy', 'milestone', 'cheers'],
     label: 'Happy Event',
-    description: 'Celebration, birthday, milestone, or happy event (adds golden ochre dot)',
-    color: '#D48216', // Warm Ochre
+    description: 'Celebration, birthday, milestone, or happy event (adds yellow dot)',
+    colorName: 'yellow',
+    color: CANONICAL_COLORS.yellow.solid,
+    washColor: CANONICAL_COLORS.yellow.wash,
     priority: 3,
   },
   explore: {
@@ -251,8 +272,10 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'explore',
     aliases: ['idea', 'question', 'unknown', 'research', 'brainstorm'],
     label: 'Explore / Idea',
-    description: 'Exploratory inquiry, unknown, research, or idea (adds lavender dot)',
-    color: '#8B5BB5', // Lavender / Amethyst
+    description: 'Exploratory inquiry, unknown, research, or idea (adds purple dot)',
+    colorName: 'purple',
+    color: CANONICAL_COLORS.purple.solid,
+    washColor: CANONICAL_COLORS.purple.wash,
     priority: 4,
   },
   thought: {
@@ -260,8 +283,10 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'thought',
     aliases: ['revelation', 'insight', 'reflection', 'note'],
     label: 'Thought',
-    description: 'Revelation, reflection, journal entry, or insight (adds steel blue dot)',
-    color: '#3B7EBD', // Steel Blue
+    description: 'Revelation, reflection, journal entry, or insight (adds blue dot)',
+    colorName: 'blue',
+    color: CANONICAL_COLORS.blue.solid,
+    washColor: CANONICAL_COLORS.blue.wash,
     priority: 5,
   },
   todo: {
@@ -269,8 +294,10 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'todo',
     aliases: ['task', 'action'],
     label: 'To-Do',
-    description: 'Actionable task item (adds sage dot)',
-    color: '#2D7D73', // Sage / Aqua
+    description: 'Actionable task item (adds green dot)',
+    colorName: 'green',
+    color: CANONICAL_COLORS.green.solid,
+    washColor: CANONICAL_COLORS.green.wash,
     priority: 6,
   },
   time: {
@@ -278,8 +305,10 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'time',
     aliases: ['event', 'sched', 'schedule'],
     label: 'Scheduled Event',
-    description: 'Time-of-day scheduled event or appointment (adds slate dot)',
-    color: '#6B7280', // Muted slate gray
+    description: 'Time-of-day scheduled event or appointment (adds teal dot)',
+    colorName: 'teal',
+    color: CANONICAL_COLORS.teal.solid,
+    washColor: CANONICAL_COLORS.teal.wash,
     priority: 7,
   },
   failed: {
@@ -287,8 +316,10 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     primaryTag: 'failed',
     aliases: ['fail', 'failure', 'rejected', 'unsuccessful'],
     label: 'Failed',
-    description: 'Failed, rejected, or unsuccessful task/event (adds ruby dot)',
-    color: '#C84E4B', // Ruby muted red
+    description: 'Failed, rejected, or unsuccessful task/event (adds muted red dot)',
+    colorName: 'mutedRed',
+    color: CANONICAL_COLORS.mutedRed.solid,
+    washColor: CANONICAL_COLORS.mutedRed.wash,
     priority: 8,
   },
   skipped: {
@@ -297,7 +328,9 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     aliases: ['missed', 'postponed', 'dropped', 'canceled'],
     label: 'Skipped',
     description: 'Missed or postponed task (dimmed with line-through)',
-    color: '#8A857C', // Muted graphite ash
+    colorName: 'lightGray',
+    color: CANONICAL_COLORS.lightGray.solid,
+    washColor: CANONICAL_COLORS.lightGray.wash,
     dimsText: true,
     showInGutter: false,
     priority: 9,
@@ -308,7 +341,9 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     aliases: [],
     label: 'Tag',
     description: 'Custom annotation',
-    color: '#71727A',
+    colorName: 'gray',
+    color: CANONICAL_COLORS.gray.solid,
+    washColor: CANONICAL_COLORS.gray.wash,
     showInGutter: false,
     priority: 99,
   },
@@ -388,17 +423,18 @@ export function resolveAnnotation(
   let resolvedBulletColor: string;
 
   if (theme === 'wash') {
-    bgColor = getWashBgColor(baseColor);
-    textColor = getWashTextColor(baseColor);
+    // Dark text on light bgcolor version
+    bgColor = config.washColor || getWashBgColor(baseColor);
+    textColor = '#2B2C30';
     bulletColor = baseColor;
-    resolvedBgColor = getWashResolvedBgColor(baseColor);
+    resolvedBgColor = getWashResolvedBgColor(bgColor);
     resolvedTextColor = getWashResolvedTextColor(baseColor);
     resolvedBulletColor = resolvedColor;
   } else {
-    // Solid Theme (Default)
+    // Solid Theme (Default): Badges with light text on darker bgcolor
     bgColor = baseColor;
     textColor = getContrastingTextColor(baseColor);
-    bulletColor = textColor === '#FFFFFF' ? '#FFFFFF' : baseColor;
+    bulletColor = textColor === '#FFFFFF' ? '#FFFFFF' : '#2B2C30';
     resolvedBgColor = getSolidResolvedBgColor(baseColor);
     resolvedTextColor = getContrastingTextColor(resolvedBgColor);
     resolvedBulletColor = resolvedTextColor === '#FFFFFF' ? '#FAF8F5' : '#4A4B50';
@@ -802,56 +838,56 @@ export const SUGGESTED_TAGS: QuickTagOption[] = [
   {
     tag: 'important',
     label: '@important',
-    description: 'Urgent / critical priority (adds crimson date dot & bold font)',
+    description: 'Urgent / critical priority (adds red date dot & bold font)',
     color: ANNOTATION_CONFIGS.important.color,
     type: 'important',
   },
   {
     tag: 'wait',
     label: '@wait',
-    description: 'Waiting on external event, email, or blocker (adds terracotta dot)',
+    description: 'Waiting on external event, email, or blocker (adds orange dot)',
     color: ANNOTATION_CONFIGS.wait.color,
     type: 'wait',
   },
   {
     tag: 'celebrate',
     label: '@celebrate',
-    description: 'Happy event, celebration, birthday, or milestone (adds warm ochre dot)',
+    description: 'Happy event, celebration, birthday, or milestone (adds yellow dot)',
     color: ANNOTATION_CONFIGS.celebrate.color,
     type: 'celebrate',
   },
   {
     tag: 'todo',
     label: '@todo',
-    description: 'Actionable to-do item (adds sage dot)',
+    description: 'Actionable to-do item (adds green dot)',
     color: ANNOTATION_CONFIGS.todo.color,
     type: 'todo',
   },
   {
     tag: 'explore',
     label: '@explore',
-    description: 'Exploratory idea, inquiry, research, or unknown (adds lavender dot)',
+    description: 'Exploratory idea, inquiry, research, or unknown (adds purple dot)',
     color: ANNOTATION_CONFIGS.explore.color,
     type: 'explore',
   },
   {
     tag: 'thought',
     label: '@thought',
-    description: 'Insight, reflection, journal entry, or revelation (adds steel blue dot)',
+    description: 'Insight, reflection, journal entry, or revelation (adds blue dot)',
     color: ANNOTATION_CONFIGS.thought.color,
     type: 'thought',
   },
   {
     tag: '4:00pm',
     label: '@4:00pm',
-    description: 'Schedule at a specific time of day (adds slate dot)',
+    description: 'Schedule at a specific time of day (adds teal dot)',
     color: ANNOTATION_CONFIGS.time.color,
     type: 'time',
   },
   {
     tag: 'failed',
     label: '@failed',
-    description: 'Failed, rejected, or unsuccessful task/event (adds ruby dot)',
+    description: 'Failed, rejected, or unsuccessful task/event (adds muted red dot)',
     color: ANNOTATION_CONFIGS.failed.color,
     type: 'failed',
   },
