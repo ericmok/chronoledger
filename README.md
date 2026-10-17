@@ -38,21 +38,24 @@ Plans naturally exist at different scales:
 All notes carry a subtle grip icon on hover for reordering.
 
 ### Plaintext Annotations
-Typing `@` anywhere in a note opens an autocomplete menu for common categories:
-- `@todo`: Actionable items.
-- `@important`: Priorities that warrant bolder weight.
-- `@wait`: Things dependent on someone else or an external date.
-- `@thought`: Ideas, observations, and reflections.
-- `@celebrate`: Gatherings, birthdays, and milestones.
-- `@explore`: Research or open questions.
-- `@4:00pm` / `@10:30am`: Scheduled times.
-- `@skipped` / `@failed`: Tasks left behind or unfulfilled.
+Typing `@` anywhere in a note opens an autocomplete menu for common categories drawing from a canonical palette:
+- `@todo`: Actionable items (Green `#51C391`).
+- `@important`: High-priority items that warrant bolder weight (Red `#F47290`).
+- `@wait`: Things dependent on someone else or an external blocker (Orange `#F5AC6C`).
+- `@celebrate`: Gatherings, birthdays, and milestones (Yellow `#EADA25`).
+- `@explore`: Research or open questions (Purple `#D097F7`).
+- `@thought`: Ideas, observations, and reflections (Blue `#4FA3F2`).
+- `@4:00pm` / `@10:30am`: Scheduled times and appointments (Teal `#81DACE`).
+- `@failed`: Unsuccessful or rejected tasks (Muted Red `#D86B6B`).
+- `@skipped`: Tasks left behind or postponed (Light Gray `#9FB1C1`).
+- Custom tags (e.g., `@reading`, `@finance`) receive a neutral gray chip (`#6F7880`) and dynamic contrast text.
 
-Leading tags fuse into the left margin of the note card, absorbing the bullet dot so the text aligns cleanly. Clicking any badge toggles its resolution (`@todo` $\leftrightarrow$ `~~@todo~~`), rendering the tag in a muted tone without disturbing the sentence.
+Leading tags fuse into the left margin of the note card, absorbing the bullet dot so the text aligns cleanly. Clicking any badge toggles its resolution (`@todo` $\leftrightarrow$ `~~@todo~~`), rendering the tag in a warm muted tone without disturbing the sentence.
 
 ### Visible Revisions and the Ledger Metaphor
 In an ink notebook, corrections are crossed out with a single stroke, preserving the context of earlier plans. ChronoLedger follows this habit:
 - Editing a note strikes through deleted words in muted red and highlights new words in soft green.
+- Newly added tags tilt slightly ($-3^\circ$) like a taped paper label rather than using jarring `+` symbols.
 - Deleted tags are displayed with reduced opacity and a strikethrough, without unnecessary minus signs.
 - When a note is hovered or focused, a small eraser icon button appears beside the revisions, allowing you to clean the scribbles and finalize the text whenever you are ready.
 

@@ -34,7 +34,7 @@ To keep descriptions clear across components, we use the following definitions:
 | **Anchor Tag** | Position | A tag that appears at the very beginning of a note, before any sentence prose. |
 | **Inline Tag** | Position | A tag placed within or at the end of the prose (e.g., `Discuss agenda @meeting with @alice`). |
 | **Anchor Badge** | UI Component | The chip rendered at the left margin ($x = 0$) that incorporates the note's resting bullet dot and hover drag handle. |
-| **Inline Badge** | UI Component | A chip rendered naturally within the flow of a sentence. It does not carry a drag handle or negative margins. |
+| **Inline Badge** | UI Component | A chip rendered naturally within the flow of a sentence (`[ • tag ]`), equipped with its category dot indicator on the left. It does not carry a drag handle or negative margins. |
 | **Notable Dot** | Timeline Gutter | The small colored dot alongside the calendar date number, reflecting the presence of active or resolved annotations on that day. |
 
 ---
@@ -62,6 +62,28 @@ export interface NoteItem {
 - **Resolved Tag**: `~~@<tagname>~~` (wrapped in CommonMark strikethrough markers).
 - **Escaped Tag**: `\@<tagname>` (preceded by a backslash). In reading mode, the backslash is omitted and the tag renders as plain text `@tagname` without a badge. In editing mode, the backslash returns so the markdown remains intact.
 - **Whole-Note Strikethrough**: When `isStruck` is true, a graphite pencil line is drawn across the entire note, and all internal annotations are displayed in their resolved state.
+
+### Canonical Categories and Default Colors
+
+All semantic tags, note bullet dots, and date gutter dots draw from a shared 10-color canonical palette defined in `src/utils/canonicalColors.ts`:
+
+| Category | Primary Tag & Aliases | Solid Chip (Default) | Wash Tint | Meaning & Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **Important** | `@important`, `@urgent`, `@star`, `@key` | `#F47290` (Red) | `#F79EAA` | High-priority or critical tasks. Renders note text in bold and adds a red dot to the date column. |
+| **Waiting** | `@wait`, `@await`, `@waiting`, `@blocked`, `@pending` | `#F5AC6C` (Orange) | `#FFB06B` | Dependent on external reply, delivery, or blocker. Adds an orange dot to the date column. |
+| **Happy Event** | `@celebrate`, `@happy`, `@birthday`, `@party`, `@fun`, `@joy`, `@milestone` | `#EADA25` (Yellow) | `#FFE3B2` | Celebrations, milestones, and happy occasions. Adds a yellow dot to the date column. |
+| **Explore / Idea** | `@explore`, `@idea`, `@question`, `@unknown`, `@research`, `@brainstorm` | `#D097F7` (Purple) | `#DBB3F6` | Open questions, research inquiries, or exploratory ideas. Adds a purple dot. |
+| **Thought** | `@thought`, `@revelation`, `@insight`, `@reflection`, `@note` | `#4FA3F2` (Blue) | `#98C8F4` | Journal observations and reflections. Adds a blue dot to the date column. |
+| **To-Do** | `@todo`, `@task`, `@action` | `#51C391` (Green) | `#90E6AE` | Standard actionable items. Adds a green dot to the date column. |
+| **Scheduled Event** | `@time`, `@event`, `@sched`, or time patterns (e.g. `@4:00pm`, `@10:30am`) | `#81DACE` (Teal) | `#81DACE` | Time-of-day appointments. Adds a teal dot to the date column. |
+| **Failed** | `@failed`, `@fail`, `@failure`, `@rejected`, `@unsuccessful` | `#D86B6B` (Muted Red) | `#E5C8C8` | Abandoned or unsuccessful attempts. Adds a muted red dot. |
+| **Skipped** | `@skipped`, `@missed`, `@postponed`, `@dropped`, `@canceled` | `#9FB1C1` (Light Gray) | `#D7C9C9` | Postponed or skipped tasks. Dims note text; does not add a gutter dot. |
+| **Custom** | Any arbitrary `@word` (e.g., `@reading`, `@finance`) | `#6F7880` (Gray) | `#A5B4C2` | Ad-hoc user tags. Excluded from date gutter dots by default. |
+
+#### Color & Typography Behavior
+- **Dynamic Text Contrast**: Rather than hardcoding text colors, chip badges evaluate relative luminance ($L = 0.299R + 0.587G + 0.114B$). High-luminance chips (Yellow `#EADA25`, Orange `#F5AC6C`, Teal `#81DACE`, Purple `#D097F7`, Light Gray `#9FB1C1`) render deep charcoal text (`#2B2C30`), while deeper hues (Red `#F47290`, Green `#51C391`, Blue `#4FA3F2`, Muted Red `#D86B6B`, Gray `#6F7880`) use crisp white (`#FFFFFF`).
+- **Warm Resolution Math**: Resolving a tag (`~~@tag~~`) calculates a warmer, desaturated hue (+4° toward the warm spectrum, $-35\%$ saturation, $+28\%$ lightness) instead of flattening to neutral gray.
+- **Typography & Case**: Badges are typeset in **Inter** (`font-sans font-semibold`) and preserve the natural typed case without artificial uppercase transformation.
 
 ---
 
@@ -91,7 +113,7 @@ export interface SplitNoteResult {
        |
        +---> splitNoteAnchorAndBody()
                |
-               +--- Anchor:   { tag: "todo", color: Sage (#83C5BE), isLeading: true }
+               +--- Anchor:   { tag: "todo", color: Green (#51C391), isLeading: true }
                |              Rendered at x = 0 with negative left margin (-ml-5)
                |              Embeds bullet dot and hover drag handle.
                |
@@ -105,7 +127,7 @@ export interface SplitNoteResult {
 1. **Embedded Bullet**: The bullet dot sits inside the left edge of the anchor badge rather than beside it.
 2. **Reordering Grip**: Hovering over the anchor badge reveals the reordering grip in place of the bullet.
 3. **Negative Margin**: The badge uses `-ml-5` (or `-ml-4` in compact mode) so that its internal bullet aligns precisely where an untagged note's bullet would rest.
-4. **No Addition Prefix**: When a user adds a tag to the start of an untagged note, the anchor badge fuses quietly into the margin. It does not display a `+` symbol, as its presence at $x = 0$ already communicates the note's category.
+4. **No Addition Prefix**: When a user adds a tag to the start of an untagged note, the anchor badge fuses quietly into the margin without a `+` symbol. If added during an edit revision, it subtly tilts ($-3^\circ$, anchored near the dot at `20% 50%`) to signal the addition organically.
 
 ---
 
@@ -158,9 +180,9 @@ When the prose of a note is altered (`originalContent.bodyText` differs from `cu
 | :--- | :--- | :--- |
 | **Word Added** | `milk` $\to$ `cold milk` | `cold` appears in soft green with a faint background. |
 | **Word Deleted** | `buy whole milk` $\to$ `buy milk` | `whole` appears with a muted red strikethrough line at 60% opacity. |
-| **Inline Tag Added** | `Call Sam` $\to$ `Call Sam @urgent` | The tag renders as a standard badge preceded by a gentle `+` (`[ + URGENT ]`). |
+| **Inline Tag Added** | `Call Sam` $\to$ `Call Sam @urgent` | The tag renders as a standard badge with a slight $-3^\circ$ counter-clockwise tilt (pivot anchored near the dot at `20% 50%`), giving it the appearance of a taped paper note. **No plus (`+`) prefix** is used. |
 | **Inline Tag Deleted** | `Call Sam @urgent` $\to$ `Call Sam` | The tag renders with its category color, strikethrough line, and 50% opacity. **No minus (`−`) sign** is added; the strikethrough alone communicates removal. |
-| **Anchor Replaced** | `@todo Write letter` $\to$ `@wait Write letter` | `@wait` fuses at $x = 0$, and `@todo` appears at the start of the body diff as a struck-through, dimmed badge. |
+| **Anchor Replaced** | `@todo Write letter` $\to$ `@wait Write letter` | `@wait` fuses at $x = 0$ (tilted $-3^\circ$ as newly added), and `@todo` appears at the start of the body diff as a struck-through, dimmed badge. |
 
 ---
 
