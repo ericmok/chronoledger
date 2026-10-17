@@ -249,7 +249,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
    * Renders the note's Anchor Badge (fused with the bullet dot at x = 0).
    * Exclusively handles the leading tag at the start of the note.
    */
-  const renderAnchorBadge = (anchor: ParsedAnnotation) => {
+  const renderAnchorBadge = (anchor: ParsedAnnotation, isAdded = false) => {
     const isResolved = Boolean(isStruck || anchor.isResolved);
     const bgColor = isResolved ? anchor.resolvedBgColor : anchor.bgColor;
     const textColor = isResolved ? anchor.resolvedTextColor : anchor.textColor;
@@ -285,6 +285,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             ? '-ml-5 mr-1.5 pl-1.5 pr-2 py-[3.5px]'
             : '-ml-4 mr-1.5 pl-1 pr-1.5 py-[2.5px]'
         } rounded text-[11px] font-sans font-semibold select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+          isAdded ? '-rotate-[4deg]' : ''
+        } ${
           isDraggable
             ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
             : 'cursor-pointer hover:scale-105 active:scale-95'
@@ -378,6 +380,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         className={`inline-flex items-center gap-1 ${
           isComfortable ? 'mx-0.5 pl-1.5 pr-2 py-[3.5px]' : 'mx-0.5 pl-1 pr-1.5 py-[2.5px]'
         } rounded text-[11px] font-sans font-semibold select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+          isAdded ? '-rotate-[4deg]' : ''
+        } ${
           isDeleted
             ? 'cursor-default line-through decoration-[#2B2C30] decoration-[1.5px] opacity-50'
             : isResolved
@@ -399,7 +403,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
         }
       >
-        {isAdded && <span className="opacity-80 font-bold select-none mr-0.5">+</span>}
         <span className="w-2.5 h-2.5 flex items-center justify-center shrink-0">
           <svg className="w-2 h-2 overflow-visible" viewBox="0 0 8 8">
             <circle
@@ -631,7 +634,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       <div className={`flex-1 min-w-0 ${isComfortable ? 'pl-5' : 'pl-4'}`}>
         <div className="relative inline font-sans leading-relaxed break-words">
           {/* 1. Leading Anchor Badge: Rendered as first inline element with -ml-5 to anchor at x=0 */}
-          {currentSplit.anchor && renderAnchorBadge(currentSplit.anchor)}
+          {currentSplit.anchor &&
+            renderAnchorBadge(
+              currentSplit.anchor,
+              Boolean(hasEdits && (anchorAdded || anchorReplaced))
+            )}
 
           {/* 2. Body Content (or Body Diff) */}
           {isStruck ? (
