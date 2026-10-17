@@ -78,7 +78,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'High priority / critical task (adds red dot to date gutter & bold font)',
     color: '#D23B38', // Desert crimson red
     textColor: '#FFFFFF',
-    bgColor: '#D23B38',
+    bgColor: '#C85250',
     borderColor: '#B91C1C',
     gutterColor: '#D23B38',
     makesBold: true,
@@ -92,7 +92,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Waiting on external event, email, or blocker (adds orange dot)',
     color: '#E07A5F', // Warm terracotta orange
     textColor: '#FFFFFF',
-    bgColor: '#C2410C',
+    bgColor: '#DE7351',
     borderColor: '#9A3412',
     gutterColor: '#E07A5F',
     priority: 2,
@@ -105,7 +105,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Celebration, birthday, milestone, or happy event (adds golden yellow dot)',
     color: '#F59E0B', // Radiant golden yellow / marigold
     textColor: '#FFFFFF',
-    bgColor: '#B45309',
+    bgColor: '#D48216',
     borderColor: '#92400E',
     gutterColor: '#F59E0B',
     priority: 3,
@@ -118,7 +118,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Exploratory inquiry, unknown, research, or idea (adds purple dot)',
     color: '#9B5DE5', // Vivid amethyst purple
     textColor: '#FFFFFF',
-    bgColor: '#7E22CE',
+    bgColor: '#8B5BB5',
     borderColor: '#6B21A8',
     gutterColor: '#9B5DE5',
     priority: 4,
@@ -131,7 +131,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Revelation, reflection, journal entry, or insight (adds blue dot)',
     color: '#4A90E2', // Sky blue / cerulean
     textColor: '#FFFFFF',
-    bgColor: '#1D4ED8',
+    bgColor: '#3B7EBD',
     borderColor: '#1E40AF',
     gutterColor: '#4A90E2',
     priority: 5,
@@ -144,7 +144,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Actionable task item (adds green dot)',
     color: '#2E8540', // Crisp botanical emerald green
     textColor: '#FFFFFF',
-    bgColor: '#1B6834',
+    bgColor: '#388E52',
     borderColor: '#14532D',
     gutterColor: '#2E8540',
     priority: 6,
@@ -157,7 +157,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Time-of-day scheduled event or appointment (adds slate dot)',
     color: '#8E8F95', // Muted slate gray
     textColor: '#FFFFFF',
-    bgColor: '#475569',
+    bgColor: '#6B7280',
     borderColor: '#334155',
     gutterColor: '#8E8F95',
     priority: 7,
@@ -170,7 +170,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Failed, rejected, or unsuccessful task/event (adds red dot)',
     color: '#DC2626', // Ruby red
     textColor: '#FFFFFF',
-    bgColor: '#DC2626',
+    bgColor: '#C84E4B',
     borderColor: '#B91C1C',
     gutterColor: '#DC2626',
     priority: 8,
@@ -183,7 +183,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Missed or postponed task (dimmed with line-through)',
     color: '#A19D94', // Muted graphite ash
     textColor: '#FFFFFF',
-    bgColor: '#6B7280',
+    bgColor: '#8A857C',
     borderColor: '#4B5563',
     dimsText: true,
     priority: 9,
@@ -196,7 +196,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     description: 'Custom annotation',
     color: '#71727A',
     textColor: '#FFFFFF',
-    bgColor: '#4B5563',
+    bgColor: '#6B7280',
     borderColor: '#374151',
     priority: 99,
   },
