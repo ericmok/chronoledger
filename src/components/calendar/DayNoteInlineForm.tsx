@@ -147,13 +147,13 @@ export const DayNoteInlineForm: React.FC<DayNoteInlineFormProps> = ({
 
       {/* Quick Annotation Helper Bar */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] font-mono text-[#8E8F95] uppercase tracking-wider">Tags:</span>
+        <span className="text-[10px] font-sans font-medium text-[#8E8F95] uppercase tracking-wider">Tags:</span>
         {SUGGESTED_TAGS.map((opt) => (
           <button
             key={opt.tag}
             type="button"
             onClick={() => annotationInput.insertTagDirectly(opt.tag)}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono border border-[#DDD6C8] bg-[#FAF8F5] hover:bg-[#EAE3D6] text-[#2B2C30] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-sans font-medium border border-[#DDD6C8] bg-[#FAF8F5] hover:bg-[#EAE3D6] text-[#2B2C30] transition-colors cursor-pointer"
             title={opt.description}
           >
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />

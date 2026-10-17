@@ -128,13 +128,13 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
 
             {/* Quick Tag Pills */}
             <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-              <span className="text-[10px] font-mono text-[#8E8F95] uppercase">Quick tags:</span>
+              <span className="text-[10px] font-sans font-medium text-[#8E8F95] uppercase">Quick tags:</span>
               {SUGGESTED_TAGS.map((opt) => (
                 <button
                   key={opt.tag}
                   type="button"
                   onClick={() => annotationInput.insertTagDirectly(opt.tag)}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono border border-[#DDD6C8] bg-white hover:bg-[#EAE3D6] text-[#2B2C30] transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-sans font-medium border border-[#DDD6C8] bg-white hover:bg-[#EAE3D6] text-[#2B2C30] transition-colors cursor-pointer"
                   title={opt.description}
                 >
                   <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />

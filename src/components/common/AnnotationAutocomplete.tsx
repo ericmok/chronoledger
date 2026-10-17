@@ -160,7 +160,7 @@ export const AnnotationAutocomplete: React.FC<AnnotationAutocompleteProps> = ({
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-bold text-xs text-[#2B2C30]">
+                  <span className="font-sans font-semibold text-xs text-[#2B2C30]">
                     {opt.label}
                   </span>
                 </div>
