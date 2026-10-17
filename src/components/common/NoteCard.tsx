@@ -205,6 +205,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     return segments.map((seg, idx) => {
       if (seg.type === 'badge' && seg.annotation) {
         const badge = seg.annotation;
+        const isLeading = Boolean(seg.isLeading);
         const isResolved = Boolean(isStruck || badge.isResolved);
 
         return (
@@ -220,8 +221,30 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 onUpdate(id, newContent);
               }
             }}
-            className={`inline-flex items-center justify-center px-1 py-[3px] mx-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
-              isDeleted ? 'cursor-default' : 'cursor-pointer hover:scale-105 active:scale-95'
+            onMouseEnter={() => {
+              if (isLeading && isDraggable) setCanDrag(true);
+            }}
+            onMouseLeave={() => {
+              if (isLeading && !isDraggingSelf) setCanDrag(false);
+            }}
+            onPointerDown={() => {
+              if (isLeading && isDraggable) setCanDrag(true);
+            }}
+            onPointerUp={() => {
+              if (isLeading && !isDraggingSelf) setCanDrag(false);
+            }}
+            className={`inline-flex items-center gap-1.5 ${
+              isLeading
+                ? isComfortable
+                  ? '-ml-5 mr-1.5 pl-1.5 pr-2 py-[2px]'
+                  : '-ml-4 mr-1.5 pl-1 pr-1.5 py-[1.5px]'
+                : 'mx-0.5 px-1 py-[2px]'
+            } rounded text-[10px] font-mono font-bold uppercase tracking-wider select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+              isLeading && isDraggable
+                ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
+                : isDeleted
+                ? 'cursor-default'
+                : 'cursor-pointer hover:scale-105 active:scale-95'
             } ${
               isResolved
                 ? 'line-through opacity-70 bg-[#DDD6C8] text-[#71727A]'
@@ -241,40 +264,91 @@ export const NoteCard: React.FC<NoteCardProps> = ({
                 ? `${badge.label} (Deleted)`
                 : isAdded
                 ? `${badge.label} (Newly added tag): Click to toggle`
-                : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle`
+                : `${badge.label} (${isResolved ? 'Resolved' : 'Active'}): Click to toggle • Drag to reorder`
             }
           >
-            {isAdded && <span className="opacity-80 mr-0.5 font-bold select-none">+</span>}
-            <span>{badge.tag}</span>
+            {/* For leading badge: Encompass the dot inside! */}
+            {isLeading && (
+              <span className="w-2.5 h-2.5 flex items-center justify-center shrink-0">
+                {isDraggable && (
+                  <GripVertical
+                    className={`w-2.5 h-2.5 ${isResolved ? 'text-[#71727A]' : 'text-white'} ${
+                      isBeingDragged || isDraggingSelf ? 'block' : 'hidden group-hover:block'
+                    }`}
+                  />
+                )}
+                <svg
+                  className={`w-2 h-2 overflow-visible ${
+                    isBeingDragged || isDraggingSelf
+                      ? 'hidden'
+                      : isDraggable
+                      ? 'block group-hover:hidden'
+                      : 'block'
+                  }`}
+                  viewBox="0 0 8 8"
+                >
+                  <circle
+                    cx="4"
+                    cy="4"
+                    r="3.2"
+                    fill={isResolved ? '#71727A' : '#FFFFFF'}
+                    opacity={isResolved ? 0.7 : 0.95}
+                  />
+                  {isResolved && (
+                    <line
+                      x1="1"
+                      y1="7"
+                      x2="7"
+                      y2="1"
+                      stroke="#2B2C30"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                    />
+                  )}
+                </svg>
+              </span>
+            )}
+
+            {isAdded && <span className="opacity-80 font-bold select-none">+</span>}
+            <span className="leading-none">{badge.tag}</span>
           </button>
         );
       }
 
-      if (isDeleted) {
-        return (
-          <span
-            key={idx}
-            className="inline line-through decoration-[#D23B38] decoration-[1.5px] text-[#D23B38] opacity-60 font-serif mr-1 selection:bg-[#D23B38]/20"
-            title="Deleted word"
-          >
-            {seg.text}
-          </span>
-        );
+      if (seg.type === 'text') {
+        if (idx === 0 && seg.text.trim() === '' && parsedNote.hasLeadingAnnotation) {
+          // Drop leading whitespace before leading badge so it starts flush at negative margin
+          return null;
+        }
+
+        if (isDeleted) {
+          return (
+            <span
+              key={idx}
+              className="inline line-through decoration-[#D23B38] decoration-[1.5px] text-[#D23B38] opacity-60 font-serif mr-1 selection:bg-[#D23B38]/20"
+              title="Deleted word"
+            >
+              {seg.text}
+            </span>
+          );
+        }
+
+        if (isAdded) {
+          return (
+            <span
+              key={idx}
+              className="inline text-[#1E7B48] font-medium bg-[#E8F5E9]/60 px-0.5 rounded-xs mr-0.5"
+              title="Added word"
+            >
+              {seg.text}
+            </span>
+          );
+        }
+
+        return <span key={idx}>{seg.text}</span>;
       }
 
-      if (isAdded) {
-        return (
-          <span
-            key={idx}
-            className="inline text-[#1E7B48] font-medium bg-[#E8F5E9]/60 px-0.5 rounded-xs mr-0.5"
-            title="Added word"
-          >
-            {seg.text}
-          </span>
-        );
-      }
-
-      return <span key={idx}>{seg.text}</span>;
+      return null;
     });
   };
 
@@ -329,9 +403,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         setLocalDropIndicator(null);
         onDrop?.(e, id, pos);
       }}
-      className={`group relative flex items-start ${
-        isMinimal ? 'gap-1' : 'gap-1.5'
-      } transition-all duration-150 cursor-pointer ${
+      className={`group relative transition-all duration-150 cursor-pointer ${
         isMinimal
           ? 'py-1.5 px-0.5 text-xs border-b border-[#D5CDC0]'
           : isComfortable
@@ -372,69 +444,71 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
       )}
 
-      {/* Reserved Left Slot: Holds Color Bullet at rest, Drag Handle on hover/drag */}
-      <div
-        className={`shrink-0 flex items-center justify-center relative ${
-          isComfortable ? 'w-4 h-5 mt-0.5' : 'w-3.5 h-4 mt-0.5'
-        }`}
-      >
-        {isDraggable && (
-          <div
-            onMouseEnter={() => setCanDrag(true)}
-            onMouseLeave={() => {
-              if (!isDraggingSelf) setCanDrag(false);
-            }}
-            onPointerDown={() => setCanDrag(true)}
-            onPointerUp={() => {
-              if (!isDraggingSelf) setCanDrag(false);
-            }}
-            className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] items-center justify-center w-full h-full rounded transition-colors ${
-              isBeingDragged || isDraggingSelf ? 'flex' : 'hidden group-hover:flex'
-            }`}
-            title="Drag to reorder note"
-          >
-            <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
-          </div>
-        )}
-
-        <svg
-          className={`w-2 h-2 shrink-0 overflow-visible transition-opacity ${
-            isBeingDragged || isDraggingSelf
-              ? 'hidden'
-              : isDraggable
-              ? 'block group-hover:hidden'
-              : 'block'
-          }`}
-          viewBox="0 0 8 8"
+      {/* Standalone Left Slot: Rendered only when there is NO leading annotation */}
+      {!parsedNote.hasLeadingAnnotation && (
+        <div
+          className={`absolute left-0.5 ${
+            isComfortable ? 'top-1 w-5 h-5' : 'top-0.5 w-4 h-4'
+          } flex items-center justify-center shrink-0 pointer-events-auto`}
         >
-          <circle
-            cx="4"
-            cy="4"
-            r="3.2"
-            fill={bulletColor}
-            opacity={isBulletResolved ? 0.6 : 1}
-          />
-          {isBulletResolved && (
-            <line
-              x1="1"
-              y1="7"
-              x2="7"
-              y2="1"
-              stroke="#2B2C30"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-            />
+          {isDraggable && (
+            <div
+              onMouseEnter={() => setCanDrag(true)}
+              onMouseLeave={() => {
+                if (!isDraggingSelf) setCanDrag(false);
+              }}
+              onPointerDown={() => setCanDrag(true)}
+              onPointerUp={() => {
+                if (!isDraggingSelf) setCanDrag(false);
+              }}
+              className={`cursor-grab active:cursor-grabbing text-[#A19D94] hover:text-[#2B2C30] items-center justify-center w-full h-full rounded transition-colors ${
+                isBeingDragged || isDraggingSelf ? 'flex' : 'hidden group-hover:flex'
+              }`}
+              title="Drag to reorder note"
+            >
+              <GripVertical className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
+            </div>
           )}
-        </svg>
-      </div>
 
-      {/* Note Content with Realistic Graphite Strike Line & Micro-badges */}
-      <div className="flex-1 min-w-0">
+          <svg
+            className={`w-2 h-2 shrink-0 overflow-visible transition-opacity ${
+              isBeingDragged || isDraggingSelf
+                ? 'hidden'
+                : isDraggable
+                ? 'block group-hover:hidden'
+                : 'block'
+            }`}
+            viewBox="0 0 8 8"
+          >
+            <circle
+              cx="4"
+              cy="4"
+              r="3.2"
+              fill={bulletColor}
+              opacity={isBulletResolved ? 0.6 : 1}
+            />
+            {isBulletResolved && (
+              <line
+                x1="1"
+                y1="7"
+                x2="7"
+                y2="1"
+                stroke="#2B2C30"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            )}
+          </svg>
+        </div>
+      )}
+
+      {/* Note Content */}
+      <div className={`${isComfortable ? 'pl-5' : 'pl-4'} min-w-0`}>
         <div className="relative inline font-sans leading-relaxed break-words">
           {isStruck ? (
             // Full note strike overrides inner diffs with graphite pencil strike
             <span className="line-through decoration-[#A19D94] decoration-2">
-              {content || originalContent || '(empty note)'}
+              {renderAnnotatedText(content || originalContent || '(empty note)')}
             </span>
           ) : hasEdits ? (
             // Render word-level diff with micro-badges recognized
