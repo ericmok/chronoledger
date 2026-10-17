@@ -56,14 +56,152 @@ export type AnnotationCategory =
 export type BadgeTheme = 'solid' | 'wash';
 export const DEFAULT_BADGE_THEME: BadgeTheme = 'solid';
 
-export interface BadgeThemeColors {
-  bgColor: string;
-  textColor: string;
-  borderColor: string;
-  bulletColor: string;
-  resolvedBgColor: string;
-  resolvedTextColor: string;
-  resolvedBulletColor: string;
+// --- Color Math & Dynamic Theme Utilities ---
+
+export function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '').trim();
+  if (clean.length === 3) {
+    return [
+      parseInt(clean[0] + clean[0], 16) || 0,
+      parseInt(clean[1] + clean[1], 16) || 0,
+      parseInt(clean[2] + clean[2], 16) || 0,
+    ];
+  }
+  return [
+    parseInt(clean.slice(0, 2), 16) || 0,
+    parseInt(clean.slice(2, 4), 16) || 0,
+    parseInt(clean.slice(4, 6), 16) || 0,
+  ];
+}
+
+export function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (n: number) => {
+    const clamped = Math.max(0, Math.min(255, Math.round(n)));
+    return clamped.toString(16).padStart(2, '0');
+  };
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+    h *= 60;
+  }
+
+  return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(100, s)) / 100;
+  l = Math.max(0, Math.min(100, l)) / 100;
+
+  if (s === 0) {
+    const val = Math.round(l * 255);
+    return [val, val, val];
+  }
+
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const r = hue2rgb(p, q, h / 360 + 1 / 3);
+  const g = hue2rgb(p, q, h / 360);
+  const b = hue2rgb(p, q, h / 360 - 1 / 3);
+
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+export function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHsl(r, g, b);
+}
+
+export function hslToHex(h: number, s: number, l: number): string {
+  const [r, g, b] = hslToRgb(h, s, l);
+  return rgbToHex(r, g, b);
+}
+
+// Relative luminance (0..255) for contrast calculation
+export function getRelativeLuminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex);
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+// Returns crisp white or deep charcoal ink depending on background brightness
+export function getContrastingTextColor(bgColor: string): string {
+  return getRelativeLuminance(bgColor) > 165 ? '#2B2C30' : '#FFFFFF';
+}
+
+// Derives a softer, warmer, and less saturated tone for resolved annotations
+export function getResolvedAccentColor(baseColor: string): string {
+  const { h, s, l } = hexToHsl(baseColor);
+  // Dial warmer (+4° hue toward warm spectrum), less saturated (-35%), and lighter (+28% toward white)
+  const warmHue = (h + 4) % 360;
+  const mutedSat = Math.max(0, Math.round(s * 0.65));
+  const softLight = Math.min(85, Math.round(l + (100 - l) * 0.28));
+  return hslToHex(warmHue, mutedSat, softLight);
+}
+
+// Solid Theme: Derives a warm, softened background for resolved solid chips
+export function getSolidResolvedBgColor(baseColor: string): string {
+  const { h, s, l } = hexToHsl(baseColor);
+  const warmHue = (h + 4) % 360;
+  const mutedSat = Math.max(0, Math.round(s * 0.52));
+  const softLight = Math.min(78, Math.round(l + (100 - l) * 0.26));
+  return hslToHex(warmHue, mutedSat, softLight);
+}
+
+// Wash Theme: Derives soft watercolor paper wash background
+export function getWashBgColor(baseColor: string): string {
+  const { h, s } = hexToHsl(baseColor);
+  return hslToHex(h, Math.min(s, 45), 95);
+}
+
+// Wash Theme: Derives deep readable ink text
+export function getWashTextColor(baseColor: string): string {
+  const { h, s } = hexToHsl(baseColor);
+  return hslToHex(h, Math.min(100, Math.max(s, 55)), 25);
+}
+
+// Wash Theme: Derives softer resolved wash background
+export function getWashResolvedBgColor(baseColor: string): string {
+  const { h, s } = hexToHsl(baseColor);
+  return hslToHex((h + 4) % 360, Math.round(s * 0.25), 97);
+}
+
+// Wash Theme: Derives muted resolved ink text
+export function getWashResolvedTextColor(baseColor: string): string {
+  const { h, s } = hexToHsl(baseColor);
+  return hslToHex((h + 4) % 360, Math.round(s * 0.38), 45);
 }
 
 export interface AnnotationConfig {
@@ -72,399 +210,108 @@ export interface AnnotationConfig {
   aliases: string[];  // e.g. ["urgent", "star", "key"]
   label: string;
   description: string;
-  color: string;               // Resting dot / Bullet accent color (Active)
-  resolvedColor: string;       // Resting dot / Bullet accent color (Resolved - warmer/lighter)
-  gutterColor?: string;        // Dot color on date gutter
+  color: string;               // Base category accent color (solid chip, bullet dot, gutter dot)
+  showInGutter?: boolean;      // Whether to show a summary dot in the date column (defaults to true)
   makesBold?: boolean;         // Changes note text font to bold
   dimsText?: boolean;          // Dims note text
   priority: number;            // Lower number = higher priority
-
-  // Default theme properties (pointing to solid chip theme)
-  textColor: string;
-  bgColor: string;
-  borderColor: string;
-  bulletColor: string;
-  resolvedTextColor: string;
-  resolvedBgColor: string;
-  resolvedBulletColor: string;
-
-  // Multi-theme definitions
-  themes: Record<BadgeTheme, BadgeThemeColors>;
-}
-
-function defineAnnotation(
-  base: {
-    type: AnnotationCategory;
-    primaryTag: string;
-    aliases: string[];
-    label: string;
-    description: string;
-    color: string;
-    resolvedColor: string;
-    gutterColor?: string;
-    makesBold?: boolean;
-    dimsText?: boolean;
-    priority: number;
-  },
-  solid: BadgeThemeColors,
-  wash: BadgeThemeColors
-): AnnotationConfig {
-  return {
-    ...base,
-    textColor: solid.textColor,
-    bgColor: solid.bgColor,
-    borderColor: solid.borderColor,
-    bulletColor: solid.bulletColor,
-    resolvedTextColor: solid.resolvedTextColor,
-    resolvedBgColor: solid.resolvedBgColor,
-    resolvedBulletColor: solid.resolvedBulletColor,
-    themes: {
-      solid,
-      wash,
-    },
-  };
 }
 
 export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = {
-  important: defineAnnotation(
-    {
-      type: 'important',
-      primaryTag: 'important',
-      aliases: ['urgent', 'star', 'key'],
-      label: 'Important',
-      description: 'High priority / critical task (adds red dot to date gutter & bold font)',
-      color: '#D23B38', // Desert Crimson
-      resolvedColor: '#D99492',
-      gutterColor: '#D23B38',
-      makesBold: true,
-      priority: 1,
-    },
-    // Solid Theme (Default: high contrast, vibrant)
-    {
-      bgColor: '#C85250',
-      textColor: '#FFFFFF',
-      borderColor: '#B91C1C',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#C47D7C',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme (Soft watercolor paper wash)
-    {
-      bgColor: '#FCEBEA',
-      textColor: '#8C1D1B',
-      borderColor: '#D23B3830',
-      bulletColor: '#D23B38',
-      resolvedBgColor: '#FCF3F2',
-      resolvedTextColor: '#A65E5C',
-      resolvedBulletColor: '#D99492',
-    }
-  ),
-
-  wait: defineAnnotation(
-    {
-      type: 'wait',
-      primaryTag: 'wait',
-      aliases: ['await', 'waiting', 'blocked', 'pending'],
-      label: 'Waiting',
-      description: 'Waiting on external event, email, or blocker (adds terracotta dot)',
-      color: '#E29578', // Terracotta
-      resolvedColor: '#DFAC98',
-      gutterColor: '#E29578',
-      priority: 2,
-    },
-    // Solid Theme
-    {
-      bgColor: '#DE7351',
-      textColor: '#FFFFFF',
-      borderColor: '#9A3412',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#C48D7B',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#FAECE6',
-      textColor: '#8A3E26',
-      borderColor: '#E2957830',
-      bulletColor: '#E29578',
-      resolvedBgColor: '#FAF2EF',
-      resolvedTextColor: '#A97463',
-      resolvedBulletColor: '#DFAC98',
-    }
-  ),
-
-  celebrate: defineAnnotation(
-    {
-      type: 'celebrate',
-      primaryTag: 'celebrate',
-      aliases: ['happy', 'birthday', 'party', 'fun', 'joy', 'milestone', 'cheers'],
-      label: 'Happy Event',
-      description: 'Celebration, birthday, milestone, or happy event (adds golden ochre dot)',
-      color: '#E9C46A', // Warm Ochre
-      resolvedColor: '#DFC78B',
-      gutterColor: '#E9C46A',
-      priority: 3,
-    },
-    // Solid Theme
-    {
-      bgColor: '#D48216',
-      textColor: '#FFFFFF',
-      borderColor: '#92400E',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#C29653',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#FAF3E1',
-      textColor: '#7D5705',
-      borderColor: '#E9C46A30',
-      bulletColor: '#E9C46A',
-      resolvedBgColor: '#FCF8EE',
-      resolvedTextColor: '#9E8651',
-      resolvedBulletColor: '#DFC78B',
-    }
-  ),
-
-  explore: defineAnnotation(
-    {
-      type: 'explore',
-      primaryTag: 'explore',
-      aliases: ['idea', 'question', 'unknown', 'research', 'brainstorm'],
-      label: 'Explore / Idea',
-      description: 'Exploratory inquiry, unknown, research, or idea (adds lavender dot)',
-      color: '#9B5DE5', // Lavender / Amethyst
-      resolvedColor: '#B693E3',
-      gutterColor: '#9B5DE5',
-      priority: 4,
-    },
-    // Solid Theme
-    {
-      bgColor: '#8B5BB5',
-      textColor: '#FFFFFF',
-      borderColor: '#6B21A8',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#A184BA',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#F4ECFC',
-      textColor: '#5A229E',
-      borderColor: '#9B5DE530',
-      bulletColor: '#9B5DE5',
-      resolvedBgColor: '#F9F4FD',
-      resolvedTextColor: '#8B71A8',
-      resolvedBulletColor: '#B693E3',
-    }
-  ),
-
-  thought: defineAnnotation(
-    {
-      type: 'thought',
-      primaryTag: 'thought',
-      aliases: ['revelation', 'insight', 'reflection', 'note'],
-      label: 'Thought',
-      description: 'Revelation, reflection, journal entry, or insight (adds steel blue dot)',
-      color: '#457B9D', // Steel Blue
-      resolvedColor: '#7FA1B5',
-      gutterColor: '#457B9D',
-      priority: 5,
-    },
-    // Solid Theme
-    {
-      bgColor: '#3B7EBD',
-      textColor: '#FFFFFF',
-      borderColor: '#1E40AF',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#6E8EAB',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#EBF2F6',
-      textColor: '#1B4766',
-      borderColor: '#457B9D30',
-      bulletColor: '#457B9D',
-      resolvedBgColor: '#F2F6F9',
-      resolvedTextColor: '#688699',
-      resolvedBulletColor: '#7FA1B5',
-    }
-  ),
-
-  todo: defineAnnotation(
-    {
-      type: 'todo',
-      primaryTag: 'todo',
-      aliases: ['task', 'action'],
-      label: 'To-Do',
-      description: 'Actionable task item (adds sage dot)',
-      color: '#83C5BE', // Sage / Aqua
-      resolvedColor: '#A0C4C0',
-      gutterColor: '#83C5BE',
-      priority: 6,
-    },
-    // Solid Theme
-    {
-      bgColor: '#2D7D73',
-      textColor: '#FFFFFF',
-      borderColor: '#1C544E',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#669892',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#E4F1EF',
-      textColor: '#1C544E',
-      borderColor: '#83C5BE30',
-      bulletColor: '#83C5BE',
-      resolvedBgColor: '#EFF6F5',
-      resolvedTextColor: '#6C8F8B',
-      resolvedBulletColor: '#A0C4C0',
-    }
-  ),
-
-  time: defineAnnotation(
-    {
-      type: 'time',
-      primaryTag: 'time',
-      aliases: ['event', 'sched', 'schedule'],
-      label: 'Scheduled Event',
-      description: 'Time-of-day scheduled event or appointment (adds slate dot)',
-      color: '#71727A', // Muted slate gray
-      resolvedColor: '#9D9DA3',
-      gutterColor: '#71727A',
-      priority: 7,
-    },
-    // Solid Theme
-    {
-      bgColor: '#6B7280',
-      textColor: '#FFFFFF',
-      borderColor: '#334155',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#8C8F96',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#F0EFEA',
-      textColor: '#36373D',
-      borderColor: '#71727A30',
-      bulletColor: '#71727A',
-      resolvedBgColor: '#F6F5F2',
-      resolvedTextColor: '#83838A',
-      resolvedBulletColor: '#9D9DA3',
-    }
-  ),
-
-  failed: defineAnnotation(
-    {
-      type: 'failed',
-      primaryTag: 'failed',
-      aliases: ['fail', 'failure', 'rejected', 'unsuccessful'],
-      label: 'Failed',
-      description: 'Failed, rejected, or unsuccessful task/event (adds ruby dot)',
-      color: '#C84E4B', // Ruby muted red
-      resolvedColor: '#D89593',
-      gutterColor: '#C84E4B',
-      priority: 8,
-    },
-    // Solid Theme
-    {
-      bgColor: '#C84E4B',
-      textColor: '#FFFFFF',
-      borderColor: '#B91C1C',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#BF7A78',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#FCEBEA',
-      textColor: '#872321',
-      borderColor: '#C84E4B30',
-      bulletColor: '#C84E4B',
-      resolvedBgColor: '#FCF3F2',
-      resolvedTextColor: '#A46765',
-      resolvedBulletColor: '#D89593',
-    }
-  ),
-
-  skipped: defineAnnotation(
-    {
-      type: 'skipped',
-      primaryTag: 'skipped',
-      aliases: ['missed', 'postponed', 'dropped', 'canceled'],
-      label: 'Skipped',
-      description: 'Missed or postponed task (dimmed with line-through)',
-      color: '#A19D94', // Muted graphite ash
-      resolvedColor: '#BDBAB2',
-      dimsText: true,
-      priority: 9,
-    },
-    // Solid Theme
-    {
-      bgColor: '#8A857C',
-      textColor: '#FFFFFF',
-      borderColor: '#4B5563',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#A8A39A',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#F3F1EC',
-      textColor: '#57544D',
-      borderColor: '#A19D9430',
-      bulletColor: '#A19D94',
-      resolvedBgColor: '#F7F6F3',
-      resolvedTextColor: '#949087',
-      resolvedBulletColor: '#BDBAB2',
-    }
-  ),
-
-  custom: defineAnnotation(
-    {
-      type: 'custom',
-      primaryTag: 'custom',
-      aliases: [],
-      label: 'Tag',
-      description: 'Custom annotation',
-      color: '#71727A',
-      resolvedColor: '#9D9DA3',
-      priority: 99,
-    },
-    // Solid Theme
-    {
-      bgColor: '#6B7280',
-      textColor: '#FFFFFF',
-      borderColor: '#374151',
-      bulletColor: '#FFFFFF',
-      resolvedBgColor: '#8C8F96',
-      resolvedTextColor: '#FAF8F5',
-      resolvedBulletColor: '#FAF8F5',
-    },
-    // Wash Theme
-    {
-      bgColor: '#F1EFEA',
-      textColor: '#3E3F45',
-      borderColor: '#71727A30',
-      bulletColor: '#71727A',
-      resolvedBgColor: '#F5F4F1',
-      resolvedTextColor: '#83838A',
-      resolvedBulletColor: '#9D9DA3',
-    }
-  ),
+  important: {
+    type: 'important',
+    primaryTag: 'important',
+    aliases: ['urgent', 'star', 'key'],
+    label: 'Important',
+    description: 'High priority / critical task (adds red dot to date gutter & bold font)',
+    color: '#D23B38', // Desert Crimson
+    makesBold: true,
+    priority: 1,
+  },
+  wait: {
+    type: 'wait',
+    primaryTag: 'wait',
+    aliases: ['await', 'waiting', 'blocked', 'pending'],
+    label: 'Waiting',
+    description: 'Waiting on external event, email, or blocker (adds terracotta dot)',
+    color: '#DE7351', // Terracotta
+    priority: 2,
+  },
+  celebrate: {
+    type: 'celebrate',
+    primaryTag: 'celebrate',
+    aliases: ['happy', 'birthday', 'party', 'fun', 'joy', 'milestone', 'cheers'],
+    label: 'Happy Event',
+    description: 'Celebration, birthday, milestone, or happy event (adds golden ochre dot)',
+    color: '#D48216', // Warm Ochre
+    priority: 3,
+  },
+  explore: {
+    type: 'explore',
+    primaryTag: 'explore',
+    aliases: ['idea', 'question', 'unknown', 'research', 'brainstorm'],
+    label: 'Explore / Idea',
+    description: 'Exploratory inquiry, unknown, research, or idea (adds lavender dot)',
+    color: '#8B5BB5', // Lavender / Amethyst
+    priority: 4,
+  },
+  thought: {
+    type: 'thought',
+    primaryTag: 'thought',
+    aliases: ['revelation', 'insight', 'reflection', 'note'],
+    label: 'Thought',
+    description: 'Revelation, reflection, journal entry, or insight (adds steel blue dot)',
+    color: '#3B7EBD', // Steel Blue
+    priority: 5,
+  },
+  todo: {
+    type: 'todo',
+    primaryTag: 'todo',
+    aliases: ['task', 'action'],
+    label: 'To-Do',
+    description: 'Actionable task item (adds sage dot)',
+    color: '#2D7D73', // Sage / Aqua
+    priority: 6,
+  },
+  time: {
+    type: 'time',
+    primaryTag: 'time',
+    aliases: ['event', 'sched', 'schedule'],
+    label: 'Scheduled Event',
+    description: 'Time-of-day scheduled event or appointment (adds slate dot)',
+    color: '#6B7280', // Muted slate gray
+    priority: 7,
+  },
+  failed: {
+    type: 'failed',
+    primaryTag: 'failed',
+    aliases: ['fail', 'failure', 'rejected', 'unsuccessful'],
+    label: 'Failed',
+    description: 'Failed, rejected, or unsuccessful task/event (adds ruby dot)',
+    color: '#C84E4B', // Ruby muted red
+    priority: 8,
+  },
+  skipped: {
+    type: 'skipped',
+    primaryTag: 'skipped',
+    aliases: ['missed', 'postponed', 'dropped', 'canceled'],
+    label: 'Skipped',
+    description: 'Missed or postponed task (dimmed with line-through)',
+    color: '#8A857C', // Muted graphite ash
+    dimsText: true,
+    showInGutter: false,
+    priority: 9,
+  },
+  custom: {
+    type: 'custom',
+    primaryTag: 'custom',
+    aliases: [],
+    label: 'Tag',
+    description: 'Custom annotation',
+    color: '#71727A',
+    showInGutter: false,
+    priority: 99,
+  },
 };
 
 // Test if tag string represents a time of day: e.g. 4:00pm, 4pm, 14:30, 9am, 10:15am, 2:00pm-3:30pm
@@ -488,7 +335,8 @@ export interface ParsedAnnotation {
   resolvedBgColor: string;
   resolvedBulletColor: string;
   theme: BadgeTheme;
-  gutterColor?: string;
+  showInGutter: boolean;
+  gutterColor?: string; // Maintained for backwards compatibility
   makesBold?: boolean;
   dimsText?: boolean;
   priority: number;
@@ -505,51 +353,81 @@ export function resolveAnnotation(
 ): ParsedAnnotation {
   const lowerTag = tag.toLowerCase().trim();
 
-  const createParsed = (
-    config: AnnotationConfig,
-    resolvedTag: string,
-    isTime = false
-  ): ParsedAnnotation => {
-    const tColors = config.themes[theme] || config.themes.solid;
-    return {
-      raw: `@${resolvedTag}`,
-      tag: resolvedTag,
-      type: config.type,
-      label: isTime ? resolvedTag : config.label,
-      color: config.color,
-      textColor: tColors.textColor,
-      bgColor: tColors.bgColor,
-      borderColor: tColors.borderColor,
-      bulletColor: tColors.bulletColor,
-      resolvedColor: config.resolvedColor,
-      resolvedTextColor: tColors.resolvedTextColor,
-      resolvedBgColor: tColors.resolvedBgColor,
-      resolvedBulletColor: tColors.resolvedBulletColor,
-      theme,
-      gutterColor: config.gutterColor,
-      makesBold: config.makesBold,
-      dimsText: config.dimsText,
-      priority: config.priority,
-      isTime,
-      timeString: isTime ? resolvedTag : undefined,
-      isResolved,
-    };
-  };
+  let config: AnnotationConfig | undefined;
+  let isTime = false;
 
-  // Check if it's a time annotation (e.g. 4:00pm, 9am, 14:30)
   if (isTimeString(lowerTag)) {
-    return createParsed(ANNOTATION_CONFIGS.time, tag, true);
-  }
-
-  // Check defined categories and their aliases
-  for (const config of Object.values(ANNOTATION_CONFIGS)) {
-    if (config.primaryTag === lowerTag || config.aliases.includes(lowerTag)) {
-      return createParsed(config, tag);
+    config = ANNOTATION_CONFIGS.time;
+    isTime = true;
+  } else {
+    for (const c of Object.values(ANNOTATION_CONFIGS)) {
+      if (c.primaryTag === lowerTag || c.aliases.includes(lowerTag)) {
+        config = c;
+        break;
+      }
     }
   }
 
-  // Fallback for custom / unknown tags
-  return createParsed(ANNOTATION_CONFIGS.custom, tag);
+  if (!config) {
+    config = {
+      ...ANNOTATION_CONFIGS.custom,
+      primaryTag: lowerTag,
+      label: tag,
+    };
+  }
+
+  const baseColor = config.color;
+  const resolvedColor = getResolvedAccentColor(baseColor);
+  const showInGutter = config.showInGutter !== false;
+
+  let textColor: string;
+  let bgColor: string;
+  let bulletColor: string;
+  let resolvedTextColor: string;
+  let resolvedBgColor: string;
+  let resolvedBulletColor: string;
+
+  if (theme === 'wash') {
+    bgColor = getWashBgColor(baseColor);
+    textColor = getWashTextColor(baseColor);
+    bulletColor = baseColor;
+    resolvedBgColor = getWashResolvedBgColor(baseColor);
+    resolvedTextColor = getWashResolvedTextColor(baseColor);
+    resolvedBulletColor = resolvedColor;
+  } else {
+    // Solid Theme (Default)
+    bgColor = baseColor;
+    textColor = getContrastingTextColor(baseColor);
+    bulletColor = textColor === '#FFFFFF' ? '#FFFFFF' : baseColor;
+    resolvedBgColor = getSolidResolvedBgColor(baseColor);
+    resolvedTextColor = getContrastingTextColor(resolvedBgColor);
+    resolvedBulletColor = resolvedTextColor === '#FFFFFF' ? '#FAF8F5' : '#4A4B50';
+  }
+
+  return {
+    raw: `@${tag}`,
+    tag,
+    type: config.type,
+    label: isTime ? tag : config.label,
+    color: baseColor,
+    textColor,
+    bgColor,
+    borderColor: 'transparent',
+    bulletColor,
+    resolvedColor,
+    resolvedTextColor,
+    resolvedBgColor,
+    resolvedBulletColor,
+    theme,
+    showInGutter,
+    gutterColor: showInGutter ? baseColor : undefined,
+    makesBold: config.makesBold,
+    dimsText: config.dimsText,
+    priority: config.priority,
+    isTime,
+    timeString: isTime ? tag : undefined,
+    isResolved,
+  };
 }
 
 export interface NoteSegment {
@@ -837,15 +715,15 @@ export function getGutterDotsForNotes(
     let hasAnnotationDots = false;
 
     for (const ann of annotations) {
-      if (ann.gutterColor && !seenTypes.has(ann.type)) {
+      if (ann.showInGutter && !seenTypes.has(ann.type)) {
         seenTypes.add(ann.type);
         hasAnnotationDots = true;
         const isResolved = Boolean(note.isStruck || ann.isResolved);
-        const resolvedDotColor = ann.resolvedColor || ann.gutterColor;
+        const dotColor = isResolved ? ann.resolvedColor : ann.color;
 
         dots.push({
           id: `${note.id}-${ann.type}`,
-          color: isResolved && resolvedDotColor ? resolvedDotColor : (ann.gutterColor || ann.color),
+          color: dotColor,
           type: ann.type,
           isStruck: note.isStruck,
           isResolved,
@@ -867,7 +745,7 @@ export function getGutterDotsForNotes(
       const isResolved = note.isStruck;
       dots.push({
         id: `${note.id}-colortag`,
-        color: note.colorTag,
+        color: isResolved ? getResolvedAccentColor(note.colorTag) : note.colorTag,
         type: 'custom',
         isStruck: note.isStruck,
         isResolved,
