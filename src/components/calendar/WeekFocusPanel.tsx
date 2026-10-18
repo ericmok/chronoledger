@@ -71,7 +71,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
         onStartAddWeekNote(weekBlock.weekKey);
       }}
       title="Weekly notes — double-click to add note"
-      className={`w-64 sm:w-72 shrink-0 border-l border-[#E5DFD5] p-2 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
+      className={`w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 border-l border-[#E5DFD5] p-2 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
         weekBlock.containsToday
           ? 'bg-[#FAF3EA]/80 hover:bg-[#F5ECE0]/90'
           : 'bg-[#F7F4EC]/40 hover:bg-[#F2EDE4]/30'

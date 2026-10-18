@@ -198,7 +198,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
       className="relative flex-1 overflow-y-auto paper-texture select-none h-full outline-hidden"
     >
       <div
-        className="relative mx-auto max-w-5xl min-w-[340px] px-2 sm:px-4 md:px-8 py-6"
+        className="relative mx-auto max-w-[1600px] min-w-[340px] px-2 sm:px-4 md:px-8 py-6"
         style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%' }}
       >
         {/* Drawing Canvas Overlay */}
@@ -241,7 +241,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
           <div className="w-8 shrink-0 font-semibold text-center">Mo</div>
           <div className="w-12 shrink-0 font-semibold text-center">Date</div>
           <div className="flex-1 font-semibold pl-1.5">Daily Notes & Tasks</div>
-          <div className="w-64 sm:w-72 shrink-0 font-semibold pl-2.5 border-l border-[#E5DFD5]">Weekly Notes</div>
+          <div className="w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 font-semibold pl-2.5 border-l border-[#E5DFD5]">Weekly Notes</div>
         </div>
 
         {/* Sticky Month Rail (Fixed vertically at 50% screen height) */}
