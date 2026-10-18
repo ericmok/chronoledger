@@ -5,6 +5,7 @@ import type { DateItem, NoteItem, WeekNote, DrawingElement, CalendarSettings } f
 import { DrawingOverlay } from './DrawingOverlay';
 import { DayRow } from './calendar/DayRow';
 import { WeekFocusPanel } from './calendar/WeekFocusPanel';
+import { StickyMonthRail } from './calendar/StickyMonthRail';
 import { groupDatesIntoWeeks, formatDateKey } from '../utils/dateUtils';
 
 interface VerticalCalendarProps {
@@ -236,12 +237,22 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
         )}
 
         {/* Column Headers for 3-Tier Layout */}
-        <div className="flex items-center text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] pb-2 border-b border-[#E5DFD5] mb-2 px-2">
-          <div className="w-9 sm:w-10 shrink-0 text-right pr-1.5 font-semibold">Mo</div>
+        <div className="flex items-center text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] pb-2 border-b border-[#E5DFD5] mb-2">
+          <div className="w-8 shrink-0 font-semibold text-center">Mo</div>
           <div className="w-12 shrink-0 font-semibold text-center">Date</div>
           <div className="flex-1 font-semibold pl-1.5">Daily Notes & Tasks</div>
           <div className="w-64 sm:w-72 shrink-0 font-semibold pl-2.5 border-l border-[#E5DFD5]">Weekly Notes</div>
         </div>
+
+        {/* Sticky Month Rail (Fixed vertically at 50% screen height) */}
+        <StickyMonthRail
+          scrollRef={scrollRef}
+          dates={dates}
+          weekBlocks={weekBlocks}
+          virtualizer={virtualizer}
+          currentMonthKey={currentMonthKey}
+          onJumpToDateRequested={onJumpToDateRequested}
+        />
 
         {/* Virtualized 7-Day Week Blocks */}
         {virtualizer.getVirtualItems().map((virtualRow) => {

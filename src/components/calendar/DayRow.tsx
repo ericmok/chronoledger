@@ -33,9 +33,9 @@ export interface DayRowProps {
 
 export const DayRow: React.FC<DayRowProps> = ({
   dateItem,
-  dayIdx,
+  dayIdx: _dayIdx,
   dayNotes,
-  isMonthFocus,
+  isMonthFocus: _isMonthFocus,
   isQuickAdding,
   isCircled = false,
   circleColor,
@@ -107,25 +107,14 @@ export const DayRow: React.FC<DayRowProps> = ({
           : 'hover:bg-[#F2EDE4]/30'
       }`}
     >
-      {/* Month Indicator (Compact) */}
-      <div className="w-9 sm:w-10 shrink-0 text-right pr-1.5 pt-1 select-none">
-        {dateItem.isFirstDayOfMonth ? (
-          <span
-            className={`font-serif text-xs font-bold tracking-tight ${
-              isMonthFocus ? 'text-[#D23B38]' : 'text-[#2B2C30]'
-            }`}
-          >
-            {dateItem.monthName}
-          </span>
-        ) : dayIdx === 0 ? (
-          <span
-            className={`font-serif text-[10px] uppercase tracking-wider ${
-              isMonthFocus ? 'text-[#D23B38]/80 font-semibold' : 'text-[#A19D94]/50'
-            }`}
-          >
-            {dateItem.monthName}
-          </span>
-        ) : null}
+      {/* Month Rail Guide */}
+      <div className="w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r border-[#E5DFD5]/40">
+        {dateItem.isFirstDayOfMonth && (
+          <div
+            className="w-2.5 h-[2.5px] rounded-full bg-[#D23B38] mt-0.5 transition-transform hover:scale-125 cursor-default"
+            title={`1st of ${dateItem.monthName} ${dateItem.year}`}
+          />
+        )}
       </div>
 
       {/* Date & Day of Week */}
