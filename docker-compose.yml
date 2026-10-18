@@ -4,9 +4,9 @@ services:
     container_name: chronoledger
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "5174:5174"
     volumes:
       - ./data:/app/data
     environment:
-      - PORT=3000
+      - PORT=5174
       - HOST=0.0.0.0

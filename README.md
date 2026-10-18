@@ -130,7 +130,7 @@ npm run build
 ### Running Locally with the Built-in Server
 ```bash
 npm start
-# Server listens on port 3000 (or PORT env variable)
+# Standalone server listens on port 5174 (or PORT env variable)
 ```
 
 ### Docker
@@ -138,7 +138,54 @@ npm start
 docker compose up -d
 ```
 
-Visit `http://localhost:3000`.
+Visit `http://localhost:5174` (or `http://localhost:5173` when running `npm run dev`).
+
+---
+
+## 🔌 REST API & Note CRUD
+
+> For detailed endpoint contracts, query parameters, curl examples, and integration recipes, see the **[REST API & MCP Server Documentation](docs/REST_API_AND_MCP.md)**.
+
+The backend provides both full-calendar state sync and fine-grained note CRUD endpoints:
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/notes` | Query & filter notes by `scope` (day/week/month), `date`, `week`, `month`, `tag` (`todo`, `wait`), `status` (`open`/`completed`), and `q` text search. |
+| `GET` | `/api/notes/:id` | Fetch single note by ID. |
+| `POST` | `/api/notes` | Create a note (`scope`, `content`, `targets`, `colorTag`). |
+| `PATCH` | `/api/notes/:id` | Update note content, targets, or strike state. |
+| `POST` | `/api/notes/:id/toggle-strike` | Quick-toggle note strike status (`isStruck`). |
+| `DELETE` | `/api/notes/:id` | Delete note by ID. |
+| `GET` | `/api/calendar` | Atomic read of entire ledger. |
+| `POST` | `/api/calendar` | Atomic bulk save/sync. |
+
+Authentication supports `Authorization: Bearer <token>` for external clients and scripts, as well as `session_token` cookies for web browsers.
+
+---
+
+## 🤖 Model Context Protocol (MCP) Server
+
+ChronoLedger includes an Stdio MCP server allowing AI assistants (Antigravity, Cursor, Claude Desktop, etc.) to read and manage notes.
+
+### Running MCP Server
+```bash
+npm run mcp
+```
+
+### Registered Tools
+- `login(email, password)`: Authenticate with credentials.
+- `list_notes({ scope, date, tag, status, query })`: Search & filter notes.
+- `get_note({ id })`: Fetch full note text & metadata.
+- `create_note({ content, scope, date, colorTag })`: Add note to ledger.
+- `update_note({ id, content, ... })`: Edit note content.
+- `toggle_note_status({ id, action, tag })`: Strike note or resolve/reopen tags (`@todo` $\leftrightarrow$ `~~@todo~~`).
+- `delete_note({ id })`: Permanently remove note.
+- `get_agenda_summary({ date })`: Executive agenda for a date.
+
+### Registered Resources
+- `chronoledger://today`: Auto-summarized agenda for today.
+- `chronoledger://todos/active`: List of open `@todo` items.
+- `chronoledger://waiting`: List of active `@wait` dependencies.
 
 ---
 

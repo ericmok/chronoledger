@@ -680,7 +680,7 @@ function sendJsonResponse(req, res, statusCode, data, extraHeaders = {}) {
     'Content-Length': Buffer.byteLength(payload),
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     ...extraHeaders,
   };
@@ -688,9 +688,101 @@ function sendJsonResponse(req, res, statusCode, data, extraHeaders = {}) {
   res.end(payload);
 }
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function checkTagMatch(content, isStruck, targetTag, status) {
+  const cleanTag = targetTag.replace(/^@/, '').toLowerCase();
+  // Active tag: matches @tag not preceded by escaping backslash
+  const activeRegex = new RegExp(`(^|[^\\\\])@${escapeRegex(cleanTag)}(?![a-zA-Z0-9_:-])`, 'i');
+  // Resolved tag: matches ~~@tag~~ not preceded by escaping backslash
+  const resolvedRegex = new RegExp(`(^|[^\\\\])~~@${escapeRegex(cleanTag)}~~`, 'i');
+
+  const hasActive = activeRegex.test(content);
+  const hasResolved = resolvedRegex.test(content);
+
+  if (!hasActive && !hasResolved) {
+    return false;
+  }
+
+  if (status === 'open') {
+    return !isStruck && hasActive;
+  }
+  if (status === 'completed') {
+    return isStruck || hasResolved;
+  }
+  return true;
+}
+
+function checkStatusMatch(content, isStruck, status) {
+  if (status === 'open') {
+    return !isStruck;
+  }
+  if (status === 'completed') {
+    return Boolean(isStruck) || /(?:^|[^\\])~~@[a-zA-Z0-9_:-]+~~/.test(content);
+  }
+  return true;
+}
+
+export function findNoteById(db, noteId, userId) {
+  let day, week, month;
+  if (userId) {
+    day = db.prepare('SELECT * FROM notes WHERE id = ? AND user_id = ?').get(noteId, userId);
+    if (day) return { row: day, table: 'notes', targetCol: 'parent_dates', scope: 'day' };
+
+    week = db.prepare('SELECT * FROM week_notes WHERE id = ? AND user_id = ?').get(noteId, userId);
+    if (week) return { row: week, table: 'week_notes', targetCol: 'parent_weeks', scope: 'week' };
+
+    month = db.prepare('SELECT * FROM month_notes WHERE id = ? AND user_id = ?').get(noteId, userId);
+    if (month) return { row: month, table: 'month_notes', targetCol: 'parent_months', scope: 'month' };
+  } else {
+    day = db.prepare('SELECT * FROM notes WHERE id = ? AND user_id IS NULL').get(noteId);
+    if (day) return { row: day, table: 'notes', targetCol: 'parent_dates', scope: 'day' };
+
+    week = db.prepare('SELECT * FROM week_notes WHERE id = ? AND user_id IS NULL').get(noteId);
+    if (week) return { row: week, table: 'week_notes', targetCol: 'parent_weeks', scope: 'week' };
+
+    month = db.prepare('SELECT * FROM month_notes WHERE id = ? AND user_id IS NULL').get(noteId);
+    if (month) return { row: month, table: 'month_notes', targetCol: 'parent_months', scope: 'month' };
+  }
+  return null;
+}
+
+function formatUnifiedNote(row, scope, targetCol) {
+  let targets = [];
+  try {
+    targets = JSON.parse(row[targetCol] || '[]');
+  } catch {
+    targets = [];
+  }
+
+  return {
+    id: row.id,
+    scope,
+    content: row.content,
+    originalContent: row.original_content || null,
+    targets,
+    isStruck: Boolean(row.is_struck),
+    strikeStyle: row.strike_style || null,
+    colorTag: row.color_tag || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || null,
+  };
+}
+
+function getIsoWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
 /**
  * Handles incoming HTTP requests for `/api/*`.
- * Dispatches auth, session, and calendar requests with full multi-user support.
+ * Dispatches auth, session, calendar, and granular note requests with full multi-user support.
  */
 export function handleApiRequest(req, res, db = getDatabase()) {
   const origin = req.headers['origin'] || '*';
@@ -700,7 +792,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     });
     res.end();
@@ -906,6 +998,323 @@ export function handleApiRequest(req, res, db = getDatabase()) {
         sendJsonResponse(req, res, 500, { error: 'Failed to write to SQLite database', details: err.message });
       });
     return true;
+  }
+
+  // 9. Granular Note CRUD: /api/notes and /api/notes/:id
+  if (pathname === '/api/notes' || pathname.startsWith('/api/notes/')) {
+    const session = authenticateRequest(req, db);
+    const totalUsers = getUserCount(db);
+
+    if (!session && totalUsers > 0) {
+      sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+      return true;
+    }
+    const userId = session?.userId || null;
+
+    // A. Query & Filter: GET /api/notes
+    if (pathname === '/api/notes' && req.method === 'GET') {
+      const scopeParam = parsedUrl.searchParams.get('scope') || 'all';
+      const dateParam = parsedUrl.searchParams.get('date');
+      const startDateParam = parsedUrl.searchParams.get('start_date');
+      const endDateParam = parsedUrl.searchParams.get('end_date');
+      const weekParam = parsedUrl.searchParams.get('week');
+      const monthParam = parsedUrl.searchParams.get('month');
+      const tagParam = parsedUrl.searchParams.get('tag');
+      const statusParam = parsedUrl.searchParams.get('status') || 'all';
+      const qParam = parsedUrl.searchParams.get('q');
+      const limit = Math.max(1, Math.min(500, parseInt(parsedUrl.searchParams.get('limit') || '50', 10)));
+      const offset = Math.max(0, parseInt(parsedUrl.searchParams.get('offset') || '0', 10));
+
+      let results = [];
+
+      if (scopeParam === 'day' || scopeParam === 'all') {
+        const rows = userId
+          ? db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY created_at DESC').all(userId)
+          : db.prepare('SELECT * FROM notes WHERE user_id IS NULL ORDER BY created_at DESC').all();
+        for (const r of rows) {
+          results.push(formatUnifiedNote(r, 'day', 'parent_dates'));
+        }
+      }
+
+      if (scopeParam === 'week' || scopeParam === 'all') {
+        const rows = userId
+          ? db.prepare('SELECT * FROM week_notes WHERE user_id = ? ORDER BY created_at DESC').all(userId)
+          : db.prepare('SELECT * FROM week_notes WHERE user_id IS NULL ORDER BY created_at DESC').all();
+        for (const r of rows) {
+          results.push(formatUnifiedNote(r, 'week', 'parent_weeks'));
+        }
+      }
+
+      if (scopeParam === 'month' || scopeParam === 'all') {
+        const rows = userId
+          ? db.prepare('SELECT * FROM month_notes WHERE user_id = ? ORDER BY created_at DESC').all(userId)
+          : db.prepare('SELECT * FROM month_notes WHERE user_id IS NULL ORDER BY created_at DESC').all();
+        for (const r of rows) {
+          results.push(formatUnifiedNote(r, 'month', 'parent_months'));
+        }
+      }
+
+      let filtered = results.filter((note) => {
+        // 1. Date filter (for day notes)
+        if (dateParam) {
+          // Exact single date takes precedence
+          if (note.scope === 'day' && !note.targets.includes(dateParam)) return false;
+          if (note.scope !== 'day' && scopeParam !== 'all') return false;
+        } else if (startDateParam || endDateParam) {
+          // Date range filter (supports closed [startDate, endDate] or open-ended ranges)
+          if (note.scope === 'day') {
+            const inRange = note.targets.some((d) => {
+              if (startDateParam && d < startDateParam) return false;
+              if (endDateParam && d > endDateParam) return false;
+              return true;
+            });
+            if (!inRange) return false;
+          } else if (scopeParam !== 'all') {
+            return false;
+          }
+        }
+
+        if (weekParam) {
+          if (note.scope === 'week' && !note.targets.includes(weekParam)) return false;
+          if (note.scope !== 'week' && scopeParam !== 'all') return false;
+        }
+
+        if (monthParam) {
+          if (note.scope === 'month' && !note.targets.includes(monthParam)) return false;
+          if (note.scope !== 'month' && scopeParam !== 'all') return false;
+        }
+
+        if (qParam && !note.content.toLowerCase().includes(qParam.toLowerCase())) {
+          return false;
+        }
+
+        if (tagParam) {
+          if (!checkTagMatch(note.content, note.isStruck, tagParam, statusParam)) {
+            return false;
+          }
+        } else if (statusParam !== 'all') {
+          if (!checkStatusMatch(note.content, note.isStruck, statusParam)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+      const total = filtered.length;
+      const paged = filtered.slice(offset, offset + limit);
+
+      sendJsonResponse(req, res, 200, {
+        total,
+        limit,
+        offset,
+        notes: paged,
+      });
+      return true;
+    }
+
+    // B. Create Note: POST /api/notes
+    if (pathname === '/api/notes' && req.method === 'POST') {
+      readRequestBody(req)
+        .then((body) => {
+          const scope = body.scope || 'day';
+          if (!['day', 'week', 'month'].includes(scope)) {
+            sendJsonResponse(req, res, 400, { error: 'scope must be day, week, or month' });
+            return;
+          }
+          if (!body.content || typeof body.content !== 'string' || !body.content.trim()) {
+            sendJsonResponse(req, res, 400, { error: 'content is required and must be non-empty' });
+            return;
+          }
+
+          const content = body.content.trim();
+          const now = new Date();
+          let targets = Array.isArray(body.targets) ? body.targets : [];
+
+          if (targets.length === 0) {
+            if (scope === 'day') {
+              const y = now.getFullYear();
+              const m = String(now.getMonth() + 1).padStart(2, '0');
+              const d = String(now.getDate()).padStart(2, '0');
+              targets = [`${y}-${m}-${d}`];
+            } else if (scope === 'week') {
+              targets = [getIsoWeek(now)];
+            } else if (scope === 'month') {
+              const y = now.getFullYear();
+              const m = String(now.getMonth() + 1).padStart(2, '0');
+              targets = [`${y}-${m}`];
+            }
+          }
+
+          const prefix = scope === 'week' ? 'week-note' : scope === 'month' ? 'month-note' : 'note';
+          const id = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          const createdAt = now.toISOString();
+          const isStruck = body.isStruck ? 1 : 0;
+          const strikeStyle = body.strikeStyle || null;
+          const colorTag = body.colorTag || null;
+          const originalContent = body.originalContent || null;
+
+          if (scope === 'day') {
+            db.prepare(`
+              INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(id, userId, content, originalContent, JSON.stringify(targets), isStruck, strikeStyle, colorTag, createdAt, null);
+          } else if (scope === 'week') {
+            db.prepare(`
+              INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(id, userId, content, originalContent, JSON.stringify(targets), isStruck, strikeStyle, colorTag, createdAt, null);
+          } else {
+            db.prepare(`
+              INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(id, userId, content, originalContent, JSON.stringify(targets), isStruck, strikeStyle, colorTag, createdAt, null);
+          }
+
+          sendJsonResponse(req, res, 201, {
+            id,
+            scope,
+            content,
+            originalContent,
+            targets,
+            isStruck: Boolean(isStruck),
+            strikeStyle,
+            colorTag,
+            createdAt,
+            updatedAt: null,
+          });
+        })
+        .catch((err) => {
+          sendJsonResponse(req, res, 400, { error: err.message });
+        });
+      return true;
+    }
+
+    // C. Quick Strike Toggle: POST /api/notes/:id/toggle-strike
+    const toggleStrikeMatch = pathname.match(/^\/api\/notes\/([^/]+)\/toggle-strike$/);
+    if (toggleStrikeMatch && req.method === 'POST') {
+      const noteId = decodeURIComponent(toggleStrikeMatch[1]);
+      const found = findNoteById(db, noteId, userId);
+      if (!found) {
+        sendJsonResponse(req, res, 404, { error: `Note not found with id: ${noteId}` });
+        return true;
+      }
+
+      const nextStruck = found.row.is_struck ? 0 : 1;
+      const now = new Date().toISOString();
+
+      db.prepare(`UPDATE ${found.table} SET is_struck = ?, updated_at = ? WHERE id = ?`).run(nextStruck, now, noteId);
+
+      sendJsonResponse(req, res, 200, {
+        id: noteId,
+        scope: found.scope,
+        isStruck: Boolean(nextStruck),
+        updatedAt: now,
+      });
+      return true;
+    }
+
+    // D. Single Note ID operations: GET, PATCH, DELETE /api/notes/:id
+    const noteIdMatch = pathname.match(/^\/api\/notes\/([^/]+)$/);
+    if (noteIdMatch) {
+      const noteId = decodeURIComponent(noteIdMatch[1]);
+      const found = findNoteById(db, noteId, userId);
+
+      if (req.method === 'GET') {
+        if (!found) {
+          sendJsonResponse(req, res, 404, { error: `Note not found with id: ${noteId}` });
+          return true;
+        }
+        sendJsonResponse(req, res, 200, formatUnifiedNote(found.row, found.scope, found.targetCol));
+        return true;
+      }
+
+      if (req.method === 'PATCH') {
+        if (!found) {
+          sendJsonResponse(req, res, 404, { error: `Note not found with id: ${noteId}` });
+          return true;
+        }
+
+        readRequestBody(req)
+          .then((body) => {
+            const current = found.row;
+            let newContent = current.content;
+            let newOriginalContent = current.original_content;
+            let newTargets = current[found.targetCol];
+            let newIsStruck = current.is_struck;
+            let newStrikeStyle = current.strike_style;
+            let newColorTag = current.color_tag;
+
+            if (typeof body.content === 'string') {
+              const trimmed = body.content.trim();
+              if (body.preserveDiff === true && trimmed !== current.content) {
+                newOriginalContent = current.content;
+              } else if (body.originalContent !== undefined) {
+                newOriginalContent = body.originalContent || null;
+              } else if (body.preserveDiff !== true) {
+                newOriginalContent = null;
+              }
+              newContent = trimmed;
+            }
+
+            if (Array.isArray(body.targets)) {
+              newTargets = JSON.stringify(body.targets);
+            }
+            if (typeof body.isStruck === 'boolean') {
+              newIsStruck = body.isStruck ? 1 : 0;
+            }
+            if (body.strikeStyle !== undefined) {
+              newStrikeStyle = body.strikeStyle || null;
+            }
+            if (body.colorTag !== undefined) {
+              newColorTag = body.colorTag || null;
+            }
+
+            const now = new Date().toISOString();
+
+            db.prepare(`
+              UPDATE ${found.table}
+              SET content = ?, original_content = ?, ${found.targetCol} = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?
+              WHERE id = ?
+            `).run(newContent, newOriginalContent, newTargets, newIsStruck, newStrikeStyle, newColorTag, now, noteId);
+
+            const updatedRow = {
+              ...current,
+              content: newContent,
+              original_content: newOriginalContent,
+              [found.targetCol]: newTargets,
+              is_struck: newIsStruck,
+              strike_style: newStrikeStyle,
+              color_tag: newColorTag,
+              updated_at: now,
+            };
+
+            sendJsonResponse(req, res, 200, formatUnifiedNote(updatedRow, found.scope, found.targetCol));
+          })
+          .catch((err) => {
+            sendJsonResponse(req, res, 400, { error: err.message });
+          });
+        return true;
+      }
+
+      if (req.method === 'DELETE') {
+        if (!found) {
+          sendJsonResponse(req, res, 404, { error: `Note not found with id: ${noteId}` });
+          return true;
+        }
+
+        if (userId) {
+          db.prepare(`DELETE FROM ${found.table} WHERE id = ? AND user_id = ?`).run(noteId, userId);
+        } else {
+          db.prepare(`DELETE FROM ${found.table} WHERE id = ? AND user_id IS NULL`).run(noteId);
+        }
+
+        sendJsonResponse(req, res, 200, { ok: true, deletedId: noteId });
+        return true;
+      }
+    }
   }
 
   return false;

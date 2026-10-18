@@ -10,9 +10,11 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "mcp": "node server/mcp.js"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@tanstack/react-virtual": "^3.14.19",
     "argon2": "^0.45.1",
     "cookie": "^2.0.1",
