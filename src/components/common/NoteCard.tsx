@@ -575,10 +575,10 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         <div
           className={`absolute ${
             isComfortable
-              ? 'left-2 top-1 w-5 h-5'
+              ? 'left-2 top-1 w-5 h-5.5'
               : isMinimal
-              ? 'left-0.5 top-0.5 w-4 h-4'
-              : 'left-1 top-0.5 w-4 h-4'
+              ? 'left-0.5 top-1.5 w-4 h-5'
+              : 'left-1 top-1 w-4 h-5'
           } flex items-center justify-center shrink-0 pointer-events-auto`}
         >
           {isDraggable && (
