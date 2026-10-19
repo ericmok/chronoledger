@@ -152,6 +152,10 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
     return weekBlocks.findIndex((b) => b.containsToday);
   }, [weekBlocks]);
 
+  // Initial scroll to today flag
+  const hasInitiallyScrolledRef = useRef<boolean>(false);
+  const lastTargetKeyRef = useRef<number | null>(null);
+
   // Prepend and append infinite scroll handlers
   const handleLoadEarlier = useCallback(() => {
     if (isPrependingRef.current || !scrollRef.current || !isInitializedRef.current) return;
@@ -176,7 +180,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
       const newScrollHeight = scrollRef.current.scrollHeight;
       const heightDiff = newScrollHeight - prevScrollHeightRef.current;
       if (heightDiff > 0) {
-        scrollRef.current.scrollTop = prevScrollTopRef.current + heightDiff;
+        scrollRef.current.scrollTop += heightDiff;
       }
       isPrependingRef.current = false;
     }
@@ -202,22 +206,22 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
     return () => el.removeEventListener('scroll', onScroll);
   }, [handleLoadEarlier, handleLoadLater, scrollRef]);
 
-  // Jump to today initially; gate infinite loading until initial positioning settles
+  // Jump to today ONLY ONCE on initial mount; gate infinite loading until initial positioning settles
   useEffect(() => {
-    if (todayWeekIndex !== -1 && scrollRef.current && !isInitializedRef.current) {
+    if (todayWeekIndex !== -1 && scrollRef.current && !hasInitiallyScrolledRef.current) {
+      hasInitiallyScrolledRef.current = true;
+      virtualizer.scrollToIndex(todayWeekIndex, { align: 'center', behavior: 'auto' });
       const timer = setTimeout(() => {
-        virtualizer.scrollToIndex(todayWeekIndex, { align: 'center', behavior: 'auto' });
-        setTimeout(() => {
-          isInitializedRef.current = true;
-        }, 120);
-      }, 60);
+        isInitializedRef.current = true;
+      }, 200);
       return () => clearTimeout(timer);
     }
   }, [todayWeekIndex, virtualizer, scrollRef]);
 
-  // Smooth scroll to targeted date
+  // Smooth scroll to targeted date: only trigger on fresh user-requested target keys
   useEffect(() => {
-    if (!scrollTargetDate || !scrollRef.current) return;
+    if (!scrollTargetDate || scrollTargetDate.key === lastTargetKeyRef.current || !scrollRef.current) return;
+    lastTargetKeyRef.current = scrollTargetDate.key;
 
     const wIdx = dateToWeekIndexMap.get(scrollTargetDate.dateString);
     if (wIdx !== undefined) {

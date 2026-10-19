@@ -80,22 +80,26 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
     getItemKey: (index) => weekBlocks[index]?.weekKey ?? index,
   });
 
-  // Initial scroll to today's week
+  const hasInitiallyScrolledRef = useRef<boolean>(false);
+  const lastTargetWeekKeyRef = useRef<string | null>(null);
+
+  // Initial scroll to today's week ONLY ONCE on mount
   useEffect(() => {
-    if (todayWeekIndex !== -1 && scrollRef.current && !isInitializedRef.current) {
+    if (todayWeekIndex !== -1 && scrollRef.current && !hasInitiallyScrolledRef.current) {
+      hasInitiallyScrolledRef.current = true;
+      virtualizer.scrollToIndex(todayWeekIndex, { align: 'center', behavior: 'auto' });
       const timer = setTimeout(() => {
-        virtualizer.scrollToIndex(todayWeekIndex, { align: 'center', behavior: 'auto' });
-        setTimeout(() => {
-          isInitializedRef.current = true;
-        }, 100);
-      }, 50);
+        isInitializedRef.current = true;
+      }, 200);
       return () => clearTimeout(timer);
     }
   }, [todayWeekIndex, virtualizer]);
 
-  // Handle targeting a specific week
+  // Handle targeting a specific week (only once per unique target week)
   useEffect(() => {
-    if (!scrollTargetWeekKey || !scrollRef.current) return;
+    if (!scrollTargetWeekKey || scrollTargetWeekKey === lastTargetWeekKeyRef.current || !scrollRef.current) return;
+    lastTargetWeekKeyRef.current = scrollTargetWeekKey;
+
     const targetIdx = weekBlocks.findIndex((b) => b.weekKey === scrollTargetWeekKey);
     if (targetIdx !== -1) {
       virtualizer.scrollToIndex(targetIdx, { align: 'center', behavior: 'smooth' });
