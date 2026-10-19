@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import type React from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { DateItem, WeekNote, CalendarSettings } from '../../types/calendar';
@@ -78,20 +78,51 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
     estimateSize: () => 180,
     overscan: 4,
     getItemKey: (index) => weekBlocks[index]?.weekKey ?? index,
+    initialRect: typeof window !== 'undefined'
+      ? { width: window.innerWidth, height: window.innerHeight }
+      : { width: 1024, height: 768 },
+    initialOffset: () => {
+      if (todayWeekIndex === -1) return 0;
+      const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
+      const itemHeight = 180;
+      return Math.max(0, todayWeekIndex * itemHeight - (vh / 2) + (itemHeight / 2));
+    },
   });
 
   const hasInitiallyScrolledRef = useRef<boolean>(false);
   const lastTargetWeekKeyRef = useRef<string | null>(null);
 
-  // Initial scroll to today's week ONLY ONCE on mount
-  useEffect(() => {
+  // Instant initial centering on Today before first paint
+  useLayoutEffect(() => {
     if (todayWeekIndex !== -1 && scrollRef.current && !hasInitiallyScrolledRef.current) {
       hasInitiallyScrolledRef.current = true;
-      virtualizer.scrollToIndex(todayWeekIndex, { align: 'center', behavior: 'auto' });
+      const vh = scrollRef.current.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 768);
+      const itemHeight = 180;
+      const targetOffset = Math.max(0, todayWeekIndex * itemHeight - (vh / 2) + (itemHeight / 2));
+
+      scrollRef.current.scrollTop = targetOffset;
+      virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
+
+      // Guard against asynchronous browser scroll restoration resetting scrollTop to 0 on refresh
+      const frame = requestAnimationFrame(() => {
+        if (scrollRef.current && scrollRef.current.scrollTop === 0 && targetOffset > 0) {
+          scrollRef.current.scrollTop = targetOffset;
+          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
+        }
+      });
+
       const timer = setTimeout(() => {
+        if (scrollRef.current && scrollRef.current.scrollTop === 0 && targetOffset > 0) {
+          scrollRef.current.scrollTop = targetOffset;
+          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
+        }
         isInitializedRef.current = true;
-      }, 200);
-      return () => clearTimeout(timer);
+      }, 50);
+
+      return () => {
+        cancelAnimationFrame(frame);
+        clearTimeout(timer);
+      };
     }
   }, [todayWeekIndex, virtualizer]);
 

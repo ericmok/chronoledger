@@ -130,13 +130,26 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
     return weekBlocks.map((b) => ({ weekKey: b.weekKey, label: b.label }));
   }, [weekBlocks]);
 
-  // TanStack Virtualizer with stable key indexing to prevent measurement cache corruption on prepend
+  const todayWeekIndex = useMemo(() => {
+    return weekBlocks.findIndex((b) => b.containsToday);
+  }, [weekBlocks]);
+
+  // TanStack Virtualizer with stable key indexing and instant initial centering
   const virtualizer = useVirtualizer({
     count: weekBlocks.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => (hideWeekPanel ? 360 : 420),
     overscan: 4,
     getItemKey: (index) => weekBlocks[index]?.weekKey ?? index,
+    initialRect: typeof window !== 'undefined'
+      ? { width: window.innerWidth, height: window.innerHeight }
+      : { width: 1024, height: 768 },
+    initialOffset: () => {
+      if (todayWeekIndex === -1) return 0;
+      const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
+      const itemHeight = hideWeekPanel ? 360 : 420;
+      return Math.max(0, todayWeekIndex * itemHeight - (vh / 2) + (itemHeight / 2));
+    },
   });
 
   // Map each date to its week block index
@@ -146,10 +159,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
       block.days.forEach((day) => map.set(day.dateString, wIdx));
     });
     return map;
-  }, [weekBlocks]);
-
-  const todayWeekIndex = useMemo(() => {
-    return weekBlocks.findIndex((b) => b.containsToday);
   }, [weekBlocks]);
 
   // Initial scroll to today flag
@@ -206,17 +215,39 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
     return () => el.removeEventListener('scroll', onScroll);
   }, [handleLoadEarlier, handleLoadLater, scrollRef]);
 
-  // Jump to today ONLY ONCE on initial mount; gate infinite loading until initial positioning settles
-  useEffect(() => {
+  // Instant initial centering on Today before first paint
+  useLayoutEffect(() => {
     if (todayWeekIndex !== -1 && scrollRef.current && !hasInitiallyScrolledRef.current) {
       hasInitiallyScrolledRef.current = true;
-      virtualizer.scrollToIndex(todayWeekIndex, { align: 'center', behavior: 'auto' });
+      const vh = scrollRef.current.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 768);
+      const itemHeight = hideWeekPanel ? 360 : 420;
+      const targetOffset = Math.max(0, todayWeekIndex * itemHeight - (vh / 2) + (itemHeight / 2));
+
+      scrollRef.current.scrollTop = targetOffset;
+      virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
+
+      // Guard against asynchronous browser scroll restoration resetting scrollTop to 0 on refresh
+      const frame = requestAnimationFrame(() => {
+        if (scrollRef.current && scrollRef.current.scrollTop === 0 && targetOffset > 0) {
+          scrollRef.current.scrollTop = targetOffset;
+          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
+        }
+      });
+
       const timer = setTimeout(() => {
+        if (scrollRef.current && scrollRef.current.scrollTop === 0 && targetOffset > 0) {
+          scrollRef.current.scrollTop = targetOffset;
+          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
+        }
         isInitializedRef.current = true;
-      }, 200);
-      return () => clearTimeout(timer);
+      }, 50);
+
+      return () => {
+        cancelAnimationFrame(frame);
+        clearTimeout(timer);
+      };
     }
-  }, [todayWeekIndex, virtualizer, scrollRef]);
+  }, [todayWeekIndex, hideWeekPanel, virtualizer, scrollRef]);
 
   // Smooth scroll to targeted date: only trigger on fresh user-requested target keys
   useEffect(() => {
