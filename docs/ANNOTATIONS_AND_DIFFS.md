@@ -76,8 +76,8 @@ All semantic tags, note bullet dots, and date gutter dots draw from a shared 10-
 | **Thought** | `@thought`, `@revelation`, `@insight`, `@reflection`, `@note` | Blue | Journal observations and reflections. Adds a blue dot to the date column. |
 | **To-Do** | `@todo`, `@task`, `@action` | Green | Standard actionable items. Adds a green dot to the date column. |
 | **Scheduled Event** | `@time`, `@event`, `@sched`, or time patterns (e.g. `@4:00pm`, `@10:30am`) | Teal | Time-of-day appointments. Adds a teal dot to the date column. |
-| **Failed** | `@failed`, `@fail`, `@failure`, `@rejected`, `@unsuccessful` | Muted Red | Abandoned or unsuccessful attempts. Adds a muted red dot to the date column. |
-| **Skipped** | `@skipped`, `@missed`, `@postponed`, `@dropped`, `@canceled` | Light Gray | Postponed or skipped tasks. Dims note text; does not add a gutter dot. |
+| **Failed** | `@failed`, `@fail`, `@failure`, `@rejected`, `@unsuccessful`, `@missed` | Muted Red | Abandoned, missed, or unsuccessful attempts. Adds a muted red dot to the date column. |
+| **Skipped** | `@skipped`, `@postponed`, `@dropped`, `@canceled` | Light Gray | Postponed or skipped tasks. Dims note text; does not add a gutter dot. |
 | **Custom** | Any arbitrary `@word` (e.g., `@reading`, `@finance`) | Gray | Ad-hoc user tags. Excluded from date gutter dots by default. |
 
 #### Color & Typography Behavior
