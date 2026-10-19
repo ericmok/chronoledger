@@ -8,6 +8,7 @@ export interface DateItem {
   dayOfMonth: number; // 1-31
   dayOfWeek: number; // 0 = Sun, 1 = Mon, ..., 6 = Sat
   dayOfWeekLetter: string; // "S", "M", "T", "W", "Th", "F", "Sa"
+  dayOfWeekShort?: string; // "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
   isWeekEnd: boolean; // True if this day ends the week (triggers dashed line)
   isFirstDayOfMonth: boolean;
   isToday: boolean;

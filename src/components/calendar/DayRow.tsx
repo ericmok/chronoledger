@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { DateItem, NoteItem, DrawingTool, CircleDateColor } from '../../types/calendar';
 import { CIRCLE_DATE_COLOR_NAMES } from '../../types/calendar';
-import { analyzeDateSpan } from '../../utils/dateUtils';
+import { analyzeDateSpan, DAY_NAMES_SHORT } from '../../utils/dateUtils';
 import { getGutterDotsForNotes } from '../../utils/annotationUtils';
 import { NoteItemComponent } from '../NoteItemComponent';
 import { DayNoteInlineForm } from './DayNoteInlineForm';
@@ -91,6 +91,10 @@ export const DayRow: React.FC<DayRowProps> = ({
     ? CIRCLE_DATE_COLOR_NAMES[circleColor as CircleDateColor] || 'Circled'
     : 'Circled';
 
+  const dayOfWeekShort =
+    dateItem.dayOfWeekShort ||
+    (dateItem.dayOfWeek !== undefined ? DAY_NAMES_SHORT[dateItem.dayOfWeek] : dateItem.dayOfWeekLetter);
+
   return (
     <div
       data-day-row="true"
@@ -125,7 +129,7 @@ export const DayRow: React.FC<DayRowProps> = ({
         {dateItem.isToday ? (
           /* Fused Today Unit: Date Number + Day of Week + TODAY badge */
           <div
-            className="relative flex flex-col items-center justify-center bg-[#2B2C30] text-[#FAF8F5] rounded-md px-1.5 py-1 shadow-xs min-w-[36px] cursor-pointer hover:brightness-110 transition-all"
+            className="relative flex flex-col items-center justify-center bg-[#2B2C30] text-[#FAF8F5] rounded-md px-1.5 py-1 shadow-xs min-w-[36px] cursor-pointer hover:brightness-110 transition-all leading-none"
             title={
               isCircled
                 ? `Today (${circleColorName} - click to cycle color, double-click to remove)`
@@ -146,22 +150,20 @@ export const DayRow: React.FC<DayRowProps> = ({
               }
             }}
           >
-            <div className="flex items-center justify-center gap-1 leading-none">
-              <span className="text-xs sm:text-sm font-bold text-[#FAF8F5]">
-                {dateItem.dayOfMonth}
-              </span>
-              <span className="text-xs sm:text-sm font-bold text-[#FAF8F5]">
-                {dateItem.dayOfWeekLetter}
-              </span>
-            </div>
-            <span className="text-[7px] font-mono font-black uppercase tracking-wider text-[#FAF8F5]/80 leading-none mt-1">
+            <span className="text-base sm:text-[17px] font-bold text-[#FAF8F5] leading-none">
+              {dateItem.dayOfMonth}
+            </span>
+            <span className="text-[8.5px] sm:text-[9px] font-mono uppercase tracking-tight text-[#FAF8F5] opacity-50 leading-none mt-0.5 select-none">
+              {dayOfWeekShort}
+            </span>
+            <span className="text-[6.5px] font-mono font-black uppercase tracking-wider text-[#FAF8F5]/80 leading-none mt-1">
               TODAY
             </span>
 
             {/* Tactile Hand-Drawn Ring around Today badge */}
             {isCircled && (
               <span
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[54px] h-[48px] pointer-events-none flex items-center justify-center z-10"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[54px] h-[52px] pointer-events-none flex items-center justify-center z-10"
                 aria-hidden="true"
               >
                 <RoughCircledRing
@@ -173,28 +175,30 @@ export const DayRow: React.FC<DayRowProps> = ({
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-1 leading-none">
-            <span
-              className="relative inline-flex items-center justify-center min-w-[20px] h-5 px-0.5 rounded text-xs sm:text-sm font-medium text-[#2B2C30] cursor-pointer hover:bg-black/5 transition-colors"
-              title={
-                isCircled
-                  ? `${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`
-                  : `${dateItem.monthName} ${dateItem.dayOfMonth} (Double-click to circle)`
-              }
-              onDoubleClick={(e) => {
-                e.stopPropagation();
+          <div
+            className="flex flex-col items-center justify-center leading-none cursor-pointer group/date"
+            title={
+              isCircled
+                ? `${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`
+                : `${dateItem.monthName} ${dateItem.dayOfMonth} (Double-click to circle)`
+            }
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onToggleCircleDate?.(dateItem.dateString);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (activeTool === 'eraser' && isCircled) {
                 onToggleCircleDate?.(dateItem.dateString);
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (activeTool === 'eraser' && isCircled) {
-                  onToggleCircleDate?.(dateItem.dateString);
-                  return;
-                }
-                if (isCircled) {
-                  onCycleCircleColor?.(dateItem.dateString);
-                }
-              }}
+                return;
+              }
+              if (isCircled) {
+                onCycleCircleColor?.(dateItem.dateString);
+              }
+            }}
+          >
+            <span
+              className="relative inline-flex items-center justify-center min-w-[22px] h-6 px-0.5 rounded text-base sm:text-[17px] font-bold text-[#2B2C30] group-hover/date:bg-black/5 transition-colors leading-none"
             >
               {dateItem.dayOfMonth}
 
@@ -203,20 +207,7 @@ export const DayRow: React.FC<DayRowProps> = ({
                 <span
                   role="button"
                   tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (activeTool === 'eraser') {
-                      onToggleCircleDate?.(dateItem.dateString);
-                      return;
-                    }
-                    onCycleCircleColor?.(dateItem.dateString);
-                  }}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    onToggleCircleDate?.(dateItem.dateString);
-                  }}
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[40px] pointer-events-auto cursor-pointer flex items-center justify-center z-10 hover:scale-105 transition-transform"
-                  title={`${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`}
                 >
                   <RoughCircledRing
                     dateKey={dateItem.dateString}
@@ -227,13 +218,13 @@ export const DayRow: React.FC<DayRowProps> = ({
               )}
             </span>
             <span
-              className={`font-semibold text-xs sm:text-sm ${
+              className={`font-mono text-[8.5px] sm:text-[9px] uppercase tracking-tight leading-none mt-0.5 select-none ${
                 dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
-                  ? 'text-[#D23B38]'
-                  : 'text-[#63666A]'
+                  ? 'text-[#D23B38] opacity-35'
+                  : 'text-[#2B2C30] opacity-30'
               }`}
             >
-              {dateItem.dayOfWeekLetter}
+              {dayOfWeekShort}
             </span>
           </div>
         )}

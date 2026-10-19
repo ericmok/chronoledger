@@ -2,6 +2,7 @@ import type { DateItem, WeekStartDay } from '../types/calendar';
 
 
 export const DAY_LETTERS = ['S', 'M', 'T', 'W', 'Th', 'F', 'Sa'];
+export const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const MONTH_NAMES = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -87,6 +88,7 @@ export function createDateItem(date: Date, weekStartsOn: WeekStartDay = 0, today
     dayOfMonth,
     dayOfWeek,
     dayOfWeekLetter: DAY_LETTERS[dayOfWeek],
+    dayOfWeekShort: DAY_NAMES_SHORT[dayOfWeek],
     isWeekEnd,
     isFirstDayOfMonth: dayOfMonth === 1,
     isToday: dateString === currentTodayKey,
