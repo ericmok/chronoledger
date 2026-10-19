@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import type React from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { DateItem, NoteItem, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
@@ -15,6 +15,8 @@ interface VerticalCalendarProps {
   drawings: DrawingElement[];
   circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings;
+  onLoadEarlierWeeks?: () => void;
+  onLoadLaterWeeks?: () => void;
   onToggleStrike: (noteId: string) => void;
   onRemoveNote: (noteId: string) => void;
   onUpdateNote?: (noteId: string, newContent: string, parentDates?: string[], colorTag?: string) => void;
@@ -46,6 +48,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   drawings = [],
   circledDates = {},
   settings,
+  onLoadEarlierWeeks,
+  onLoadLaterWeeks,
   onToggleStrike,
   onRemoveNote,
   onUpdateNote,
@@ -73,6 +77,13 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
 
   const currentMonthKey = useMemo(() => formatDateKey(new Date()).slice(0, 7), []);
+
+  // Prepending & Appending scroll compensation refs
+  const prevScrollHeightRef = useRef<number>(0);
+  const prevScrollTopRef = useRef<number>(0);
+  const isPrependingRef = useRef<boolean>(false);
+  const isAppendingRef = useRef<boolean>(false);
+  const isInitializedRef = useRef<boolean>(false);
 
   // Map notes to their dates
   const notesByDate = useMemo(() => {
@@ -115,12 +126,13 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
     return weekBlocks.map((b) => ({ weekKey: b.weekKey, label: b.label }));
   }, [weekBlocks]);
 
-  // TanStack Virtualizer
+  // TanStack Virtualizer with stable key indexing to prevent measurement cache corruption on prepend
   const virtualizer = useVirtualizer({
     count: weekBlocks.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 420,
     overscan: 4,
+    getItemKey: (index) => weekBlocks[index]?.weekKey ?? index,
   });
 
   // Map each date to its week block index
@@ -136,11 +148,64 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
     return weekBlocks.findIndex((b) => b.containsToday);
   }, [weekBlocks]);
 
-  // Jump to today initially
+  // Prepend and append infinite scroll handlers
+  const handleLoadEarlier = useCallback(() => {
+    if (isPrependingRef.current || !scrollRef.current || !isInitializedRef.current) return;
+    isPrependingRef.current = true;
+    prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+    prevScrollTopRef.current = scrollRef.current.scrollTop;
+    onLoadEarlierWeeks?.();
+  }, [onLoadEarlierWeeks, scrollRef]);
+
+  const handleLoadLater = useCallback(() => {
+    if (isAppendingRef.current || !scrollRef.current || !isInitializedRef.current) return;
+    isAppendingRef.current = true;
+    onLoadLaterWeeks?.();
+    setTimeout(() => {
+      isAppendingRef.current = false;
+    }, 200);
+  }, [onLoadLaterWeeks, scrollRef]);
+
+  // Synchronously compensate scroll offset when earlier weeks are prepended
+  useLayoutEffect(() => {
+    if (isPrependingRef.current && scrollRef.current) {
+      const newScrollHeight = scrollRef.current.scrollHeight;
+      const heightDiff = newScrollHeight - prevScrollHeightRef.current;
+      if (heightDiff > 0) {
+        scrollRef.current.scrollTop = prevScrollTopRef.current + heightDiff;
+      }
+      isPrependingRef.current = false;
+    }
+  }, [weekBlocks, scrollRef]);
+
+  // Listen to scroll events to trigger bidirectional loading near boundaries
   useEffect(() => {
-    if (todayWeekIndex !== -1 && scrollRef.current) {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      if (!isInitializedRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = el;
+
+      if (scrollTop < 450) {
+        handleLoadEarlier();
+      } else if (scrollTop + clientHeight > scrollHeight - 450) {
+        handleLoadLater();
+      }
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [handleLoadEarlier, handleLoadLater, scrollRef]);
+
+  // Jump to today initially; gate infinite loading until initial positioning settles
+  useEffect(() => {
+    if (todayWeekIndex !== -1 && scrollRef.current && !isInitializedRef.current) {
       const timer = setTimeout(() => {
         virtualizer.scrollToIndex(todayWeekIndex, { align: 'center', behavior: 'auto' });
+        setTimeout(() => {
+          isInitializedRef.current = true;
+        }, 120);
       }, 60);
       return () => clearTimeout(timer);
     }
@@ -158,6 +223,20 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
       });
     }
   }, [scrollTargetDate, dateToWeekIndexMap, virtualizer, scrollRef]);
+
+  // Visible date range with a 2-week buffer for Drawing Frustum Culling
+  const visibleDateRange = useMemo(() => {
+    const virtualItems = virtualizer.getVirtualItems();
+    if (virtualItems.length === 0 || weekBlocks.length === 0) return null;
+
+    const firstIndex = Math.max(0, virtualItems[0].index - 2);
+    const lastIndex = Math.min(weekBlocks.length - 1, virtualItems[virtualItems.length - 1].index + 2);
+
+    const minDate = weekBlocks[firstIndex]?.startDate?.dateString || '';
+    const maxDate = weekBlocks[lastIndex]?.endDate?.dateString || '';
+
+    return { minDate, maxDate };
+  }, [virtualizer, weekBlocks]);
 
   // Coordinate mapping for Drawing Canvas
   const getDateAtY = (y: number) => {
@@ -189,19 +268,24 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
       const dayHeight = vItem.size / block.days.length;
       return vItem.start + dayIdx * dayHeight;
     }
-    return wIdx * 360 + (dayIdx >= 0 ? dayIdx * 50 : 0);
+    // Continuous offset fallback via virtualizer index offset rather than arbitrary hardcoded multiplier
+    const rawOffset = virtualizer.getOffsetForIndex?.(wIdx);
+    const offset = typeof rawOffset === 'number' ? rawOffset : Array.isArray(rawOffset) ? rawOffset[0] : wIdx * 420;
+    const dayHeight = 60; // 420 / 7
+    return offset + (dayIdx >= 0 ? dayIdx * dayHeight : 0);
   };
 
   return (
     <div
       ref={scrollRef}
       className="relative flex-1 overflow-y-auto paper-texture select-none h-full outline-hidden"
+      style={{ overflowAnchor: 'none' }}
     >
       <div
         className="relative mx-auto max-w-[1600px] min-w-[340px] px-2 sm:px-4 md:px-8 py-6"
         style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%' }}
       >
-        {/* Drawing Canvas Overlay */}
+        {/* Drawing Canvas Overlay with Viewport Frustum Culling */}
         <DrawingOverlay
           tool={settings.activeTool}
           inkColor={settings.inkColor}
@@ -212,6 +296,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
           containerHeight={virtualizer.getTotalSize()}
           getDateAtY={getDateAtY}
           getYForDate={getYForDate}
+          visibleDateRange={visibleDateRange}
         />
 
         {/* Active Drawing Tool Helper Pill */}

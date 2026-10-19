@@ -19,6 +19,7 @@ interface DrawingOverlayProps {
   containerHeight: number;
   getDateAtY: (y: number) => { dateString: string; dateY: number; rowHeight: number } | null;
   getYForDate: (dateString: string) => number | null;
+  visibleDateRange?: { minDate: string; maxDate: string } | null;
 }
 
 interface CalendarHitResult {
@@ -170,6 +171,7 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
   containerHeight,
   getDateAtY,
   getYForDate,
+  visibleDateRange,
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [, setRenderTrigger] = useState(0);
@@ -405,12 +407,30 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
     setLastPointer(null);
   };
 
-  // Render individual drawings anchored to dates
+  // Render individual drawings anchored to dates with Viewport Frustum Culling
   const renderDrawings = () => {
     const svgRect = svgRef.current?.getBoundingClientRect() || null;
 
     return drawings.map((d) => {
       if (d.anchorStartDate?.startsWith('radar:')) return null;
+
+      // Viewport Frustum Culling: skip offscreen drawings outside the visible viewport buffer
+      if (visibleDateRange && visibleDateRange.minDate && visibleDateRange.maxDate) {
+        if (d.type === 'freehand') {
+          if (d.anchorStartDate < visibleDateRange.minDate || d.anchorStartDate > visibleDateRange.maxDate) {
+            return null;
+          }
+        } else if (d.type === 'arrow') {
+          const startIn = d.anchorStartDate >= visibleDateRange.minDate && d.anchorStartDate <= visibleDateRange.maxDate;
+          const endIn = d.anchorEndDate
+            ? d.anchorEndDate >= visibleDateRange.minDate && d.anchorEndDate <= visibleDateRange.maxDate
+            : startIn;
+          if (!startIn && !endIn) {
+            return null;
+          }
+        }
+      }
+
       const anchorY = getYForDate(d.anchorStartDate);
       if (anchorY === null) return null;
 

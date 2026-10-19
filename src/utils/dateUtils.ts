@@ -24,27 +24,36 @@ export function formatDateKey(date: Date): string {
 }
 
 /**
- * Calculates standard ISO week number
+ * Calculates standard ISO week number and the corresponding ISO week-numbering year.
+ * In ISO 8601, the week belongs to the year containing its Thursday.
  */
-export function getWeekNumber(date: Date, weekStartsOn: WeekStartDay = 0): number {
+export function getWeekYearAndNumber(date: Date, weekStartsOn: WeekStartDay = 0): { year: number; weekNumber: number } {
   const target = new Date(date.valueOf());
   const dayNr = (date.getDay() - weekStartsOn + 7) % 7;
   target.setDate(target.getDate() - dayNr + 3);
+  const targetYear = target.getFullYear();
   const firstThursday = target.valueOf();
   target.setMonth(0, 1);
   if (target.getDay() !== 4) {
     target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
   }
-  return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+  const weekNumber = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+  return { year: targetYear, weekNumber };
 }
 
 /**
- * Formats a week key string: YYYY-Www
+ * Calculates standard ISO week number
+ */
+export function getWeekNumber(date: Date, weekStartsOn: WeekStartDay = 0): number {
+  return getWeekYearAndNumber(date, weekStartsOn).weekNumber;
+}
+
+/**
+ * Formats a week key string: YYYY-Www, paired with the ISO week-numbering year
  */
 export function getWeekKey(date: Date, weekStartsOn: WeekStartDay = 0): string {
-  const year = date.getFullYear();
-  const weekNum = getWeekNumber(date, weekStartsOn);
-  return `${year}-W${String(weekNum).padStart(2, '0')}`;
+  const { year, weekNumber } = getWeekYearAndNumber(date, weekStartsOn);
+  return `${year}-W${String(weekNumber).padStart(2, '0')}`;
 }
 
 
@@ -103,6 +112,43 @@ export function generateDateRange(
   const totalDays = daysBefore + daysAfter;
   for (let i = 0; i <= totalDays; i++) {
     const current = new Date(start);
+    current.setDate(current.getDate() + i);
+    items.push(createDateItem(current, weekStartsOn, todayKey));
+  }
+
+  return items;
+}
+
+/**
+ * Generates an array of DateItems strictly snapped to complete 7-day weeks.
+ * Always starts on the week's first day and ends on the week's last day,
+ * guaranteeing no partial boundary weeks during dynamic prepending/appending.
+ */
+export function generateDateRangeSnapped(
+  centerDate: Date,
+  weeksBefore: number = 26,
+  weeksAfter: number = 52,
+  weekStartsOn: WeekStartDay = 0
+): DateItem[] {
+  const todayKey = formatDateKey(new Date());
+
+  // Snap center date's week start to local midnight
+  const startOfWeek = new Date(centerDate.getFullYear(), centerDate.getMonth(), centerDate.getDate());
+  const dayOfWeek = startOfWeek.getDay();
+  const diffToWeekStart = (dayOfWeek - weekStartsOn + 7) % 7;
+  startOfWeek.setDate(startOfWeek.getDate() - diffToWeekStart);
+
+  // Start date: startOfWeek minus weeksBefore full 7-day weeks
+  const startDate = new Date(startOfWeek);
+  startDate.setDate(startDate.getDate() - weeksBefore * 7);
+
+  // Total full 7-day weeks = weeksBefore + current week (1) + weeksAfter
+  const totalWeeks = weeksBefore + 1 + weeksAfter;
+  const totalDays = totalWeeks * 7;
+
+  const items: DateItem[] = [];
+  for (let i = 0; i < totalDays; i++) {
+    const current = new Date(startDate);
     current.setDate(current.getDate() + i);
     items.push(createDateItem(current, weekStartsOn, todayKey));
   }
@@ -171,8 +217,8 @@ export function groupDatesIntoWeeks(dates: DateItem[], weekStartsOn: WeekStartDa
       const first = currentDays[0];
       const last = currentDays[currentDays.length - 1];
       const d = parseDateKey(first.dateString);
-      const weekNum = getWeekNumber(d, weekStartsOn);
-      const weekKey = `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+      const { year: weekYear, weekNumber: weekNum } = getWeekYearAndNumber(d, weekStartsOn);
+      const weekKey = `${weekYear}-W${String(weekNum).padStart(2, '0')}`;
       const containsToday = currentDays.some((day) => day.isToday);
 
       const label = `Week ${weekNum} · ${first.monthName} ${first.dayOfMonth} – ${last.monthName} ${last.dayOfMonth}`;
@@ -180,7 +226,7 @@ export function groupDatesIntoWeeks(dates: DateItem[], weekStartsOn: WeekStartDa
       blocks.push({
         weekKey,
         weekNumber: weekNum,
-        year: d.getFullYear(),
+        year: weekYear,
         startDate: first,
         endDate: last,
         label,

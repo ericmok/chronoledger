@@ -1,6 +1,6 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useCalendarState } from './hooks/useCalendarState';
-import { generateDateRange, formatDateKey } from './utils/dateUtils';
+import { generateDateRangeSnapped, formatDateKey, parseDateKey } from './utils/dateUtils';
 import { Header } from './components/Header';
 import { VerticalCalendar } from './components/VerticalCalendar';
 import { AddNoteModal } from './components/AddNoteModal';
@@ -93,15 +93,58 @@ export function App() {
   const [scrollTargetDate, setScrollTargetDate] = useState<{ dateString: string; key: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Generate 1.5 years of dates around current date
+  // Dynamic bidirectional window of weeks snapped around current week
+  const [calendarWindow, setCalendarWindow] = useState({
+    weeksBefore: 26, // starts at ~6 months in the past
+    weeksAfter: 52,  // starts at ~12 months in the future
+  });
+
   const centerDate = useMemo(() => new Date(), []);
   const dates = useMemo(() => {
-    return generateDateRange(centerDate, 180, 365, settings.weekStartsOn);
-  }, [centerDate, settings.weekStartsOn]);
+    return generateDateRangeSnapped(
+      centerDate,
+      calendarWindow.weeksBefore,
+      calendarWindow.weeksAfter,
+      settings.weekStartsOn
+    );
+  }, [centerDate, calendarWindow.weeksBefore, calendarWindow.weeksAfter, settings.weekStartsOn]);
 
-  const scrollToDate = (dateString: string) => {
-    setScrollTargetDate({ dateString, key: Date.now() });
-  };
+  const handleLoadEarlierWeeks = useCallback(() => {
+    setCalendarWindow((prev) => ({
+      ...prev,
+      weeksBefore: prev.weeksBefore + 26,
+    }));
+  }, []);
+
+  const handleLoadLaterWeeks = useCallback(() => {
+    setCalendarWindow((prev) => ({
+      ...prev,
+      weeksAfter: prev.weeksAfter + 26,
+    }));
+  }, []);
+
+  const scrollToDate = useCallback(
+    (dateString: string) => {
+      const targetDate = parseDateKey(dateString);
+      if (!isNaN(targetDate.getTime())) {
+        const now = new Date();
+        const diffDays = Math.round((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        const diffWeeks = Math.floor(diffDays / 7);
+
+        // Auto-expand range if target date is outside current loaded range
+        if (diffWeeks < -calendarWindow.weeksBefore) {
+          const needed = Math.abs(diffWeeks) + 26;
+          setCalendarWindow((prev) => ({ ...prev, weeksBefore: Math.max(prev.weeksBefore, needed) }));
+        } else if (diffWeeks > calendarWindow.weeksAfter) {
+          const needed = diffWeeks + 26;
+          setCalendarWindow((prev) => ({ ...prev, weeksAfter: Math.max(prev.weeksAfter, needed) }));
+        }
+      }
+
+      setScrollTargetDate({ dateString, key: Date.now() });
+    },
+    [calendarWindow.weeksBefore, calendarWindow.weeksAfter]
+  );
 
   const handleJumpToToday = () => {
     const todayStr = formatDateKey(new Date());
@@ -195,6 +238,8 @@ export function App() {
             drawings={drawings}
             circledDates={circledDates}
             settings={settings}
+            onLoadEarlierWeeks={handleLoadEarlierWeeks}
+            onLoadLaterWeeks={handleLoadLaterWeeks}
             onToggleStrike={toggleStrikeNote}
             onRemoveNote={removeNote}
             onUpdateNote={updateNote}
