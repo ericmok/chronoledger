@@ -196,15 +196,15 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
   if (!activeMonth) return null;
 
   const isTransitioning = Boolean(transitionNextMonth && transitionProgress > 0 && transitionProgress < 1);
-  const PILL_TRAVEL_HEIGHT = 48;
+  const DISSOLVE_DRIFT = 8; // subtle micro-shift during dissolve
 
   return (
     <aside
-      className="fixed left-0 top-1/2 -translate-y-1/2 z-30 pointer-events-none select-none flex flex-col items-start"
+      className="fixed left-1 sm:left-1.5 top-1/2 -translate-y-1/2 z-30 pointer-events-none select-none flex flex-col items-start"
       aria-label="Current Month Indicator"
     >
       <div className="relative flex flex-col items-start justify-center">
-        {/* Outgoing Month Pill (if transitioning) */}
+        {/* Outgoing Month Text (if transitioning) */}
         {isTransitioning && (
           <div
             role="button"
@@ -217,17 +217,17 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
               }
             }}
             title={`${activeMonth.fullName} ${activeMonth.year} — click to jump to start of month`}
-            className="absolute left-0 pointer-events-auto cursor-pointer group/railpill flex flex-col items-start transition-transform"
+            className="absolute left-0 pointer-events-auto cursor-pointer group/railpill flex flex-col items-start transition-all focus:outline-hidden focus-visible:ring-1 focus-visible:ring-[#D23B38]/40 focus-visible:rounded"
             style={{
-              transform: `translateY(${-transitionProgress * PILL_TRAVEL_HEIGHT}px)`,
-              opacity: Math.max(0.1, 1 - transitionProgress * 0.9),
+              transform: `translateY(${-transitionProgress * DISSOLVE_DRIFT}px)`,
+              opacity: Math.max(0, 1 - transitionProgress),
             }}
           >
-            <MonthPill month={activeMonth} />
+            <MonthWatermark month={activeMonth} />
           </div>
         )}
 
-        {/* Primary / Incoming Month Pill */}
+        {/* Primary / Incoming Month Text */}
         {isTransitioning && transitionNextMonth ? (
           <div
             role="button"
@@ -240,13 +240,13 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
               }
             }}
             title={`${transitionNextMonth.fullName} ${transitionNextMonth.year} — click to jump to start of month`}
-            className="absolute left-0 pointer-events-auto cursor-pointer group/railpill flex flex-col items-start transition-transform"
+            className="absolute left-0 pointer-events-auto cursor-pointer group/railpill flex flex-col items-start transition-all focus:outline-hidden focus-visible:ring-1 focus-visible:ring-[#D23B38]/40 focus-visible:rounded"
             style={{
-              transform: `translateY(${(1 - transitionProgress) * PILL_TRAVEL_HEIGHT}px)`,
-              opacity: Math.max(0.15, transitionProgress),
+              transform: `translateY(${(1 - transitionProgress) * DISSOLVE_DRIFT}px)`,
+              opacity: Math.max(0, transitionProgress),
             }}
           >
-            <MonthPill month={transitionNextMonth} />
+            <MonthWatermark month={transitionNextMonth} />
           </div>
         ) : (
           <div
@@ -260,9 +260,9 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
               }
             }}
             title={`${activeMonth.fullName} ${activeMonth.year} — click to jump to start of month`}
-            className="pointer-events-auto cursor-pointer group/railpill flex flex-col items-start"
+            className="pointer-events-auto cursor-pointer group/railpill flex flex-col items-start focus:outline-hidden focus-visible:ring-1 focus-visible:ring-[#D23B38]/40 focus-visible:rounded"
           >
-            <MonthPill month={activeMonth} />
+            <MonthWatermark month={activeMonth} />
           </div>
         )}
       </div>
@@ -270,44 +270,42 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
   );
 };
 
-interface MonthPillProps {
+interface MonthWatermarkProps {
   month: MonthDisplayInfo;
 }
 
-const MonthPill: React.FC<MonthPillProps> = ({ month }) => {
+/**
+ * Pure typographic vertical watermark for the active sticky month indicator.
+ * Displays full month name and 4-digit year along the left margin with high contrast
+ * and subtle hover feedback, without heavy containers, boxes, or borders.
+ */
+const MonthWatermark: React.FC<MonthWatermarkProps> = ({ month }) => {
   return (
-    <div
-      className={`pl-1 pr-1.5 py-2.5 rounded-r-md flex flex-col items-center justify-center transition-all select-none shadow-sm border-r border-y ${
-        month.isCurrentMonth
-          ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30] hover:brightness-110'
-          : 'bg-[#FAF8F5] text-[#2B2C30] border-[#E5DFD5] hover:border-[#D23B38]'
-      }`}
-    >
+    <div className="py-2.5 px-1 flex flex-col items-center justify-center select-none transition-all">
       <div
-        className={`font-serif text-[10px] font-bold tracking-widest uppercase flex items-center gap-1 select-none ${
-          month.isCurrentMonth ? 'text-[#FAF8F5]' : 'text-[#2B2C30]'
-        }`}
+        className="font-serif text-xs sm:text-[13px] font-bold tracking-[0.22em] uppercase flex items-center gap-2.5 select-none transition-all"
         style={{
           writingMode: 'vertical-rl',
           transform: 'rotate(180deg)',
         }}
       >
         <span
-          className="font-extrabold tracking-wider"
-          style={
-            !month.isCurrentMonth && month.seasonalColor
-              ? { color: month.seasonalColor.accentTag }
-              : undefined
-          }
+          className="transition-all duration-200 group-hover/railpill:opacity-100 group-hover/railpill:scale-105"
+          style={{
+            color: month.seasonalColor?.accentTag || '#2B2C30',
+            opacity: month.isCurrentMonth ? 0.95 : 0.78,
+          }}
         >
-          {month.name}
+          {month.fullName}
         </span>
         <span
-          className={`text-[9px] font-mono font-bold ${
-            month.isCurrentMonth ? 'text-[#FAF8F5]/80' : 'text-[#7E7F85]'
-          }`}
+          className="font-mono text-[10px] sm:text-[10.5px] font-semibold tracking-wider transition-all duration-200 group-hover/railpill:opacity-90"
+          style={{
+            color: '#2B2C30',
+            opacity: month.isCurrentMonth ? 0.75 : 0.55,
+          }}
         >
-          '{String(month.year).slice(2)}
+          {month.year}
         </span>
       </div>
     </div>
