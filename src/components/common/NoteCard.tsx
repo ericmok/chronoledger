@@ -721,10 +721,18 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         {badge}
       </div>
 
-      {/* Note Action Cluster: Strikethrough, Edit & Delete (Hidden at rest, revealed on hover/interaction) */}
+      {/* Note Action Cluster: Strikethrough, Edit & Delete (Floating overlay on hover/interaction, taking 0 layout width) */}
       <div
-        className={`flex items-center gap-0.5 shrink-0 ml-1 transition-opacity ${
-          isBeingDragged || isDraggingSelf ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        className={`absolute z-10 flex items-center gap-0.5 rounded-md border shadow-2xs backdrop-blur-xs transition-opacity duration-150 ${
+          isMinimal ? 'right-0.5 top-0.5 p-0.5' : 'right-1 top-1 p-0.5'
+        } ${
+          isStruck
+            ? 'bg-[#FAF8F5]/95 border-[#E5DFD5]'
+            : 'bg-[#FAF8F5]/95 border-[#D5CDC0]/80'
+        } ${
+          isBeingDragged || isDraggingSelf
+            ? 'opacity-0 pointer-events-none'
+            : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto'
         }`}
       >
         {/* Strike Action Button (Analog Pencil Scratch) */}
