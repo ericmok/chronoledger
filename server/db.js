@@ -340,6 +340,31 @@ export function migrateDatabase(db) {
       throw err;
     }
   }
+
+  if (currentVersion < 5) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_drawings_anchor_date ON drawings(user_id, anchor_start_date);
+        CREATE INDEX IF NOT EXISTS idx_circled_dates_user_key ON circled_dates(user_id, date_key);
+        CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(user_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_week_notes_created_at ON week_notes(user_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_month_notes_created_at ON month_notes(user_id, created_at);
+      `);
+
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES ('schema_version', '5')
+        ON CONFLICT(key) DO UPDATE SET value = '5'
+      `).run();
+
+      db.exec('COMMIT;');
+      console.log('[DB Migration] Applied schema v5: multi-year date and timestamp indexes created.');
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      console.error('[DB Migration Error schema v5]:', err);
+      throw err;
+    }
+  }
 }
 
 /**
@@ -647,6 +672,275 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
     return { ok: true, syncedAt: now };
   } catch (err) {
     db.exec('ROLLBACK;');
+    throw err;
+  }
+}
+
+/**
+ * Incrementally applies granular updates and deletions within an atomic transaction.
+ * Does NOT drop or re-insert untouched existing records.
+ */
+export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
+  if (!delta) throw new Error('No delta provided');
+
+  db.exec('BEGIN TRANSACTION;');
+  try {
+    const now = new Date().toISOString();
+
+    // 1. Day Notes
+    if (delta.notes) {
+      if (Array.isArray(delta.notes.delete) && delta.notes.delete.length > 0) {
+        const deleteStmt = userId
+          ? db.prepare('DELETE FROM notes WHERE id = ? AND user_id = ?')
+          : db.prepare('DELETE FROM notes WHERE id = ? AND user_id IS NULL');
+        for (const id of delta.notes.delete) {
+          if (userId) deleteStmt.run(id, userId);
+          else deleteStmt.run(id);
+        }
+      }
+
+      if (Array.isArray(delta.notes.upsert)) {
+        const upsertNote = db.prepare(`
+          INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            content = excluded.content,
+            original_content = excluded.original_content,
+            parent_dates = excluded.parent_dates,
+            is_struck = excluded.is_struck,
+            strike_style = excluded.strike_style,
+            color_tag = excluded.color_tag,
+            updated_at = excluded.updated_at
+        `);
+        for (const n of delta.notes.upsert) {
+          upsertNote.run(
+            n.id,
+            userId || null,
+            n.content || '',
+            n.originalContent || null,
+            JSON.stringify(n.parentDates || []),
+            n.isStruck ? 1 : 0,
+            n.strikeStyle || null,
+            n.colorTag || null,
+            n.createdAt || now,
+            n.updatedAt || now
+          );
+        }
+      }
+    }
+
+    // 2. Week Notes
+    if (delta.weekNotes) {
+      if (Array.isArray(delta.weekNotes.delete) && delta.weekNotes.delete.length > 0) {
+        const deleteStmt = userId
+          ? db.prepare('DELETE FROM week_notes WHERE id = ? AND user_id = ?')
+          : db.prepare('DELETE FROM week_notes WHERE id = ? AND user_id IS NULL');
+        for (const id of delta.weekNotes.delete) {
+          if (userId) deleteStmt.run(id, userId);
+          else deleteStmt.run(id);
+        }
+      }
+
+      if (Array.isArray(delta.weekNotes.upsert)) {
+        const upsertWeekNote = db.prepare(`
+          INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            content = excluded.content,
+            original_content = excluded.original_content,
+            parent_weeks = excluded.parent_weeks,
+            is_struck = excluded.is_struck,
+            strike_style = excluded.strike_style,
+            color_tag = excluded.color_tag,
+            updated_at = excluded.updated_at
+        `);
+        for (const wn of delta.weekNotes.upsert) {
+          upsertWeekNote.run(
+            wn.id,
+            userId || null,
+            wn.content || '',
+            wn.originalContent || null,
+            JSON.stringify(wn.parentWeeks || []),
+            wn.isStruck ? 1 : 0,
+            wn.strikeStyle || null,
+            wn.colorTag || null,
+            wn.createdAt || now,
+            wn.updatedAt || now
+          );
+        }
+      }
+    }
+
+    // 3. Month Notes
+    if (delta.monthNotes) {
+      if (Array.isArray(delta.monthNotes.delete) && delta.monthNotes.delete.length > 0) {
+        const deleteStmt = userId
+          ? db.prepare('DELETE FROM month_notes WHERE id = ? AND user_id = ?')
+          : db.prepare('DELETE FROM month_notes WHERE id = ? AND user_id IS NULL');
+        for (const id of delta.monthNotes.delete) {
+          if (userId) deleteStmt.run(id, userId);
+          else deleteStmt.run(id);
+        }
+      }
+
+      if (Array.isArray(delta.monthNotes.upsert)) {
+        const upsertMonthNote = db.prepare(`
+          INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            content = excluded.content,
+            original_content = excluded.original_content,
+            parent_months = excluded.parent_months,
+            is_struck = excluded.is_struck,
+            strike_style = excluded.strike_style,
+            color_tag = excluded.color_tag,
+            updated_at = excluded.updated_at
+        `);
+        for (const mn of delta.monthNotes.upsert) {
+          upsertMonthNote.run(
+            mn.id,
+            userId || null,
+            mn.content || '',
+            mn.originalContent || null,
+            JSON.stringify(mn.parentMonths || []),
+            mn.isStruck ? 1 : 0,
+            mn.strikeStyle || null,
+            mn.colorTag || null,
+            mn.createdAt || now,
+            mn.updatedAt || now
+          );
+        }
+      }
+    }
+
+    // 4. Drawings
+    if (delta.drawings) {
+      if (Array.isArray(delta.drawings.delete) && delta.drawings.delete.length > 0) {
+        const deleteStmt = userId
+          ? db.prepare('DELETE FROM drawings WHERE id = ? AND user_id = ?')
+          : db.prepare('DELETE FROM drawings WHERE id = ? AND user_id IS NULL');
+        for (const id of delta.drawings.delete) {
+          if (userId) deleteStmt.run(id, userId);
+          else deleteStmt.run(id);
+        }
+      }
+
+      if (Array.isArray(delta.drawings.upsert)) {
+        const upsertDrawing = db.prepare(`
+          INSERT INTO drawings (id, user_id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_anchor, end_anchor, start_offset, end_offset, points, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            type = excluded.type,
+            color = excluded.color,
+            stroke_width = excluded.stroke_width,
+            anchor_start_date = excluded.anchor_start_date,
+            anchor_end_date = excluded.anchor_end_date,
+            start_anchor = excluded.start_anchor,
+            end_anchor = excluded.end_anchor,
+            start_offset = excluded.start_offset,
+            end_offset = excluded.end_offset,
+            points = excluded.points
+        `);
+        for (const d of delta.drawings.upsert) {
+          upsertDrawing.run(
+            d.id,
+            userId || null,
+            d.type,
+            d.color,
+            d.strokeWidth,
+            d.anchorStartDate,
+            d.anchorEndDate || null,
+            d.startAnchor ? JSON.stringify(d.startAnchor) : null,
+            d.endAnchor ? JSON.stringify(d.endAnchor) : null,
+            JSON.stringify(d.startOffset || { x: 0, y: 0 }),
+            d.endOffset ? JSON.stringify(d.endOffset) : null,
+            JSON.stringify(d.points || []),
+            d.createdAt || now
+          );
+        }
+      }
+    }
+
+    // 5. Circled Dates
+    if (delta.circledDates) {
+      if (Array.isArray(delta.circledDates.delete) && delta.circledDates.delete.length > 0) {
+        const deleteStmt = userId
+          ? db.prepare('DELETE FROM circled_dates WHERE date_key = ? AND user_id = ?')
+          : db.prepare('DELETE FROM circled_dates WHERE date_key = ? AND user_id IS NULL');
+        for (const dateKey of delta.circledDates.delete) {
+          if (userId) deleteStmt.run(dateKey, userId);
+          else deleteStmt.run(dateKey);
+        }
+      }
+
+      if (delta.circledDates.upsert && typeof delta.circledDates.upsert === 'object') {
+        const upsertCircle = db.prepare(`
+          INSERT INTO circled_dates (date_key, user_id, color, created_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(date_key) DO UPDATE SET
+            color = excluded.color
+        `);
+        for (const [dateKey, val] of Object.entries(delta.circledDates.upsert)) {
+          upsertCircle.run(dateKey, userId || null, val.color, now);
+        }
+      }
+    }
+
+    // 6. Settings
+    if (delta.settings && typeof delta.settings === 'object') {
+      const s = delta.settings;
+      const targetId = userId || 'default';
+      const existingSettings = db.prepare('SELECT id FROM settings WHERE user_id = ? OR id = ?').get(targetId, targetId);
+
+      if (existingSettings) {
+        db.prepare(`
+          UPDATE settings
+          SET week_starts_on = COALESCE(?, week_starts_on),
+              show_struck_items = COALESCE(?, show_struck_items),
+              active_tool = COALESCE(?, active_tool),
+              ink_color = COALESCE(?, ink_color),
+              badge_theme = COALESCE(?, badge_theme),
+              updated_at = ?
+          WHERE id = ? OR user_id = ?
+        `).run(
+          s.weekStartsOn !== undefined ? s.weekStartsOn : null,
+          s.showStruckItems !== undefined ? (s.showStruckItems ? 1 : 0) : null,
+          s.activeTool || null,
+          s.inkColor || null,
+          s.badgeTheme || null,
+          now,
+          targetId,
+          targetId
+        );
+      } else {
+        db.prepare(`
+          INSERT INTO settings (id, user_id, week_starts_on, show_struck_items, active_tool, ink_color, badge_theme, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          targetId,
+          userId || null,
+          s.weekStartsOn ?? 0,
+          s.showStruckItems ? 1 : 0,
+          s.activeTool || 'select',
+          s.inkColor || '#2B2C30',
+          s.badgeTheme || 'solid',
+          now
+        );
+      }
+    }
+
+    const setMeta = db.prepare(`
+      INSERT INTO metadata (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `);
+    setMeta.run('last_synced_at', now);
+
+    db.exec('COMMIT;');
+    return { ok: true, syncedAt: now };
+  } catch (err) {
+    db.exec('ROLLBACK;');
+    console.error('Failed to save calendar delta:', err);
     throw err;
   }
 }
@@ -997,6 +1291,130 @@ export function handleApiRequest(req, res, db = getDatabase()) {
         console.error('SQLite Write Error:', err);
         sendJsonResponse(req, res, 500, { error: 'Failed to write to SQLite database', details: err.message });
       });
+    return true;
+  }
+
+  // 8b. Incremental Calendar Delta POST (Batch Delta Sync)
+  if (pathname === '/api/calendar/delta' && req.method === 'POST') {
+    readRequestBody(req)
+      .then((payload) => {
+        const session = authenticateRequest(req, db);
+        const totalUsers = getUserCount(db);
+
+        if (!session) {
+          if (totalUsers === 0) {
+            const result = saveCalendarDelta(db, payload, null);
+            sendJsonResponse(req, res, 200, result);
+            return;
+          }
+          sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+          return;
+        }
+
+        const result = saveCalendarDelta(db, payload, session.userId);
+        sendJsonResponse(req, res, 200, result);
+      })
+      .catch((err) => {
+        console.error('SQLite Delta Write Error:', err);
+        sendJsonResponse(req, res, 500, { error: 'Failed to write delta to SQLite database', details: err.message });
+      });
+    return true;
+  }
+
+  // 8c. Granular Drawings API: POST /api/drawings, POST /api/drawings/batch-delete, DELETE /api/drawings/:id
+  if (pathname === '/api/drawings' || pathname.startsWith('/api/drawings/')) {
+    const session = authenticateRequest(req, db);
+    const totalUsers = getUserCount(db);
+    if (!session && totalUsers > 0) {
+      sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+      return true;
+    }
+    const userId = session?.userId || null;
+
+    if (pathname === '/api/drawings' && req.method === 'POST') {
+      readRequestBody(req)
+        .then((drawing) => {
+          if (!drawing || !drawing.id || !drawing.type || !drawing.anchorStartDate) {
+            sendJsonResponse(req, res, 400, { error: 'id, type, and anchorStartDate are required' });
+            return;
+          }
+          saveCalendarDelta(db, { drawings: { upsert: [drawing] } }, userId);
+          sendJsonResponse(req, res, 201, drawing);
+        })
+        .catch((err) => sendJsonResponse(req, res, 400, { error: err.message }));
+      return true;
+    }
+
+    if (pathname === '/api/drawings/batch-delete' && req.method === 'POST') {
+      readRequestBody(req)
+        .then((body) => {
+          const ids = Array.isArray(body?.ids) ? body.ids : [];
+          if (ids.length === 0) {
+            sendJsonResponse(req, res, 400, { error: 'ids array is required' });
+            return;
+          }
+          saveCalendarDelta(db, { drawings: { delete: ids } }, userId);
+          sendJsonResponse(req, res, 200, { ok: true, deletedCount: ids.length });
+        })
+        .catch((err) => sendJsonResponse(req, res, 400, { error: err.message }));
+      return true;
+    }
+
+    const drawingIdMatch = pathname.match(/^\/api\/drawings\/([^/]+)$/);
+    if (drawingIdMatch && req.method === 'DELETE') {
+      const drawingId = decodeURIComponent(drawingIdMatch[1]);
+      saveCalendarDelta(db, { drawings: { delete: [drawingId] } }, userId);
+      sendJsonResponse(req, res, 200, { ok: true, deletedId: drawingId });
+      return true;
+    }
+  }
+
+  // 8d. Granular Circled Dates API: PUT /api/circled-dates/:dateKey, DELETE /api/circled-dates/:dateKey
+  const circleDateMatch = pathname.match(/^\/api\/circled-dates\/([^/]+)$/);
+  if (circleDateMatch) {
+    const session = authenticateRequest(req, db);
+    const totalUsers = getUserCount(db);
+    if (!session && totalUsers > 0) {
+      sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+      return true;
+    }
+    const userId = session?.userId || null;
+    const dateKey = decodeURIComponent(circleDateMatch[1]);
+
+    if (req.method === 'PUT') {
+      readRequestBody(req)
+        .then((body) => {
+          const color = body?.color || '#D23B38';
+          saveCalendarDelta(db, { circledDates: { upsert: { [dateKey]: { color } } } }, userId);
+          sendJsonResponse(req, res, 200, { ok: true, dateKey, color });
+        })
+        .catch((err) => sendJsonResponse(req, res, 400, { error: err.message }));
+      return true;
+    }
+
+    if (req.method === 'DELETE') {
+      saveCalendarDelta(db, { circledDates: { delete: [dateKey] } }, userId);
+      sendJsonResponse(req, res, 200, { ok: true, deletedDateKey: dateKey });
+      return true;
+    }
+  }
+
+  // 8e. Settings Partial Update: PATCH /api/settings
+  if (pathname === '/api/settings' && req.method === 'PATCH') {
+    const session = authenticateRequest(req, db);
+    const totalUsers = getUserCount(db);
+    if (!session && totalUsers > 0) {
+      sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+      return true;
+    }
+    const userId = session?.userId || null;
+
+    readRequestBody(req)
+      .then((settings) => {
+        saveCalendarDelta(db, { settings }, userId);
+        sendJsonResponse(req, res, 200, { ok: true, settings });
+      })
+      .catch((err) => sendJsonResponse(req, res, 400, { error: err.message }));
     return true;
   }
 

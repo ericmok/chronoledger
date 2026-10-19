@@ -22,6 +22,8 @@ export interface HistorySnapshot {
 
 export type SyncStatus = 'synced' | 'syncing' | 'offline';
 
+const MAX_HISTORY_SNAPSHOTS = 30;
+
 /**
  * Non-destructive collection reconciliation:
  * 1. Unions items from both local (localStorage) and remote (SQLite).
@@ -59,13 +61,17 @@ export function useCalendarState() {
   const [circledDates, setCircledDates] = useState<Record<string, { color: string }>>(() => storage.loadCircledDates());
   const [settings, setSettings] = useState<CalendarSettings>(() => storage.loadSettings());
 
+  // Session deletion tombstone tracking (prevents zombie note/drawing resurrection on remote sync)
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+  const deletedCircleKeysRef = useRef<Set<string>>(new Set());
+
   // SQLite sync state
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('syncing');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const isHydratedRef = useRef(false);
   const syncDebounceRef = useRef<number | null>(null);
 
-  // History stack for Undo / Redo
+  // History stack for Undo / Redo (bounded depth to prevent memory leaks with heavy multi-year drawings)
   const undoStackRef = useRef<HistorySnapshot[]>([]);
   const redoStackRef = useRef<HistorySnapshot[]>([]);
   const [canUndo, setCanUndo] = useState(false);
@@ -112,13 +118,22 @@ export function useCalendarState() {
         const activeLocalDrawings = currentStateRef.current.drawings;
         const activeLocalCircledDates = currentStateRef.current.circledDates;
 
-        const mergedNotes = safeMerge(activeLocalNotes, remote.notes);
-        const mergedWeekNotes = safeMerge(activeLocalWeekNotes, remote.weekNotes);
-        const mergedMonthNotes = safeMerge(activeLocalMonthNotes, remote.monthNotes);
-        const mergedDrawings = safeMerge(activeLocalDrawings, remote.drawings);
+        // Filter remote entities with local session deletions to prevent resurrection
+        const filteredRemoteNotes = remote.notes.filter((n) => !deletedIdsRef.current.has(n.id));
+        const filteredRemoteWeekNotes = remote.weekNotes.filter((wn) => !deletedIdsRef.current.has(wn.id));
+        const filteredRemoteMonthNotes = remote.monthNotes.filter((mn) => !deletedIdsRef.current.has(mn.id));
+        const filteredRemoteDrawings = remote.drawings.filter((d) => !deletedIdsRef.current.has(d.id));
+        const filteredRemoteCircled = Object.fromEntries(
+          Object.entries(remote.circledDates || {}).filter(([k]) => !deletedCircleKeysRef.current.has(k))
+        );
+
+        const mergedNotes = safeMerge(activeLocalNotes, filteredRemoteNotes);
+        const mergedWeekNotes = safeMerge(activeLocalWeekNotes, filteredRemoteWeekNotes);
+        const mergedMonthNotes = safeMerge(activeLocalMonthNotes, filteredRemoteMonthNotes);
+        const mergedDrawings = safeMerge(activeLocalDrawings, filteredRemoteDrawings);
         const mergedCircledDates = {
           ...activeLocalCircledDates,
-          ...(remote.circledDates || {}),
+          ...filteredRemoteCircled,
         };
 
         setNotes(mergedNotes);
@@ -145,9 +160,11 @@ export function useCalendarState() {
           mergedWeekNotes.length !== remote.weekNotes.length ||
           mergedMonthNotes.length !== remote.monthNotes.length ||
           mergedDrawings.length !== remote.drawings.length ||
-          Object.keys(mergedCircledDates).length !== Object.keys(remote.circledDates || {}).length
+          Object.keys(mergedCircledDates).length !== Object.keys(remote.circledDates || {}).length ||
+          deletedIdsRef.current.size > 0 ||
+          deletedCircleKeysRef.current.size > 0
         ) {
-          await saveRemoteCalendar({
+          const saveResult = await saveRemoteCalendar({
             notes: mergedNotes,
             weekNotes: mergedWeekNotes,
             monthNotes: mergedMonthNotes,
@@ -155,6 +172,10 @@ export function useCalendarState() {
             circledDates: mergedCircledDates,
             settings: remote.settings || storage.loadSettings(),
           });
+          if (saveResult && saveResult.ok) {
+            deletedIdsRef.current.clear();
+            deletedCircleKeysRef.current.clear();
+          }
         }
 
         setLastSyncedAt(remote.syncedAt || new Date().toISOString());
@@ -175,6 +196,8 @@ export function useCalendarState() {
           settings: currentSettings,
         });
         if (result && result.ok) {
+          deletedIdsRef.current.clear();
+          deletedCircleKeysRef.current.clear();
           setLastSyncedAt(result.syncedAt || new Date().toISOString());
         }
         setSyncStatus('synced');
@@ -260,7 +283,7 @@ export function useCalendarState() {
       circledDates: currentStateRef.current.circledDates,
     });
 
-    if (undoStackRef.current.length > 50) {
+    if (undoStackRef.current.length > MAX_HISTORY_SNAPSHOTS) {
       undoStackRef.current.shift();
     }
 
@@ -281,7 +304,7 @@ export function useCalendarState() {
       circledDates: currentStateRef.current.circledDates,
     });
 
-    if (redoStackRef.current.length > 50) {
+    if (redoStackRef.current.length > MAX_HISTORY_SNAPSHOTS) {
       redoStackRef.current.shift();
     }
 
@@ -307,7 +330,7 @@ export function useCalendarState() {
       circledDates: currentStateRef.current.circledDates,
     });
 
-    if (undoStackRef.current.length > 50) {
+    if (undoStackRef.current.length > MAX_HISTORY_SNAPSHOTS) {
       undoStackRef.current.shift();
     }
 
@@ -367,6 +390,8 @@ export function useCalendarState() {
 
       const result = await saveRemoteCalendar(payload);
       if (result && result.ok) {
+        deletedIdsRef.current.clear();
+        deletedCircleKeysRef.current.clear();
         setSyncStatus('synced');
         setLastSyncedAt(result.syncedAt || new Date().toISOString());
       } else {
@@ -393,6 +418,8 @@ export function useCalendarState() {
     };
     const result = await saveRemoteCalendar(payload);
     if (result && result.ok) {
+      deletedIdsRef.current.clear();
+      deletedCircleKeysRef.current.clear();
       setSyncStatus('synced');
       setLastSyncedAt(result.syncedAt || new Date().toISOString());
       return true;
@@ -421,6 +448,8 @@ export function useCalendarState() {
     } catch {
       // ignore
     }
+    deletedIdsRef.current.clear();
+    deletedCircleKeysRef.current.clear();
     undoStackRef.current = [];
     redoStackRef.current = [];
     setCanUndo(false);
@@ -440,6 +469,7 @@ export function useCalendarState() {
       colorTag,
       createdAt: new Date().toISOString(),
     };
+    deletedIdsRef.current.delete(newNote.id);
     setNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
@@ -453,6 +483,7 @@ export function useCalendarState() {
 
   const removeNote = useCallback((noteId: string) => {
     recordHistory(true);
+    deletedIdsRef.current.add(noteId);
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
@@ -587,6 +618,7 @@ export function useCalendarState() {
       colorTag,
       createdAt: new Date().toISOString(),
     };
+    deletedIdsRef.current.delete(newNote.id);
     setWeekNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
@@ -600,6 +632,7 @@ export function useCalendarState() {
 
   const removeWeekNote = useCallback((noteId: string) => {
     recordHistory(true);
+    deletedIdsRef.current.add(noteId);
     setWeekNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
@@ -721,6 +754,7 @@ export function useCalendarState() {
       colorTag,
       createdAt: new Date().toISOString(),
     };
+    deletedIdsRef.current.delete(newNote.id);
     setMonthNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
@@ -734,6 +768,7 @@ export function useCalendarState() {
 
   const removeMonthNote = useCallback((noteId: string) => {
     recordHistory(true);
+    deletedIdsRef.current.add(noteId);
     setMonthNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
@@ -852,18 +887,23 @@ export function useCalendarState() {
       id: `draw-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       createdAt: new Date().toISOString(),
     };
+    deletedIdsRef.current.delete(newDrawing.id);
     setDrawings((prev) => [...prev, newDrawing]);
     return newDrawing;
   }, [recordHistory]);
 
   const removeDrawing = useCallback((drawingId: string) => {
     recordHistory(false);
+    deletedIdsRef.current.add(drawingId);
     setDrawings((prev) => prev.filter((d) => d.id !== drawingId));
   }, [recordHistory]);
 
   const removeDrawings = useCallback((drawingIds: string[]) => {
     if (drawingIds.length === 0) return;
     recordHistory(false);
+    for (const id of drawingIds) {
+      deletedIdsRef.current.add(id);
+    }
     const idSet = new Set(drawingIds);
     setDrawings((prev) => prev.filter((d) => !idSet.has(d.id)));
   }, [recordHistory]);
@@ -877,6 +917,9 @@ export function useCalendarState() {
 
   const clearAllDrawings = useCallback(() => {
     recordHistory(true);
+    for (const d of currentStateRef.current.drawings) {
+      deletedIdsRef.current.add(d.id);
+    }
     setDrawings([]);
   }, [recordHistory]);
 
@@ -888,8 +931,10 @@ export function useCalendarState() {
         const next = { ...prev };
         if (next[dateKey]) {
           delete next[dateKey];
+          deletedCircleKeysRef.current.add(dateKey);
         } else {
           next[dateKey] = { color };
+          deletedCircleKeysRef.current.delete(dateKey);
         }
         return next;
       });
@@ -900,6 +945,7 @@ export function useCalendarState() {
   const cycleCircleColor = useCallback(
     (dateKey: string) => {
       recordHistory();
+      deletedCircleKeysRef.current.delete(dateKey);
       setCircledDates((prev) => {
         const existing = prev[dateKey];
         const currentColor = existing?.color || CIRCLE_DATE_COLORS[0];
@@ -919,6 +965,7 @@ export function useCalendarState() {
   const removeCircleDate = useCallback(
     (dateKey: string) => {
       recordHistory();
+      deletedCircleKeysRef.current.add(dateKey);
       setCircledDates((prev) => {
         if (!prev[dateKey]) return prev;
         const next = { ...prev };

@@ -121,6 +121,20 @@ export function migrateDrawingsV1ToV2(
   return migrated;
 }
 
+/**
+ * Safe wrapper around localStorage.setItem that catches QuotaExceededError
+ * and other storage quota exceptions without crashing the application.
+ */
+export function safeLocalStorageSet(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    console.warn(`[ChronoLedger Storage] Failed to write key "${key}" to localStorage (quota or privacy mode):`, err);
+    return false;
+  }
+}
+
 export class LocalStorageAdapter implements CalendarStorage {
   loadNotes(): NoteItem[] {
     const raw = localStorage.getItem(STORAGE_KEYS.NOTES);
@@ -134,7 +148,7 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   saveNotes(notes: NoteItem[]): void {
-    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(notes));
+    safeLocalStorageSet(STORAGE_KEYS.NOTES, JSON.stringify(notes));
   }
 
   loadWeekNotes(): WeekNote[] {
@@ -149,7 +163,7 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   saveWeekNotes(weekNotes: WeekNote[]): void {
-    localStorage.setItem(STORAGE_KEYS.WEEK_NOTES, JSON.stringify(weekNotes));
+    safeLocalStorageSet(STORAGE_KEYS.WEEK_NOTES, JSON.stringify(weekNotes));
   }
 
   loadMonthNotes(): MonthNote[] {
@@ -164,7 +178,7 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   saveMonthNotes(monthNotes: MonthNote[]): void {
-    localStorage.setItem(STORAGE_KEYS.MONTH_NOTES, JSON.stringify(monthNotes));
+    safeLocalStorageSet(STORAGE_KEYS.MONTH_NOTES, JSON.stringify(monthNotes));
   }
 
   loadDrawings(): DrawingElement[] {
@@ -182,7 +196,7 @@ export class LocalStorageAdapter implements CalendarStorage {
       );
       if (hadUnmigrated) {
         this.saveDrawings(migrated);
-        localStorage.setItem(STORAGE_KEYS.SCHEMA_VERSION, String(STORAGE_VERSION));
+        safeLocalStorageSet(STORAGE_KEYS.SCHEMA_VERSION, String(STORAGE_VERSION));
       }
 
       return migrated;
@@ -192,7 +206,7 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   saveDrawings(drawings: DrawingElement[]): void {
-    localStorage.setItem(STORAGE_KEYS.DRAWINGS, JSON.stringify(drawings));
+    safeLocalStorageSet(STORAGE_KEYS.DRAWINGS, JSON.stringify(drawings));
   }
 
   loadCircledDates(): Record<string, { color: string }> {
@@ -226,7 +240,7 @@ export class LocalStorageAdapter implements CalendarStorage {
           }
           if (hasLegacyCircles) {
             const cleanDrawings = drawings.filter((d: { type?: string }) => d.type !== 'circle');
-            localStorage.setItem(STORAGE_KEYS.DRAWINGS, JSON.stringify(cleanDrawings));
+            safeLocalStorageSet(STORAGE_KEYS.DRAWINGS, JSON.stringify(cleanDrawings));
             this.saveCircledDates(circled);
           }
         }
@@ -239,7 +253,7 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   saveCircledDates(circledDates: Record<string, { color: string }>): void {
-    localStorage.setItem(STORAGE_KEYS.CIRCLED_DATES, JSON.stringify(circledDates));
+    safeLocalStorageSet(STORAGE_KEYS.CIRCLED_DATES, JSON.stringify(circledDates));
   }
 
   loadSettings(): CalendarSettings {
@@ -258,7 +272,7 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   saveSettings(settings: CalendarSettings): void {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    safeLocalStorageSet(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
   }
 
   exportBackup(): string {
@@ -305,7 +319,7 @@ export class LocalStorageAdapter implements CalendarStorage {
     this.saveDrawings(data.drawings);
     this.saveCircledDates(data.circledDates || {});
     this.saveSettings(data.settings);
-    localStorage.setItem(STORAGE_KEYS.SCHEMA_VERSION, String(STORAGE_VERSION));
+    safeLocalStorageSet(STORAGE_KEYS.SCHEMA_VERSION, String(STORAGE_VERSION));
 
     return data;
   }
@@ -323,6 +337,30 @@ export interface RemoteCalendarResponse {
   syncedAt: string | null;
   schemaVersion: number;
   hasData: boolean;
+}
+
+export interface CalendarDeltaPayload {
+  notes?: {
+    upsert?: NoteItem[];
+    delete?: string[];
+  };
+  weekNotes?: {
+    upsert?: WeekNote[];
+    delete?: string[];
+  };
+  monthNotes?: {
+    upsert?: MonthNote[];
+    delete?: string[];
+  };
+  drawings?: {
+    upsert?: DrawingElement[];
+    delete?: string[];
+  };
+  circledDates?: {
+    upsert?: Record<string, { color: string }>;
+    delete?: string[];
+  };
+  settings?: CalendarSettings;
 }
 
 export async function fetchRemoteCalendar(): Promise<RemoteCalendarResponse | null> {
@@ -359,6 +397,26 @@ export async function saveRemoteCalendar(data: {
     return (await res.json()) as { ok: boolean; syncedAt?: string };
   } catch (err) {
     console.debug('Failed to save to SQLite server:', err);
+    return null;
+  }
+}
+
+export async function saveRemoteCalendarDelta(
+  delta: CalendarDeltaPayload
+): Promise<{ ok: boolean; syncedAt?: string } | null> {
+  try {
+    const res = await fetch('/api/calendar/delta', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(delta),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as { ok: boolean; syncedAt?: string };
+  } catch (err) {
+    console.debug('Failed to save delta to SQLite server:', err);
     return null;
   }
 }
