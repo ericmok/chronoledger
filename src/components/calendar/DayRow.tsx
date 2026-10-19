@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import type { DateItem, NoteItem, DrawingTool, CircleDateColor } from '../../types/calendar';
 import { CIRCLE_DATE_COLOR_NAMES } from '../../types/calendar';
-import { analyzeDateSpan, DAY_NAMES_SHORT } from '../../utils/dateUtils';
+import { analyzeDateSpan, DAY_NAMES_SHORT, FULL_MONTH_NAMES } from '../../utils/dateUtils';
+import { getSeasonalColor } from '../../utils/seasonalColors';
 import { getGutterDotsForNotes } from '../../utils/annotationUtils';
 import { NoteItemComponent } from '../NoteItemComponent';
 import { DayNoteInlineForm } from './DayNoteInlineForm';
@@ -95,31 +96,74 @@ export const DayRow: React.FC<DayRowProps> = ({
     dateItem.dayOfWeekShort ||
     (dateItem.dayOfWeek !== undefined ? DAY_NAMES_SHORT[dateItem.dayOfWeek] : dateItem.dayOfWeekLetter);
 
+  const seasonalColor = useMemo(
+    () => (dateItem.isFirstDayOfMonth ? getSeasonalColor(dateItem.monthIndex) : null),
+    [dateItem.isFirstDayOfMonth, dateItem.monthIndex]
+  );
+  const fullMonthName = FULL_MONTH_NAMES[dateItem.monthIndex] || dateItem.monthName;
+
   return (
     <div
       data-day-row="true"
       data-date-string={dateItem.dateString}
-      onDoubleClick={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('button, input, form, textarea, select')) return;
-        onStartQuickAdd(dateItem.dateString);
-      }}
-      title={`${dateItem.monthName} ${dateItem.dayOfMonth}, ${dateItem.year} — double-click to write note`}
-      className={`flex items-start min-h-[48px] group/row py-1 transition-colors ${
-        dateItem.isToday
-          ? 'bg-[#FAF0E4]/90 hover:bg-[#F5E8D6] relative z-10'
-          : 'hover:bg-[#F2EDE4]/30'
-      }`}
+      className="flex flex-col w-full group/row"
     >
-      {/* Month Rail Guide */}
-      <div className="w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r border-[#E5DFD5]/40">
-        {dateItem.isFirstDayOfMonth && (
+      {/* Month Milestone Ribbon on 1st of month:
+          Rendered inside DayRow to preserve 7-day WeekBlock virtualization,
+          Weekly Scratch Pad geometry, and DrawingOverlay coordinate mappings. */}
+      {dateItem.isFirstDayOfMonth && seasonalColor && (
+        <div
+          data-month-ribbon="true"
+          /* pt-1.5 (6px) and pb-[5px] (5px + 1px border = 6px) symmetrically balance vertical space */
+          className="w-full flex items-center pr-3 pt-1.5 pb-[5px] border-b select-none transition-colors"
+          style={{
+            backgroundColor: seasonalColor.gutterBg,
+            borderColor: seasonalColor.notesBorder || '#E5DFD5',
+          }}
+          title={`${fullMonthName} ${dateItem.year}`}
+        >
+          {/* w-8 spacer matches the Mo rail column width so month text begins at exact date-column alignment */}
+          <div className="w-8 shrink-0 border-r border-[#E5DFD5]/40 self-stretch" />
+
+          {/* Month & Year typography with font-metric optical center compensation */}
+          <div className="flex items-center gap-2.5 pl-3 shrink-0">
+            {/* Serif uppercase month name: shifted 1px down to offset empty descender space */}
+            <span
+              className="font-serif text-xs sm:text-[13px] font-bold tracking-[0.22em] uppercase translate-y-[1px]"
+              style={{ color: seasonalColor.accentTag }}
+            >
+              {fullMonthName}
+            </span>
+            {/* Monospace 4-digit year: shifted 0.5px down for optical midline alignment with serif text */}
+            <span className="font-mono text-[10.5px] font-semibold text-[#7E7F85] tracking-wider translate-y-[0.5px]">
+              {dateItem.year}
+            </span>
+          </div>
+
+          {/* In-stream horizontal accent rule extending to the right margin */}
           <div
-            className="w-2.5 h-[2.5px] rounded-full bg-[#D23B38] mt-0.5 transition-transform hover:scale-125 cursor-default"
-            title={`1st of ${dateItem.monthName} ${dateItem.year}`}
+            className="flex-1 h-px opacity-40 ml-3"
+            style={{ backgroundColor: seasonalColor.accentTag }}
           />
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Main Day Content */}
+      <div
+        onDoubleClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('button, input, form, textarea, select')) return;
+          onStartQuickAdd(dateItem.dateString);
+        }}
+        title={`${dateItem.monthName} ${dateItem.dayOfMonth}, ${dateItem.year} — double-click to write note`}
+        className={`flex items-start min-h-[48px] py-1 transition-colors w-full ${
+          dateItem.isToday
+            ? 'bg-[#FAF0E4]/90 hover:bg-[#F5E8D6] relative z-10'
+            : 'hover:bg-[#F2EDE4]/30'
+        }`}
+      >
+        {/* Month Rail Guide */}
+        <div className="w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r border-[#E5DFD5]/40" />
 
       {/* Date & Day of Week */}
       <div
@@ -417,5 +461,6 @@ export const DayRow: React.FC<DayRowProps> = ({
         )}
       </div>
     </div>
-  );
+  </div>
+);
 };
