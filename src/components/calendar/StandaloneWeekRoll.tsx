@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import type React from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { DateItem, WeekNote, CalendarSettings } from '../../types/calendar';
@@ -40,7 +40,13 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
 }) => {
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const isInitializedRef = useRef(false);
+
+  // Prepending & Appending scroll compensation refs
+  const prevScrollHeightRef = useRef<number>(0);
+  const prevScrollTopRef = useRef<number>(0);
+  const isPrependingRef = useRef<boolean>(false);
+  const isAppendingRef = useRef<boolean>(false);
+  const prevWeekCountRef = useRef<number>(0);
 
   // Map week notes to their week key
   const weekNotesByWeek = useMemo(() => {
@@ -102,29 +108,52 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
 
       scrollRef.current.scrollTop = targetOffset;
       virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
-
-      // Guard against asynchronous browser scroll restoration resetting scrollTop to 0 on refresh
-      const frame = requestAnimationFrame(() => {
-        if (scrollRef.current && scrollRef.current.scrollTop === 0 && targetOffset > 0) {
-          scrollRef.current.scrollTop = targetOffset;
-          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
-        }
-      });
-
-      const timer = setTimeout(() => {
-        if (scrollRef.current && scrollRef.current.scrollTop === 0 && targetOffset > 0) {
-          scrollRef.current.scrollTop = targetOffset;
-          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
-        }
-        isInitializedRef.current = true;
-      }, 50);
-
-      return () => {
-        cancelAnimationFrame(frame);
-        clearTimeout(timer);
-      };
     }
   }, [todayWeekIndex, virtualizer]);
+
+  // Synchronously compensate scroll offset when earlier weeks are prepended
+  useLayoutEffect(() => {
+    if (isPrependingRef.current && scrollRef.current) {
+      const newScrollHeight = scrollRef.current.scrollHeight;
+      let heightDiff = newScrollHeight - prevScrollHeightRef.current;
+
+      if (heightDiff <= 0 && weekBlocks.length > prevWeekCountRef.current) {
+        const addedWeeks = weekBlocks.length - prevWeekCountRef.current;
+        heightDiff = addedWeeks * 180;
+      }
+
+      if (heightDiff > 0) {
+        const newScrollTop = scrollRef.current.scrollTop + heightDiff;
+        scrollRef.current.scrollTop = newScrollTop;
+        virtualizer.scrollToOffset(newScrollTop, { align: 'start', behavior: 'auto' });
+      }
+      isPrependingRef.current = false;
+    }
+    prevWeekCountRef.current = weekBlocks.length;
+  }, [weekBlocks, virtualizer]);
+
+  const handleLoadEarlier = useCallback(() => {
+    if (isPrependingRef.current || !scrollRef.current || !hasInitiallyScrolledRef.current) return;
+    isPrependingRef.current = true;
+    prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+    prevScrollTopRef.current = scrollRef.current.scrollTop;
+    onLoadEarlierWeeks?.();
+
+    setTimeout(() => {
+      if (isPrependingRef.current) {
+        isPrependingRef.current = false;
+      }
+    }, 1000);
+  }, [onLoadEarlierWeeks]);
+
+  const handleLoadLater = useCallback(() => {
+    if (isAppendingRef.current || !scrollRef.current || !hasInitiallyScrolledRef.current) return;
+    isAppendingRef.current = true;
+    onLoadLaterWeeks?.();
+    setTimeout(() => {
+      isAppendingRef.current = false;
+    }, 200);
+  }, [onLoadLaterWeeks]);
 
   // Handle targeting a specific week (only once per unique target week)
   useEffect(() => {
@@ -143,19 +172,21 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
     if (!el) return;
 
     const onScroll = () => {
-      if (!isInitializedRef.current) return;
+      if (!hasInitiallyScrolledRef.current) return;
+      if (isPrependingRef.current || isAppendingRef.current) return;
       const { scrollTop, scrollHeight, clientHeight } = el;
+      if (scrollHeight <= clientHeight) return;
 
-      if (scrollTop < 300) {
-        onLoadEarlierWeeks?.();
-      } else if (scrollTop + clientHeight > scrollHeight - 300) {
-        onLoadLaterWeeks?.();
+      if (scrollTop < 600) {
+        handleLoadEarlier();
+      } else if (scrollTop + clientHeight > scrollHeight - 600) {
+        handleLoadLater();
       }
     };
 
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }, [onLoadEarlierWeeks, onLoadLaterWeeks]);
+  }, [handleLoadEarlier, handleLoadLater]);
 
   return (
     <div

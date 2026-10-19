@@ -87,7 +87,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   const prevScrollTopRef = useRef<number>(0);
   const isPrependingRef = useRef<boolean>(false);
   const isAppendingRef = useRef<boolean>(false);
-  const isInitializedRef = useRef<boolean>(false);
+  const prevWeekCountRef = useRef<number>(0);
 
   // Map notes to their dates
   const notesByDate = useMemo(() => {
@@ -167,15 +167,22 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
 
   // Prepend and append infinite scroll handlers
   const handleLoadEarlier = useCallback(() => {
-    if (isPrependingRef.current || !scrollRef.current || !isInitializedRef.current) return;
+    if (isPrependingRef.current || !scrollRef.current || !hasInitiallyScrolledRef.current) return;
     isPrependingRef.current = true;
     prevScrollHeightRef.current = scrollRef.current.scrollHeight;
     prevScrollTopRef.current = scrollRef.current.scrollTop;
     onLoadEarlierWeeks?.();
+
+    // Safety fallback: ensure prepending flag resets even if re-render was skipped
+    setTimeout(() => {
+      if (isPrependingRef.current) {
+        isPrependingRef.current = false;
+      }
+    }, 1000);
   }, [onLoadEarlierWeeks, scrollRef]);
 
   const handleLoadLater = useCallback(() => {
-    if (isAppendingRef.current || !scrollRef.current || !isInitializedRef.current) return;
+    if (isAppendingRef.current || !scrollRef.current || !hasInitiallyScrolledRef.current) return;
     isAppendingRef.current = true;
     onLoadLaterWeeks?.();
     setTimeout(() => {
@@ -187,13 +194,24 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   useLayoutEffect(() => {
     if (isPrependingRef.current && scrollRef.current) {
       const newScrollHeight = scrollRef.current.scrollHeight;
-      const heightDiff = newScrollHeight - prevScrollHeightRef.current;
+      let heightDiff = newScrollHeight - prevScrollHeightRef.current;
+
+      // Fallback if DOM scrollHeight didn't change synchronously
+      if (heightDiff <= 0 && weekBlocks.length > prevWeekCountRef.current) {
+        const addedWeeks = weekBlocks.length - prevWeekCountRef.current;
+        const itemHeight = hideWeekPanel ? 360 : 420;
+        heightDiff = addedWeeks * itemHeight;
+      }
+
       if (heightDiff > 0) {
-        scrollRef.current.scrollTop += heightDiff;
+        const newScrollTop = scrollRef.current.scrollTop + heightDiff;
+        scrollRef.current.scrollTop = newScrollTop;
+        virtualizer.scrollToOffset(newScrollTop, { align: 'start', behavior: 'auto' });
       }
       isPrependingRef.current = false;
     }
-  }, [weekBlocks, scrollRef]);
+    prevWeekCountRef.current = weekBlocks.length;
+  }, [weekBlocks, scrollRef, virtualizer, hideWeekPanel]);
 
   // Listen to scroll events to trigger bidirectional loading near boundaries
   useEffect(() => {
@@ -201,12 +219,16 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
     if (!el) return;
 
     const onScroll = () => {
-      if (!isInitializedRef.current) return;
-      const { scrollTop, scrollHeight, clientHeight } = el;
+      if (!hasInitiallyScrolledRef.current) return;
+      if (isPrependingRef.current || isAppendingRef.current) return;
 
-      if (scrollTop < 450) {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      if (scrollHeight <= clientHeight) return;
+
+      // Generous 800px threshold (~2 weeks buffer) for smooth seamless loading
+      if (scrollTop < 800) {
         handleLoadEarlier();
-      } else if (scrollTop + clientHeight > scrollHeight - 450) {
+      } else if (scrollTop + clientHeight > scrollHeight - 800) {
         handleLoadLater();
       }
     };
@@ -225,27 +247,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
 
       scrollRef.current.scrollTop = targetOffset;
       virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
-
-      // Guard against asynchronous browser scroll restoration resetting scrollTop to 0 on refresh
-      const frame = requestAnimationFrame(() => {
-        if (scrollRef.current && scrollRef.current.scrollTop === 0 && targetOffset > 0) {
-          scrollRef.current.scrollTop = targetOffset;
-          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
-        }
-      });
-
-      const timer = setTimeout(() => {
-        if (scrollRef.current && scrollRef.current.scrollTop === 0 && targetOffset > 0) {
-          scrollRef.current.scrollTop = targetOffset;
-          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
-        }
-        isInitializedRef.current = true;
-      }, 50);
-
-      return () => {
-        cancelAnimationFrame(frame);
-        clearTimeout(timer);
-      };
     }
   }, [todayWeekIndex, hideWeekPanel, virtualizer, scrollRef]);
 
