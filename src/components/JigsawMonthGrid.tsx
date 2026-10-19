@@ -155,29 +155,65 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     return list;
   }, [baseMonth, pastMonthsCount, futureMonthsCount]);
 
-  // Scroll compensation refs for seamless bi-directional prepending
-  const prependScrollAdjustRef = useRef<{ prevScrollHeight: number; prevScrollTop: number } | null>(null);
+  // Max rendered months to cap DOM node growth
+  const MAX_RENDERED_MONTHS = 48; // ~4 years
+
+  // Scroll anchor reference to guarantee subpixel-perfect scroll compensation across additions and evictions
+  const scrollAnchorRef = useRef<{ dateKey: string; offsetInRow: number } | null>(null);
   const isPrependingRef = useRef(false);
   const isAppendingRef = useRef(false);
+  const weeksRef = useRef<JigsawCell[][]>([]);
 
   const handleLoadEarlierMonths = useCallback(() => {
-    if (isPrependingRef.current || !gridContainerRef.current) return;
+    const currentWeeks = weeksRef.current;
+    if (isPrependingRef.current || !gridContainerRef.current || currentWeeks.length === 0) return;
     isPrependingRef.current = true;
-    prependScrollAdjustRef.current = {
-      prevScrollHeight: gridContainerRef.current.scrollHeight,
-      prevScrollTop: gridContainerRef.current.scrollTop,
-    };
+
+    // Anchor to the date currently at the top of the viewport
+    const currentScrollTop = gridContainerRef.current.scrollTop;
+    const focusRow = Math.min(currentWeeks.length - 1, Math.max(0, Math.floor(currentScrollTop / CELL_HEIGHT)));
+    const anchorDateKey = currentWeeks[focusRow]?.[0]?.dateKey;
+
+    if (anchorDateKey) {
+      scrollAnchorRef.current = {
+        dateKey: anchorDateKey,
+        offsetInRow: currentScrollTop % CELL_HEIGHT,
+      };
+    }
+
     setPastMonthsCount((prev) => prev + 12);
-  }, []);
+    // Sliding window eviction: cap future months if exceeding MAX_RENDERED_MONTHS
+    setFutureMonthsCount((prev) => {
+      const total = pastMonthsCount + 12 + prev;
+      return total > MAX_RENDERED_MONTHS ? Math.max(12, prev - 12) : prev;
+    });
+  }, [pastMonthsCount]);
 
   const handleLoadLaterMonths = useCallback(() => {
-    if (isAppendingRef.current) return;
+    const currentWeeks = weeksRef.current;
+    if (isAppendingRef.current || !gridContainerRef.current || currentWeeks.length === 0) return;
     isAppendingRef.current = true;
+
+    // If total exceeds MAX_RENDERED_MONTHS and pastMonthsCount > 12, evict from top
+    if (pastMonthsCount + futureMonthsCount + 12 > MAX_RENDERED_MONTHS && pastMonthsCount > 12) {
+      const currentScrollTop = gridContainerRef.current.scrollTop;
+      const focusRow = Math.min(currentWeeks.length - 1, Math.max(0, Math.floor(currentScrollTop / CELL_HEIGHT)));
+      const anchorDateKey = currentWeeks[focusRow]?.[0]?.dateKey;
+
+      if (anchorDateKey) {
+        scrollAnchorRef.current = {
+          dateKey: anchorDateKey,
+          offsetInRow: currentScrollTop % CELL_HEIGHT,
+        };
+      }
+      setPastMonthsCount((prev) => Math.max(12, prev - 12));
+    }
+
     setFutureMonthsCount((prev) => prev + 12);
     setTimeout(() => {
       isAppendingRef.current = false;
     }, 150);
-  }, []);
+  }, [pastMonthsCount, futureMonthsCount]);
 
   // Calculate grid range & cells
   const { weeks, gutterMonthMetas, notesMonthMetas, totalWeeksHeight, svgBoundaries } = useMemo(() => {
@@ -378,16 +414,17 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     };
   }, [targetMonths, weekStartsOn, todayKey, notesByDateMap, circledDatesMap]);
 
-  // Synchronously adjust scrollTop after prepending earlier months so content never jumps
+  weeksRef.current = weeks;
+
+  // Synchronously adjust scrollTop after prepending or evicting months so content never jumps
   useLayoutEffect(() => {
-    if (prependScrollAdjustRef.current && gridContainerRef.current) {
-      const { prevScrollHeight, prevScrollTop } = prependScrollAdjustRef.current;
-      const newScrollHeight = gridContainerRef.current.scrollHeight;
-      const heightDiff = newScrollHeight - prevScrollHeight;
-      if (heightDiff > 0) {
-        gridContainerRef.current.scrollTop = prevScrollTop + heightDiff;
+    if (scrollAnchorRef.current && gridContainerRef.current && weeks.length > 0) {
+      const { dateKey, offsetInRow } = scrollAnchorRef.current;
+      const newRowIndex = weeks.findIndex((row) => row.some((c) => c.dateKey === dateKey));
+      if (newRowIndex !== -1) {
+        gridContainerRef.current.scrollTop = newRowIndex * CELL_HEIGHT + offsetInRow;
       }
-      prependScrollAdjustRef.current = null;
+      scrollAnchorRef.current = null;
       isPrependingRef.current = false;
     }
   }, [weeks]);
@@ -620,6 +657,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         ref={gridContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto relative flex scroll-smooth-focus"
+        style={{ overflowAnchor: 'none' }}
       >
         {/* Interactive Radar Drawing Overlay for Pencil, Arrow, Eraser */}
         {settings && (
