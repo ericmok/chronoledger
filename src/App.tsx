@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useCalendarState } from './hooks/useCalendarState';
+import { useResponsiveLayout, type HorizonPanel } from './hooks/useResponsiveLayout';
 import { generateDateRangeSnapped, formatDateKey, parseDateKey } from './utils/dateUtils';
 import { Header } from './components/Header';
 import { VerticalCalendar } from './components/VerticalCalendar';
@@ -7,6 +8,9 @@ import { AddNoteModal } from './components/AddNoteModal';
 import { JigsawMonthGrid } from './components/JigsawMonthGrid';
 import { AuthModal } from './components/auth/AuthModal';
 import { checkAuthSession, logoutUser, type UserProfile } from './services/auth';
+import { HorizonSlider } from './components/layout/HorizonSlider';
+import { StandaloneWeekRoll } from './components/calendar/StandaloneWeekRoll';
+import { StandaloneMonthReflectionsRoll } from './components/radar/StandaloneMonthReflectionsRoll';
 
 export function App() {
   const {
@@ -93,6 +97,20 @@ export function App() {
   const [scrollTargetDate, setScrollTargetDate] = useState<{ dateString: string; key: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Responsive Layout detection & mobile horizon state
+  const {
+    isMobile,
+    isCompact,
+    activePanel,
+    setActivePanel,
+    radarCompactView,
+    setRadarCompactView,
+    isKeyboardOpen,
+  } = useResponsiveLayout();
+
+  const [targetWeekKey, setTargetWeekKey] = useState<string | null>(null);
+  const deckRef = useRef<HTMLDivElement | null>(null);
+
   // Dynamic bidirectional window of weeks snapped around current week
   const [calendarWindow, setCalendarWindow] = useState({
     weeksBefore: 26, // starts at ~6 months in the past
@@ -146,9 +164,60 @@ export function App() {
     [calendarWindow.weeksBefore, calendarWindow.weeksAfter]
   );
 
+  const handleScrollDeck = useCallback(() => {
+    if (!deckRef.current || !isMobile) return;
+    const scrollLeft = deckRef.current.scrollLeft;
+    const panelWidth = deckRef.current.clientWidth;
+    if (panelWidth === 0) return;
+    const panelIndex = Math.round(scrollLeft / panelWidth);
+    const panels: HorizonPanel[] = ['day', 'week', 'months', 'reflections'];
+    const newPanel = panels[panelIndex];
+    if (newPanel && newPanel !== activePanel) {
+      setActivePanel(newPanel);
+    }
+  }, [isMobile, activePanel, setActivePanel]);
+
+  const handlePanelChange = useCallback(
+    (panel: HorizonPanel) => {
+      setActivePanel(panel);
+      if (deckRef.current && isMobile) {
+        const panels: HorizonPanel[] = ['day', 'week', 'months', 'reflections'];
+        const idx = panels.indexOf(panel);
+        if (idx !== -1) {
+          deckRef.current.scrollTo({
+            left: idx * deckRef.current.clientWidth,
+            behavior: 'smooth',
+          });
+        }
+      }
+    },
+    [isMobile, setActivePanel]
+  );
+
+  const handleSelectDateFromMonths = useCallback(
+    (dateKey: string) => {
+      scrollToDate(dateKey);
+      if (isMobile) {
+        handlePanelChange('day');
+      }
+    },
+    [scrollToDate, isMobile, handlePanelChange]
+  );
+
+  const handleOpenWeekScratchPad = useCallback(
+    (weekKey: string) => {
+      setTargetWeekKey(weekKey);
+      handlePanelChange('week');
+    },
+    [handlePanelChange]
+  );
+
   const handleJumpToToday = () => {
     const todayStr = formatDateKey(new Date());
     scrollToDate(todayStr);
+    if (isMobile) {
+      handlePanelChange('day');
+    }
   };
 
   // Global hotkeys (Undo/Redo, Tool switching, navigation)
@@ -225,74 +294,219 @@ export function App() {
         currentUser={currentUser}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
+        isMobile={isMobile}
       />
 
-      {/* Main Container: Infinite Vertical Roll (Left) + Continuous Jigsaw Month Radar (Right) */}
-      <div className="flex-1 relative flex overflow-hidden">
-        {/* Infinite Vertical Calendar View */}
-        <main className="flex-1 relative flex flex-col overflow-hidden min-w-0">
-          <VerticalCalendar
-            dates={dates}
-            notes={notes}
-            weekNotes={weekNotes}
-            drawings={drawings}
-            circledDates={circledDates}
-            settings={settings}
-            onLoadEarlierWeeks={handleLoadEarlierWeeks}
-            onLoadLaterWeeks={handleLoadLaterWeeks}
-            onToggleStrike={toggleStrikeNote}
-            onRemoveNote={removeNote}
-            onUpdateNote={updateNote}
-            onAcceptNoteRevision={acceptNoteRevision}
-            onReorderNotes={reorderNotes}
-            onMoveNoteToDate={moveNoteToDate}
-            onAddQuickNote={(date, text, parentDates, colorTag) => addNote(text, parentDates || [date], colorTag)}
-            onAddWeekNote={addWeekNote}
-            onToggleStrikeWeekNote={toggleStrikeWeekNote}
-            onRemoveWeekNote={removeWeekNote}
-            onUpdateWeekNote={updateWeekNote}
-            onReorderWeekNotes={reorderWeekNotes}
-            onMoveWeekNoteToWeek={moveWeekNoteToWeek}
-            onAddDrawing={addDrawing}
-            onRemoveDrawing={removeDrawing}
-            onRemoveDrawings={removeDrawings}
-            onToggleCircleDate={toggleCircleDate}
-            onCycleCircleColor={cycleCircleColor}
-            onCloseTool={() => updateSettings({ activeTool: 'select' })}
-            onJumpToDateRequested={(d) => scrollToDate(d)}
-            scrollTargetDate={scrollTargetDate}
-            scrollRef={scrollRef}
-          />
+      {/* Main Container: Mobile Horizon Deck OR Desktop/Laptop Roll */}
+      {isMobile ? (
+        <div className="flex-1 relative flex flex-col overflow-hidden">
+          {/* Mobile Horizon Deck: 4 Horizontal Panning Surfaces with CSS Scroll-Snap */}
+          <div
+            ref={deckRef}
+            onScroll={handleScrollDeck}
+            className="flex-1 w-full flex overflow-x-auto overflow-y-hidden select-none scroll-smooth pb-14"
+            style={{
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {/* Panel 0: Day Timeline */}
+            <section
+              className="w-full flex-none h-full flex flex-col overflow-hidden"
+              style={{ scrollSnapAlign: 'start', minWidth: '100%' }}
+            >
+              <VerticalCalendar
+                dates={dates}
+                notes={notes}
+                weekNotes={weekNotes}
+                drawings={drawings}
+                circledDates={circledDates}
+                settings={settings}
+                onLoadEarlierWeeks={handleLoadEarlierWeeks}
+                onLoadLaterWeeks={handleLoadLaterWeeks}
+                onToggleStrike={toggleStrikeNote}
+                onRemoveNote={removeNote}
+                onUpdateNote={updateNote}
+                onAcceptNoteRevision={acceptNoteRevision}
+                onReorderNotes={reorderNotes}
+                onMoveNoteToDate={moveNoteToDate}
+                onAddQuickNote={(date, text, parentDates, colorTag) => addNote(text, parentDates || [date], colorTag)}
+                onAddWeekNote={addWeekNote}
+                onToggleStrikeWeekNote={toggleStrikeWeekNote}
+                onRemoveWeekNote={removeWeekNote}
+                onUpdateWeekNote={updateWeekNote}
+                onReorderWeekNotes={reorderWeekNotes}
+                onMoveWeekNoteToWeek={moveWeekNoteToWeek}
+                onAddDrawing={addDrawing}
+                onRemoveDrawing={removeDrawing}
+                onRemoveDrawings={removeDrawings}
+                onToggleCircleDate={toggleCircleDate}
+                onCycleCircleColor={cycleCircleColor}
+                onCloseTool={() => updateSettings({ activeTool: 'select' })}
+                onJumpToDateRequested={(d) => scrollToDate(d)}
+                scrollTargetDate={scrollTargetDate}
+                scrollRef={scrollRef}
+                hideWeekPanel={true}
+                onOpenWeekScratchPad={handleOpenWeekScratchPad}
+              />
+            </section>
 
-        </main>
+            {/* Panel 1: Week Scratch Pad */}
+            <section
+              className="w-full flex-none h-full flex flex-col overflow-hidden"
+              style={{ scrollSnapAlign: 'start', minWidth: '100%' }}
+            >
+              <StandaloneWeekRoll
+                dates={dates}
+                weekNotes={weekNotes}
+                settings={settings}
+                onAddWeekNote={addWeekNote}
+                onToggleStrikeWeekNote={toggleStrikeWeekNote}
+                onRemoveWeekNote={removeWeekNote}
+                onUpdateWeekNote={updateWeekNote}
+                onAcceptNoteRevision={acceptNoteRevision}
+                onReorderWeekNotes={reorderWeekNotes}
+                onMoveWeekNoteToWeek={moveWeekNoteToWeek}
+                onJumpToDateRequested={(d) => {
+                  scrollToDate(d);
+                  handlePanelChange('day');
+                }}
+                scrollTargetWeekKey={targetWeekKey}
+                onLoadEarlierWeeks={handleLoadEarlierWeeks}
+                onLoadLaterWeeks={handleLoadLaterWeeks}
+              />
+            </section>
 
-        {/* Continuous Jigsaw Grid Radar + Month Notes */}
-        {isSidebarOpen && (
-          <JigsawMonthGrid
-            onSelectDate={(dateKey) => scrollToDate(dateKey)}
-            notes={notes}
-            monthNotes={monthNotes}
-            drawings={drawings}
-            circledDates={circledDates}
-            weekStartsOn={settings.weekStartsOn}
-            onJumpToToday={handleJumpToToday}
-            onAddMonthNote={addMonthNote}
-            onToggleStrikeMonthNote={toggleStrikeMonthNote}
-            onRemoveMonthNote={removeMonthNote}
-            onUpdateMonthNote={updateMonthNote}
-            onAcceptNoteRevision={acceptNoteRevision}
-            onReorderMonthNotes={reorderMonthNotes}
-            onMoveMonthNoteToMonth={moveMonthNoteToMonth}
-            scrollTargetDate={scrollTargetDate}
-            onAddDrawing={addDrawing}
-            onRemoveDrawing={removeDrawing}
-            onRemoveDrawings={removeDrawings}
-            onToggleCircleDate={toggleCircleDate}
-            onCycleCircleColor={cycleCircleColor}
-            settings={settings}
+            {/* Panel 2: Continuous Months */}
+            <section
+              className="w-full flex-none h-full flex flex-col overflow-hidden"
+              style={{ scrollSnapAlign: 'start', minWidth: '100%' }}
+            >
+              <div className="flex-1 overflow-hidden flex justify-center">
+                <JigsawMonthGrid
+                  onSelectDate={handleSelectDateFromMonths}
+                  notes={notes}
+                  monthNotes={monthNotes}
+                  drawings={drawings}
+                  circledDates={circledDates}
+                  weekStartsOn={settings.weekStartsOn}
+                  onJumpToToday={handleJumpToToday}
+                  onAddMonthNote={addMonthNote}
+                  onToggleStrikeMonthNote={toggleStrikeMonthNote}
+                  onRemoveMonthNote={removeMonthNote}
+                  onUpdateMonthNote={updateMonthNote}
+                  onAcceptNoteRevision={acceptNoteRevision}
+                  onReorderMonthNotes={reorderMonthNotes}
+                  onMoveMonthNoteToMonth={moveMonthNoteToMonth}
+                  scrollTargetDate={scrollTargetDate}
+                  onAddDrawing={addDrawing}
+                  onRemoveDrawing={removeDrawing}
+                  onRemoveDrawings={removeDrawings}
+                  onToggleCircleDate={toggleCircleDate}
+                  onCycleCircleColor={cycleCircleColor}
+                  settings={settings}
+                  isCompact={true}
+                  compactView="grid"
+                  className="w-full max-w-[340px] border-none bg-transparent"
+                />
+              </div>
+            </section>
+
+            {/* Panel 3: Monthly Reflections */}
+            <section
+              className="w-full flex-none h-full flex flex-col overflow-hidden"
+              style={{ scrollSnapAlign: 'start', minWidth: '100%' }}
+            >
+              <StandaloneMonthReflectionsRoll
+                monthNotes={monthNotes}
+                settings={settings}
+                onAddMonthNote={addMonthNote}
+                onToggleStrikeMonthNote={toggleStrikeMonthNote}
+                onRemoveMonthNote={removeMonthNote}
+                onUpdateMonthNote={updateMonthNote}
+                onAcceptNoteRevision={acceptNoteRevision}
+              />
+            </section>
+          </div>
+
+          {/* Tactile Bottom Horizon Slider */}
+          <HorizonSlider
+            activePanel={activePanel}
+            onChangePanel={handlePanelChange}
+            isKeyboardOpen={isKeyboardOpen}
           />
-        )}
-      </div>
+        </div>
+      ) : (
+        /* Desktop & Laptop Layout: Infinite Vertical Roll (Left) + Months (Right) */
+        <div className="flex-1 relative flex overflow-hidden">
+          {/* Infinite Vertical Calendar View */}
+          <main className="flex-1 relative flex flex-col overflow-hidden min-w-0">
+            <VerticalCalendar
+              dates={dates}
+              notes={notes}
+              weekNotes={weekNotes}
+              drawings={drawings}
+              circledDates={circledDates}
+              settings={settings}
+              onLoadEarlierWeeks={handleLoadEarlierWeeks}
+              onLoadLaterWeeks={handleLoadLaterWeeks}
+              onToggleStrike={toggleStrikeNote}
+              onRemoveNote={removeNote}
+              onUpdateNote={updateNote}
+              onAcceptNoteRevision={acceptNoteRevision}
+              onReorderNotes={reorderNotes}
+              onMoveNoteToDate={moveNoteToDate}
+              onAddQuickNote={(date, text, parentDates, colorTag) => addNote(text, parentDates || [date], colorTag)}
+              onAddWeekNote={addWeekNote}
+              onToggleStrikeWeekNote={toggleStrikeWeekNote}
+              onRemoveWeekNote={removeWeekNote}
+              onUpdateWeekNote={updateWeekNote}
+              onReorderWeekNotes={reorderWeekNotes}
+              onMoveWeekNoteToWeek={moveWeekNoteToWeek}
+              onAddDrawing={addDrawing}
+              onRemoveDrawing={removeDrawing}
+              onRemoveDrawings={removeDrawings}
+              onToggleCircleDate={toggleCircleDate}
+              onCycleCircleColor={cycleCircleColor}
+              onCloseTool={() => updateSettings({ activeTool: 'select' })}
+              onJumpToDateRequested={(d) => scrollToDate(d)}
+              scrollTargetDate={scrollTargetDate}
+              scrollRef={scrollRef}
+              hideWeekPanel={false}
+            />
+          </main>
+
+          {/* Continuous Months Calendar & Reflections */}
+          {isSidebarOpen && (
+            <JigsawMonthGrid
+              onSelectDate={(dateKey) => scrollToDate(dateKey)}
+              notes={notes}
+              monthNotes={monthNotes}
+              drawings={drawings}
+              circledDates={circledDates}
+              weekStartsOn={settings.weekStartsOn}
+              onJumpToToday={handleJumpToToday}
+              onAddMonthNote={addMonthNote}
+              onToggleStrikeMonthNote={toggleStrikeMonthNote}
+              onRemoveMonthNote={removeMonthNote}
+              onUpdateMonthNote={updateMonthNote}
+              onAcceptNoteRevision={acceptNoteRevision}
+              onReorderMonthNotes={reorderMonthNotes}
+              onMoveMonthNoteToMonth={moveMonthNoteToMonth}
+              scrollTargetDate={scrollTargetDate}
+              onAddDrawing={addDrawing}
+              onRemoveDrawing={removeDrawing}
+              onRemoveDrawings={removeDrawings}
+              onToggleCircleDate={toggleCircleDate}
+              onCycleCircleColor={cycleCircleColor}
+              settings={settings}
+              isCompact={isCompact}
+              compactView={radarCompactView}
+              onCompactViewChange={setRadarCompactView}
+            />
+          )}
+        </div>
+      )}
 
       {/* Add Note Modal */}
       <AddNoteModal

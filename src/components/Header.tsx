@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Calendar as CalendarIcon, 
   MoveRight as ArrowIcon, 
@@ -15,7 +15,9 @@ import {
   Database,
   RefreshCw,
   User,
-  LogOut
+  LogOut,
+  MoreVertical,
+  X
 } from 'lucide-react';
 import type { CalendarSettings, DrawingTool } from '../types/calendar';
 import type { UserProfile } from '../services/auth';
@@ -39,6 +41,7 @@ interface HeaderProps {
   currentUser?: UserProfile | null;
   onOpenAuthModal?: () => void;
   onLogout?: () => void;
+  isMobile?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -60,8 +63,10 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onOpenAuthModal,
   onLogout,
+  isMobile: _isMobile = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const tools: { id: DrawingTool; label: string; icon: React.ReactNode; shortcut: string; hint: string }[] = [
     { id: 'select', label: 'Select / Notes', icon: <MousePointer className="w-4 h-4" />, shortcut: 'V', hint: 'Browse and edit typed notes' },
@@ -118,8 +123,35 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* Center: Analog Drawing Tools */}
-      <div className="flex items-center gap-1 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8]">
+      {/* Mobile Compact Tool Switcher */}
+      <div className="flex md:hidden items-center gap-1">
+        <button
+          type="button"
+          onClick={() => {
+            const order: DrawingTool[] = ['select', 'pencil', 'arrow', 'eraser'];
+            const nextIdx = (order.indexOf(settings.activeTool) + 1) % order.length;
+            onUpdateSettings({ activeTool: order[nextIdx] });
+          }}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-mono font-medium transition-all border cursor-pointer ${
+            settings.activeTool !== 'select'
+              ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+              : 'bg-[#F2EDE4] text-[#2B2C30] border-[#DDD6C8]'
+          }`}
+          title={`Active tool: ${settings.activeTool} (Tap to change)`}
+        >
+          {tools.find((t) => t.id === settings.activeTool)?.icon}
+          <span className="capitalize text-[11px] hidden sm:inline">{settings.activeTool}</span>
+          {settings.activeTool !== 'select' && settings.activeTool !== 'eraser' && (
+            <span
+              className="w-2 h-2 rounded-full border border-white/50 shrink-0 ml-0.5"
+              style={{ backgroundColor: settings.inkColor }}
+            />
+          )}
+        </button>
+      </div>
+
+      {/* Desktop Center: Analog Drawing Tools */}
+      <div className="hidden md:flex items-center gap-1 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8]">
         {tools.map((t) => (
           <button
             key={t.id}
@@ -197,143 +229,318 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Backup/Restore & View Preferences */}
       <div className="flex items-center gap-2">
-        {/* SQLite Sync Status Indicator */}
-        {syncStatus && (
+        {/* Mobile: More Menu Trigger */}
+        <div className="flex md:hidden items-center">
           <button
             type="button"
-            onClick={currentUser ? onForceSync : onOpenAuthModal}
-            className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
-            title={
-              !currentUser
-                ? 'Guest Mode: Notes are saved locally in your browser. Click Sign In to sync & protect your ledger.'
-                : syncStatus === 'synced'
-                ? `SQLite Synced ${lastSyncedAt ? `(${new Date(lastSyncedAt).toLocaleTimeString()})` : ''}. Click to re-sync.`
-                : syncStatus === 'syncing'
-                ? 'Syncing changes to SQLite database...'
-                : 'Offline / Server unreachable (Saved in browser). Click to retry sync.'
-            }
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="p-1.5 rounded-md text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#F2EDE4] border border-[#DDD6C8] transition-colors cursor-pointer"
+            title="Options & Settings"
           >
-            {syncStatus === 'syncing' ? (
-              <RefreshCw className="w-3 h-3 text-[#E29578] animate-spin" />
-            ) : syncStatus === 'synced' ? (
-              <Database className="w-3 h-3 text-[#2A9D8F]" />
-            ) : !currentUser ? (
-              <Database className="w-3 h-3 text-[#8C827A]" />
-            ) : (
-              <Database className="w-3 h-3 text-[#E76F51] opacity-70" />
-            )}
-            <span className="hidden xl:inline">
-              {!currentUser
-                ? 'Guest'
-                : syncStatus === 'synced'
-                ? 'SQLite'
-                : syncStatus === 'syncing'
-                ? 'Syncing…'
-                : 'Offline'}
-            </span>
+            <MoreVertical className="w-4 h-4" />
           </button>
-        )}
+        </div>
 
-        {/* User Account / Auth Pill */}
-        {currentUser ? (
-          <div className="flex items-center gap-1.5 pl-2 pr-1.5 py-1 text-[11px] font-mono rounded-md bg-[#F2EDE4] text-[#2B2C30] border border-[#DDD6C8] shadow-2xs">
-            <User className="w-3.5 h-3.5 text-[#2B2C30] shrink-0" />
-            <span className="max-w-[120px] truncate font-medium" title={currentUser.email}>
-              {currentUser.email.split('@')[0]}
-            </span>
-            {onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="ml-0.5 text-[#8C827A] hover:text-[#D23B38] p-0.5 rounded transition-colors cursor-pointer"
-                title="Sign out of account"
-              >
-                <LogOut className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-        ) : onOpenAuthModal ? (
-          <button
-            type="button"
-            onClick={onOpenAuthModal}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-medium rounded-md bg-[#2B2C30] text-[#FAF8F5] hover:bg-[#3D3E42] transition-colors cursor-pointer shadow-xs"
-            title="Sign in or create account to sync across devices"
-          >
-            <User className="w-3 h-3 text-[#FAF8F5]" />
-            <span>Sign In</span>
-          </button>
-        ) : null}
-
-        {/* Backup / Export */}
-        {onExportBackup && (
-          <button
-            type="button"
-            onClick={onExportBackup}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
-            title="Download full JSON backup of notes & drawings"
-          >
-            <Download className="w-3 h-3 text-[#A19D94]" />
-            <span className="hidden xl:inline">Export</span>
-          </button>
-        )}
-
-        {/* Restore / Import */}
-        {onImportBackup && (
-          <>
+        {/* Desktop: Full Controls */}
+        <div className="hidden md:flex items-center gap-2">
+          {/* SQLite Sync Status Indicator */}
+          {syncStatus && (
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
-              title="Import JSON backup file"
+              onClick={currentUser ? onForceSync : onOpenAuthModal}
+              className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+              title={
+                !currentUser
+                  ? 'Guest Mode: Notes are saved locally in your browser. Click Sign In to sync & protect your ledger.'
+                  : syncStatus === 'synced'
+                  ? `SQLite Synced ${lastSyncedAt ? `(${new Date(lastSyncedAt).toLocaleTimeString()})` : ''}. Click to re-sync.`
+                  : syncStatus === 'syncing'
+                  ? 'Syncing changes to SQLite database...'
+                  : 'Offline / Server unreachable (Saved in browser). Click to retry sync.'
+              }
             >
-              <Upload className="w-3 h-3 text-[#A19D94]" />
-              <span className="hidden xl:inline">Import</span>
+              {syncStatus === 'syncing' ? (
+                <RefreshCw className="w-3 h-3 text-[#E29578] animate-spin" />
+              ) : syncStatus === 'synced' ? (
+                <Database className="w-3 h-3 text-[#2A9D8F]" />
+              ) : !currentUser ? (
+                <Database className="w-3 h-3 text-[#8C827A]" />
+              ) : (
+                <Database className="w-3 h-3 text-[#E76F51] opacity-70" />
+              )}
+              <span className="hidden xl:inline">
+                {!currentUser
+                  ? 'Guest'
+                  : syncStatus === 'synced'
+                  ? 'SQLite'
+                  : syncStatus === 'syncing'
+                  ? 'Syncing…'
+                  : 'Offline'}
+              </span>
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-          </>
-        )}
+          )}
 
-        {/* Toggle Show Struck / Ledger View */}
-        <button
-          type="button"
-          onClick={() => onUpdateSettings({ showStruckItems: !settings.showStruckItems })}
-          className="p-1.5 text-[#6B6C72] hover:text-[#2B2C30] rounded-md hover:bg-[#F2EDE4] transition-colors cursor-pointer"
-          title={settings.showStruckItems ? 'Ledger View (Showing struck items)' : 'Clean View (Hiding struck items)'}
-        >
-          {settings.showStruckItems ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4 text-[#A19D94]" />}
-        </button>
+          {/* User Account / Auth Pill */}
+          {currentUser ? (
+            <div className="flex items-center gap-1.5 pl-2 pr-1.5 py-1 text-[11px] font-mono rounded-md bg-[#F2EDE4] text-[#2B2C30] border border-[#DDD6C8] shadow-2xs">
+              <User className="w-3.5 h-3.5 text-[#2B2C30] shrink-0" />
+              <span className="max-w-[120px] truncate font-medium" title={currentUser.email}>
+                {currentUser.email.split('@')[0]}
+              </span>
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="ml-0.5 text-[#8C827A] hover:text-[#D23B38] p-0.5 rounded transition-colors cursor-pointer"
+                  title="Sign out of account"
+                >
+                  <LogOut className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ) : onOpenAuthModal ? (
+            <button
+              type="button"
+              onClick={onOpenAuthModal}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-medium rounded-md bg-[#2B2C30] text-[#FAF8F5] hover:bg-[#3D3E42] transition-colors cursor-pointer shadow-xs"
+              title="Sign in or create account to sync across devices"
+            >
+              <User className="w-3 h-3 text-[#FAF8F5]" />
+              <span>Sign In</span>
+            </button>
+          ) : null}
 
-        {/* Week Start Toggle */}
-        <button
-          type="button"
-          onClick={() => onUpdateSettings({ weekStartsOn: settings.weekStartsOn === 0 ? 1 : 0 })}
-          className="px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] border border-[#E5DFD5] transition-colors cursor-pointer"
-          title="Toggle week start day (Sunday vs. Monday)"
-        >
-          {settings.weekStartsOn === 0 ? 'Sun Start' : 'Mon Start'}
-        </button>
+          {/* Backup / Export */}
+          {onExportBackup && (
+            <button
+              type="button"
+              onClick={onExportBackup}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+              title="Download full JSON backup of notes & drawings"
+            >
+              <Download className="w-3 h-3 text-[#A19D94]" />
+              <span className="hidden xl:inline">Export</span>
+            </button>
+          )}
 
-        {/* Continuous Jigsaw Month Radar Toggle */}
-        <button
-          type="button"
-          onClick={onToggleSidebar}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
-            isSidebarOpen
-              ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
-              : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
-          }`}
-          title="Toggle Continuous Jigsaw Month Radar"
-        >
-          <CalendarIcon className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Radar</span>
-        </button>
+          {/* Restore / Import */}
+          {onImportBackup && (
+            <>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+                title="Import JSON backup file"
+              >
+                <Upload className="w-3 h-3 text-[#A19D94]" />
+                <span className="hidden xl:inline">Import</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </>
+          )}
+
+          {/* Toggle Show Struck / Ledger View */}
+          <button
+            type="button"
+            onClick={() => onUpdateSettings({ showStruckItems: !settings.showStruckItems })}
+            className="p-1.5 text-[#6B6C72] hover:text-[#2B2C30] rounded-md hover:bg-[#F2EDE4] transition-colors cursor-pointer"
+            title={settings.showStruckItems ? 'Ledger View (Showing struck items)' : 'Clean View (Hiding struck items)'}
+          >
+            {settings.showStruckItems ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4 text-[#A19D94]" />}
+          </button>
+
+          {/* Week Start Toggle */}
+          <button
+            type="button"
+            onClick={() => onUpdateSettings({ weekStartsOn: settings.weekStartsOn === 0 ? 1 : 0 })}
+            className="px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] border border-[#E5DFD5] transition-colors cursor-pointer"
+            title="Toggle week start day (Sunday vs. Monday)"
+          >
+            {settings.weekStartsOn === 0 ? 'Sun Start' : 'Mon Start'}
+          </button>
+
+          {/* Continuous Month Calendar Toggle */}
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
+              isSidebarOpen
+                ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
+            }`}
+            title="Toggle Continuous Month Calendar"
+          >
+            <CalendarIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Months</span>
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Options Modal / Bottom Sheet */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center animate-in fade-in duration-150"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-[#FAF8F5] rounded-t-2xl border-t border-[#E5DFD5] shadow-2xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#E5DFD5] pb-2">
+              <span className="font-serif font-bold text-sm text-[#2B2C30]">Settings & Controls</span>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1 rounded-md text-[#8E8F95] hover:text-[#2B2C30] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Account / Sync Row */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#F2EDE4]/60 border border-[#E5DFD5]">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-[#2B2C30]" />
+                <span className="text-xs font-mono font-medium text-[#2B2C30] truncate max-w-[200px]">
+                  {currentUser ? currentUser.email : 'Guest Mode (Local Only)'}
+                </span>
+              </div>
+              {currentUser ? (
+                onLogout && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onLogout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="text-xs font-mono text-[#D23B38] hover:underline font-bold cursor-pointer"
+                  >
+                    Sign Out
+                  </button>
+                )
+              ) : (
+                onOpenAuthModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenAuthModal();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="text-xs font-mono font-bold text-[#2B2C30] underline cursor-pointer"
+                  >
+                    Sign In
+                  </button>
+                )
+              )}
+            </div>
+
+            {/* Drawing Color Selector */}
+            {settings.activeTool !== 'select' && settings.activeTool !== 'eraser' && (
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#F2EDE4]/60 border border-[#E5DFD5]">
+                <span className="text-xs font-mono text-[#6B6C72]">Ink Color</span>
+                <div className="flex items-center gap-2">
+                  {inkColors.map((c) => (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      onClick={() => onUpdateSettings({ inkColor: c.hex })}
+                      className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
+                        settings.inkColor === c.hex
+                          ? 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]'
+                          : 'opacity-70'
+                      }`}
+                      style={{ backgroundColor: c.hex }}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Actions Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+              {/* Show Struck Items */}
+              <button
+                type="button"
+                onClick={() => onUpdateSettings({ showStruckItems: !settings.showStruckItems })}
+                className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 hover:bg-[#F2EDE4] transition-colors cursor-pointer"
+              >
+                <span>Struck Items</span>
+                {settings.showStruckItems ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 text-[#A19D94]" />}
+              </button>
+
+              {/* Week Starts On */}
+              <button
+                type="button"
+                onClick={() => onUpdateSettings({ weekStartsOn: settings.weekStartsOn === 0 ? 1 : 0 })}
+                className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 hover:bg-[#F2EDE4] transition-colors cursor-pointer"
+              >
+                <span>Start Day</span>
+                <span className="font-bold">{settings.weekStartsOn === 0 ? 'Sun' : 'Mon'}</span>
+              </button>
+
+              {/* Undo */}
+              <button
+                type="button"
+                onClick={() => onUndo?.()}
+                disabled={!canUndo}
+                className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                <span>Undo</span>
+                <Undo className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Redo */}
+              <button
+                type="button"
+                onClick={() => onRedo?.()}
+                disabled={!canRedo}
+                className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                <span>Redo</span>
+                <Redo className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Backup & Restore */}
+            <div className="flex items-center gap-2 pt-1">
+              {onExportBackup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onExportBackup();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 text-xs font-mono text-[#6B6C72] hover:text-[#2B2C30] cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export Backup</span>
+                </button>
+              )}
+              {onImportBackup && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    fileInputRef.current?.click();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 text-xs font-mono text-[#6B6C72] hover:text-[#2B2C30] cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Import Backup</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

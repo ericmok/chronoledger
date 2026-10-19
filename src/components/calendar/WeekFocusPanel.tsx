@@ -21,6 +21,8 @@ export interface WeekFocusPanelProps {
   onReorderWeekNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => void;
   onMoveWeekNoteToWeek?: (noteId: string, targetWeek: string, position?: 'start' | 'end') => void;
   onJumpToWeek?: (weekKey: string) => void;
+  isFullWidth?: boolean;
+  className?: string;
 }
 
 export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
@@ -38,6 +40,8 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
   onReorderWeekNotes,
   onMoveWeekNoteToWeek,
   onJumpToWeek,
+  isFullWidth = false,
+  className,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -71,11 +75,21 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
         onStartAddWeekNote(weekBlock.weekKey);
       }}
       title="Weekly notes — double-click to add note"
-      className={`w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 border-l border-[#E5DFD5] p-2 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
-        weekBlock.containsToday
-          ? 'bg-[#FAF3EA]/80 hover:bg-[#F5ECE0]/90'
-          : 'bg-[#F7F4EC]/40 hover:bg-[#F2EDE4]/30'
-      }`}
+      className={
+        className
+          ? className
+          : isFullWidth
+          ? `w-full p-3.5 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer rounded-lg border border-[#E5DFD5] ${
+              weekBlock.containsToday
+                ? 'bg-[#FAF3EA]/90 border-[#D23B38]/60 shadow-xs'
+                : 'bg-[#F7F4EC]/60 hover:bg-[#F2EDE4]/50'
+            }`
+          : `w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 border-l border-[#E5DFD5] p-2 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
+              weekBlock.containsToday
+                ? 'bg-[#FAF3EA]/80 hover:bg-[#F5ECE0]/90'
+                : 'bg-[#F7F4EC]/40 hover:bg-[#F2EDE4]/30'
+            }`
+      }
     >
       {/* Week Header & Notes Section (expands to utilize full vertical space of the week) */}
       <div className="flex-1 flex flex-col min-h-0">

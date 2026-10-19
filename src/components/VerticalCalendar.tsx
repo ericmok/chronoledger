@@ -39,6 +39,8 @@ interface VerticalCalendarProps {
   onJumpToDateRequested?: (dateKey: string) => void;
   scrollTargetDate?: { dateString: string; key: number } | null;
   scrollRef: React.RefObject<HTMLDivElement | null>;
+  hideWeekPanel?: boolean;
+  onOpenWeekScratchPad?: (weekKey: string) => void;
 }
 
 export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
@@ -72,6 +74,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   onJumpToDateRequested,
   scrollTargetDate,
   scrollRef,
+  hideWeekPanel = false,
+  onOpenWeekScratchPad,
 }) => {
   const [quickInputDate, setQuickInputDate] = useState<string | null>(null);
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
@@ -130,7 +134,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   const virtualizer = useVirtualizer({
     count: weekBlocks.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 420,
+    estimateSize: () => (hideWeekPanel ? 360 : 420),
     overscan: 4,
     getItemKey: (index) => weekBlocks[index]?.weekKey ?? index,
   });
@@ -326,7 +330,9 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
           <div className="w-8 shrink-0 font-semibold text-center">Mo</div>
           <div className="w-12 shrink-0 font-semibold text-center">Date</div>
           <div className="flex-1 font-semibold pl-1.5">Daily Notes & Tasks</div>
-          <div className="w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 font-semibold pl-2.5 border-l border-[#E5DFD5]">Weekly Notes</div>
+          {!hideWeekPanel && (
+            <div className="w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 font-semibold pl-2.5 border-l border-[#E5DFD5]">Weekly Scratch Pad</div>
+          )}
         </div>
 
         {/* Sticky Month Rail (Fixed vertically at 50% screen height) */}
@@ -396,30 +402,57 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       onMoveNoteToDate={onMoveNoteToDate}
                     />
                   ))}
+                  {/* Mobile In-Stream Week Scratch Pad Bridge */}
+                  {hideWeekPanel && onOpenWeekScratchPad && (
+                    <div className="px-3 py-1.5 bg-[#FAF3EA]/80 flex items-center justify-between text-[11px] font-mono select-none border-t border-[#E5DFD5]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-[#2B2C30]">Week {weekBlock.weekNumber}</span>
+                        <span className="text-[#8E8F95] text-[10px]">
+                          {weekBlock.startDate.monthName} {weekBlock.startDate.dayOfMonth} – {weekBlock.endDate.monthName} {weekBlock.endDate.dayOfMonth}
+                        </span>
+                        {currentWeekNotes.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-[#E5DFD5] text-[#2B2C30] text-[10px] font-bold">
+                            {currentWeekNotes.length} note{currentWeekNotes.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onOpenWeekScratchPad(weekBlock.weekKey)}
+                        className="flex items-center gap-1 text-[#2B2C30] hover:text-[#D23B38] font-medium transition-colors cursor-pointer text-xs"
+                        title="Open Week Scratch Pad"
+                      >
+                        <span>Scratch Pad</span>
+                        <span>→</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* TIER 2: Week Notes (Spans the vertical height of the week) */}
-                <WeekFocusPanel
-                  weekBlock={weekBlock}
-                  currentWeekNotes={currentWeekNotes}
-                  isAddingWeekNote={isAddingWeekNote}
-                  availableWeeks={availableWeeks}
-                  onStartAddWeekNote={(wKey) => setQuickInputWeek(wKey)}
-                  onCancelAddWeekNote={() => setQuickInputWeek(null)}
-                  onAddWeekNote={onAddWeekNote}
-                  onToggleStrikeWeekNote={onToggleStrikeWeekNote}
-                  onRemoveWeekNote={onRemoveWeekNote}
-                  onUpdateWeekNote={onUpdateWeekNote}
-                  onAcceptNoteRevision={onAcceptNoteRevision}
-                  onReorderWeekNotes={onReorderWeekNotes}
-                  onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
-                  onJumpToWeek={(wKey) => {
-                    const targetBlock = weekBlocks.find((b) => b.weekKey === wKey);
-                    if (targetBlock && onJumpToDateRequested) {
-                      onJumpToDateRequested(targetBlock.startDate.dateString);
-                    }
-                  }}
-                />
+                {!hideWeekPanel && (
+                  <WeekFocusPanel
+                    weekBlock={weekBlock}
+                    currentWeekNotes={currentWeekNotes}
+                    isAddingWeekNote={isAddingWeekNote}
+                    availableWeeks={availableWeeks}
+                    onStartAddWeekNote={(wKey) => setQuickInputWeek(wKey)}
+                    onCancelAddWeekNote={() => setQuickInputWeek(null)}
+                    onAddWeekNote={onAddWeekNote}
+                    onToggleStrikeWeekNote={onToggleStrikeWeekNote}
+                    onRemoveWeekNote={onRemoveWeekNote}
+                    onUpdateWeekNote={onUpdateWeekNote}
+                    onAcceptNoteRevision={onAcceptNoteRevision}
+                    onReorderWeekNotes={onReorderWeekNotes}
+                    onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
+                    onJumpToWeek={(wKey) => {
+                      const targetBlock = weekBlocks.find((b) => b.weekKey === wKey);
+                      if (targetBlock && onJumpToDateRequested) {
+                        onJumpToDateRequested(targetBlock.startDate.dateString);
+                      }
+                    }}
+                  />
+                )}
               </div>
 
               {/* Integrated Solid Week Separator Line: rendered between normal weeks, omitted when adjacent to current week frame */}

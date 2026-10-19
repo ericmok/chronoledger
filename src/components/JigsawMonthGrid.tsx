@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import type React from 'react';
-import { ChevronLeft, ChevronRight, Compass } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Compass, Plus } from 'lucide-react';
 import type { NoteItem, MonthNote, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
 import { formatDateKey, MONTH_NAMES, FULL_MONTH_NAMES } from '../utils/dateUtils';
 import { getSeasonalColor } from '../utils/seasonalColors';
@@ -9,6 +9,8 @@ import { MonthNotesColumn, type MonthMeta } from './radar/MonthNotesColumn';
 import { ContinuousRadarGrid, type JigsawCell, type SvgBoundary } from './radar/ContinuousRadarGrid';
 import { VerticalMonthGutter } from './radar/VerticalMonthGutter';
 import { RadarDrawingOverlay } from './radar/RadarDrawingOverlay';
+import { NoteCard } from './common/NoteCard';
+import { MonthNoteInlineForm } from './radar/MonthNoteInlineForm';
 
 interface JigsawMonthGridProps {
   onSelectDate: (dateKey: string) => void;
@@ -32,6 +34,10 @@ interface JigsawMonthGridProps {
   onToggleCircleDate?: (dateKey: string) => void;
   onCycleCircleColor?: (dateKey: string) => void;
   settings?: CalendarSettings;
+  isCompact?: boolean;
+  compactView?: 'stacked' | 'grid' | 'reflections';
+  onCompactViewChange?: (view: 'stacked' | 'grid' | 'reflections') => void;
+  className?: string;
 }
 
 // Squarish, slightly taller cells with generous vertical height for monthly notes
@@ -84,31 +90,22 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onToggleCircleDate,
   onCycleCircleColor,
   settings,
+  isCompact = false,
+  compactView = 'stacked',
+  onCompactViewChange,
+  className = '',
 }) => {
   const baseMonth = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1), []);
   const [pastMonthsCount, setPastMonthsCount] = useState(12);
   const [futureMonthsCount, setFutureMonthsCount] = useState(24);
-
-  const [visibleMonth, setVisibleMonth] = useState<{
-    name: string;
-    fullName: string;
-    year: number;
-    monthIndex: number;
-  }>(() => {
-    const now = new Date();
-    const m = now.getMonth();
-    return {
-      name: MONTH_NAMES[m],
-      fullName: FULL_MONTH_NAMES[m],
-      year: now.getFullYear(),
-      monthIndex: m,
-    };
-  });
-
   const [quickInputMonth, setQuickInputMonth] = useState<string | null>(null);
 
   const gridContainerRef = useRef<HTMLDivElement | null>(null);
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
+  const [focusedMonthKey, setFocusedMonthKey] = useState<string>(() => formatDateKey(new Date()).slice(0, 7));
+  const lastActiveDateRef = useRef<string>(todayKey);
+  const monthSectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const notesAnchorMonthRef = useRef<{ monthKey: string; offsetTop: number } | null>(null);
 
   // Map day notes by dateKey
   const notesByDateMap = useMemo(() => {
@@ -169,33 +166,19 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     if (isPrependingRef.current || !gridContainerRef.current || currentWeeks.length === 0) return;
     isPrependingRef.current = true;
 
-    // Anchor to the date currently at the top of the viewport
-    const currentScrollTop = gridContainerRef.current.scrollTop;
-    const focusRow = Math.min(currentWeeks.length - 1, Math.max(0, Math.floor(currentScrollTop / CELL_HEIGHT)));
-    const anchorDateKey = currentWeeks[focusRow]?.[0]?.dateKey;
-
-    if (anchorDateKey) {
-      scrollAnchorRef.current = {
-        dateKey: anchorDateKey,
-        offsetInRow: currentScrollTop % CELL_HEIGHT,
-      };
-    }
-
-    setPastMonthsCount((prev) => prev + 12);
-    // Sliding window eviction: cap future months if exceeding MAX_RENDERED_MONTHS
-    setFutureMonthsCount((prev) => {
-      const total = pastMonthsCount + 12 + prev;
-      return total > MAX_RENDERED_MONTHS ? Math.max(12, prev - 12) : prev;
-    });
-  }, [pastMonthsCount]);
-
-  const handleLoadLaterMonths = useCallback(() => {
-    const currentWeeks = weeksRef.current;
-    if (isAppendingRef.current || !gridContainerRef.current || currentWeeks.length === 0) return;
-    isAppendingRef.current = true;
-
-    // If total exceeds MAX_RENDERED_MONTHS and pastMonthsCount > 12, evict from top
-    if (pastMonthsCount + futureMonthsCount + 12 > MAX_RENDERED_MONTHS && pastMonthsCount > 12) {
+    if (isCompact && compactView === 'reflections') {
+      const containerRect = gridContainerRef.current.getBoundingClientRect();
+      const firstVisible = Array.from(monthSectionRefs.current.entries()).find(([, el]) => {
+        return el.getBoundingClientRect().bottom > containerRect.top;
+      });
+      if (firstVisible) {
+        notesAnchorMonthRef.current = {
+          monthKey: firstVisible[0],
+          offsetTop: firstVisible[1].getBoundingClientRect().top - containerRect.top,
+        };
+      }
+    } else {
+      // Anchor to the date currently at the top of the viewport
       const currentScrollTop = gridContainerRef.current.scrollTop;
       const focusRow = Math.min(currentWeeks.length - 1, Math.max(0, Math.floor(currentScrollTop / CELL_HEIGHT)));
       const anchorDateKey = currentWeeks[focusRow]?.[0]?.dateKey;
@@ -206,6 +189,46 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
           offsetInRow: currentScrollTop % CELL_HEIGHT,
         };
       }
+    }
+
+    setPastMonthsCount((prev) => prev + 12);
+    // Sliding window eviction: cap future months if exceeding MAX_RENDERED_MONTHS
+    setFutureMonthsCount((prev) => {
+      const total = pastMonthsCount + 12 + prev;
+      return total > MAX_RENDERED_MONTHS ? Math.max(12, prev - 12) : prev;
+    });
+  }, [pastMonthsCount, isCompact, compactView]);
+
+  const handleLoadLaterMonths = useCallback(() => {
+    const currentWeeks = weeksRef.current;
+    if (isAppendingRef.current || !gridContainerRef.current || currentWeeks.length === 0) return;
+    isAppendingRef.current = true;
+
+    // If total exceeds MAX_RENDERED_MONTHS and pastMonthsCount > 12, evict from top
+    if (pastMonthsCount + futureMonthsCount + 12 > MAX_RENDERED_MONTHS && pastMonthsCount > 12) {
+      if (isCompact && compactView === 'reflections') {
+        const containerRect = gridContainerRef.current.getBoundingClientRect();
+        const firstVisible = Array.from(monthSectionRefs.current.entries()).find(([, el]) => {
+          return el.getBoundingClientRect().bottom > containerRect.top;
+        });
+        if (firstVisible) {
+          notesAnchorMonthRef.current = {
+            monthKey: firstVisible[0],
+            offsetTop: firstVisible[1].getBoundingClientRect().top - containerRect.top,
+          };
+        }
+      } else {
+        const currentScrollTop = gridContainerRef.current.scrollTop;
+        const focusRow = Math.min(currentWeeks.length - 1, Math.max(0, Math.floor(currentScrollTop / CELL_HEIGHT)));
+        const anchorDateKey = currentWeeks[focusRow]?.[0]?.dateKey;
+
+        if (anchorDateKey) {
+          scrollAnchorRef.current = {
+            dateKey: anchorDateKey,
+            offsetInRow: currentScrollTop % CELL_HEIGHT,
+          };
+        }
+      }
       setPastMonthsCount((prev) => Math.max(12, prev - 12));
     }
 
@@ -213,7 +236,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     setTimeout(() => {
       isAppendingRef.current = false;
     }, 150);
-  }, [pastMonthsCount, futureMonthsCount]);
+  }, [pastMonthsCount, futureMonthsCount, isCompact, compactView]);
 
   // Calculate grid range & cells
   const { weeks, gutterMonthMetas, notesMonthMetas, totalWeeksHeight, svgBoundaries } = useMemo(() => {
@@ -418,6 +441,17 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
   // Synchronously adjust scrollTop after prepending or evicting months so content never jumps
   useLayoutEffect(() => {
+    if (notesAnchorMonthRef.current && gridContainerRef.current) {
+      const el = monthSectionRefs.current.get(notesAnchorMonthRef.current.monthKey);
+      if (el) {
+        const newOffset = el.getBoundingClientRect().top - gridContainerRef.current.getBoundingClientRect().top;
+        gridContainerRef.current.scrollTop += (newOffset - notesAnchorMonthRef.current.offsetTop);
+      }
+      notesAnchorMonthRef.current = null;
+      isPrependingRef.current = false;
+      return;
+    }
+
     if (scrollAnchorRef.current && gridContainerRef.current && weeks.length > 0) {
       const { dateKey, offsetInRow } = scrollAnchorRef.current;
       const newRowIndex = weeks.findIndex((row) => row.some((c) => c.dateKey === dateKey));
@@ -433,6 +467,20 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   const scrollToDateInRadar = useCallback(
     (targetDateKey: string, smooth = true) => {
       if (!gridContainerRef.current) return;
+
+      if (isCompact && compactView === 'reflections') {
+        const targetMonthKey = targetDateKey.slice(0, 7);
+        const el = monthSectionRefs.current.get(targetMonthKey);
+        if (el && gridContainerRef.current) {
+          const container = gridContainerRef.current;
+          const diff = el.getBoundingClientRect().top - container.getBoundingClientRect().top;
+          container.scrollTo({
+            top: container.scrollTop + diff - 8,
+            behavior: smooth ? 'smooth' : 'auto',
+          });
+          return;
+        }
+      }
 
       const targetRowIndex = weeks.findIndex((row) =>
         row.some((cell) => cell.dateKey === targetDateKey)
@@ -466,32 +514,23 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
         }
       }
     },
-    [weeks, baseMonth, pastMonthsCount, futureMonthsCount]
+    [isCompact, compactView, weeks, baseMonth, pastMonthsCount, futureMonthsCount]
   );
 
-  // Scroll listener: updates currently visible month in header and triggers infinite scroll loading
+  // Scroll listener: updates currently visible/centered month and triggers infinite scroll loading
   const handleScroll = useCallback(() => {
     if (!gridContainerRef.current) return;
     const container = gridContainerRef.current;
     const scrollTop = container.scrollTop;
 
-    // Detect currently visible month
-    const focusY = scrollTop + 80;
+    // Detect currently centered month in the visible radar viewport
+    const centerY = scrollTop + container.clientHeight / 2;
     const activeMeta = notesMonthMetas.find(
-      (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
+      (m) => m.topPx <= centerY && m.topPx + m.heightPx > centerY
     );
     if (activeMeta) {
-      setVisibleMonth((prev) => {
-        if (prev.monthIndex !== activeMeta.monthIndex || prev.year !== activeMeta.year) {
-          return {
-            name: activeMeta.name,
-            fullName: activeMeta.fullName,
-            year: activeMeta.year,
-            monthIndex: activeMeta.monthIndex,
-          };
-        }
-        return prev;
-      });
+      lastActiveDateRef.current = activeMeta.monthKey + '-15';
+      setFocusedMonthKey((prev) => (prev !== activeMeta.monthKey ? activeMeta.monthKey : prev));
     }
 
     // Infinite scroll thresholds
@@ -502,20 +541,43 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     }
   }, [notesMonthMetas, handleLoadEarlierMonths, handleLoadLaterMonths]);
 
-  // Navigate months: scroll smoothly to prev / next month
+  // Scroll listener for compact reflections roll: updates focused month and triggers infinite loading
+  const handleNotesRollScroll = useCallback(() => {
+    if (!gridContainerRef.current) return;
+    const container = gridContainerRef.current;
+    const scrollTop = container.scrollTop;
+
+    // Detect currently visible month among monthSectionRefs
+    const containerRect = container.getBoundingClientRect();
+    const midY = containerRect.top + containerRect.height / 3;
+    for (const [monthKey, el] of monthSectionRefs.current.entries()) {
+      const rect = el.getBoundingClientRect();
+      if (rect.top <= midY && rect.bottom >= midY) {
+        lastActiveDateRef.current = monthKey + '-15';
+        setFocusedMonthKey((prev) => (prev !== monthKey ? monthKey : prev));
+        break;
+      }
+    }
+
+    // Infinite scroll thresholds
+    if (scrollTop < 300) {
+      handleLoadEarlierMonths();
+    } else if (scrollTop + container.clientHeight > container.scrollHeight - 300) {
+      handleLoadLaterMonths();
+    }
+  }, [handleLoadEarlierMonths, handleLoadLaterMonths]);
+
+  // Navigate months: scroll smoothly to prev / next month and center it
   const handlePrevMonth = () => {
     if (!gridContainerRef.current) return;
-    const currentScrollTop = gridContainerRef.current.scrollTop;
-    const focusY = currentScrollTop + 80;
     const currentMetaIndex = notesMonthMetas.findIndex(
-      (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
+      (m) => m.monthKey === focusedMonthKey
     );
     if (currentMetaIndex > 0) {
       const prevMeta = notesMonthMetas[currentMetaIndex - 1];
-      gridContainerRef.current.scrollTo({
-        top: prevMeta.topPx,
-        behavior: 'smooth',
-      });
+      setFocusedMonthKey(prevMeta.monthKey);
+      lastActiveDateRef.current = prevMeta.monthKey + '-15';
+      scrollToDateInRadar(prevMeta.monthKey + '-15', true);
     } else {
       handleLoadEarlierMonths();
       gridContainerRef.current.scrollBy({ top: -CELL_HEIGHT * 5, behavior: 'smooth' });
@@ -524,17 +586,14 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
   const handleNextMonth = () => {
     if (!gridContainerRef.current) return;
-    const currentScrollTop = gridContainerRef.current.scrollTop;
-    const focusY = currentScrollTop + 80;
     const currentMetaIndex = notesMonthMetas.findIndex(
-      (m) => m.topPx <= focusY && m.topPx + m.heightPx > focusY
+      (m) => m.monthKey === focusedMonthKey
     );
     if (currentMetaIndex !== -1 && currentMetaIndex < notesMonthMetas.length - 1) {
       const nextMeta = notesMonthMetas[currentMetaIndex + 1];
-      gridContainerRef.current.scrollTo({
-        top: nextMeta.topPx,
-        behavior: 'smooth',
-      });
+      setFocusedMonthKey(nextMeta.monthKey);
+      lastActiveDateRef.current = nextMeta.monthKey + '-15';
+      scrollToDateInRadar(nextMeta.monthKey + '-15', true);
     } else {
       handleLoadLaterMonths();
       gridContainerRef.current.scrollBy({ top: CELL_HEIGHT * 5, behavior: 'smooth' });
@@ -542,9 +601,30 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   };
 
   const handleResetToCurrent = () => {
+    setFocusedMonthKey(todayKey.slice(0, 7));
+    lastActiveDateRef.current = todayKey;
     onJumpToToday();
     scrollToDateInRadar(todayKey, true);
   };
+
+  const handleCellClick = useCallback(
+    (dateKey: string) => {
+      const mKey = dateKey.slice(0, 7);
+      setFocusedMonthKey(mKey);
+      lastActiveDateRef.current = dateKey;
+      onSelectDate(dateKey);
+    },
+    [onSelectDate]
+  );
+
+  const handleJumpToMonth = useCallback(
+    (mKey: string) => {
+      setFocusedMonthKey(mKey);
+      lastActiveDateRef.current = mKey + '-15';
+      scrollToDateInRadar(mKey + '-15', true);
+    },
+    [scrollToDateInRadar]
+  );
 
   const lastTargetKeyRef = useRef<number | null>(null);
 
@@ -552,7 +632,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   useEffect(() => {
     if (!scrollTargetDate || scrollTargetDate.key === lastTargetKeyRef.current) return;
     lastTargetKeyRef.current = scrollTargetDate.key;
-
+    const mKey = scrollTargetDate.dateString.slice(0, 7);
+    setFocusedMonthKey(mKey);
+    lastActiveDateRef.current = scrollTargetDate.dateString;
     scrollToDateInRadar(scrollTargetDate.dateString, true);
   }, [scrollTargetDate, scrollToDateInRadar]);
 
@@ -564,6 +646,16 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       scrollToDateInRadar(todayKey, false);
     }
   }, [weeks, todayKey, scrollToDateInRadar]);
+
+  // Re-center radar or reflections on the active date/month when switching compactView
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      if (gridContainerRef.current && lastActiveDateRef.current) {
+        scrollToDateInRadar(lastActiveDateRef.current, false);
+      }
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [compactView, isCompact, scrollToDateInRadar]);
 
 
   // Double-click date: toggle circle
@@ -588,45 +680,117 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
     : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
   const gridWidth = 7 * CELL_WIDTH; // 266px
-  const visibleSeasonal = getSeasonalColor(visibleMonth.monthIndex);
+  const focusedMeta = useMemo(() => {
+    return (
+      notesMonthMetas.find((m) => m.monthKey === focusedMonthKey) ||
+      notesMonthMetas.find((m) => m.monthKey === todayKey.slice(0, 7)) ||
+      notesMonthMetas[0]
+    );
+  }, [notesMonthMetas, focusedMonthKey, todayKey]);
+
+  const focusedSeasonal = getSeasonalColor(
+    focusedMeta ? focusedMeta.monthIndex : new Date().getMonth()
+  );
+  const focusedMonthName = focusedMeta
+    ? `${focusedMeta.fullName} ${focusedMeta.year}`
+    : '';
+  const focusedMonthNotes = monthNotesByMonth.get(focusedMonthKey) || [];
+
+  const availableMonths = useMemo(() => {
+    return targetMonths.map((d) => {
+      const mIdx = d.getMonth();
+      const yr = d.getFullYear();
+      const mKey = `${yr}-${String(mIdx + 1).padStart(2, '0')}`;
+      return {
+        monthKey: mKey,
+        label: `${FULL_MONTH_NAMES[mIdx]} ${yr}`,
+      };
+    });
+  }, [targetMonths]);
+
+  const asideClass = className
+    ? className
+    : isCompact
+    ? 'w-[306px] shrink-0 border-l border-[#E5DFD5] bg-[#FAF8F5] flex flex-col h-full select-none relative z-20 shadow-xs'
+    : 'w-[580px] shrink-0 border-l border-[#E5DFD5] bg-[#FAF8F5] flex flex-col h-full select-none relative z-20 shadow-xs';
 
   return (
-    <aside className="w-[580px] shrink-0 border-l border-[#E5DFD5] bg-[#FAF8F5] flex flex-col h-full select-none relative z-20 shadow-xs">
+    <aside className={asideClass}>
       {/* Top Header Bar */}
-      <div className="h-11 border-b border-[#E5DFD5] px-3 flex items-center justify-between bg-[#FAF8F5]/90 shrink-0">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={handlePrevMonth}
-            className="p-1 rounded hover:bg-[#EAE3D6] text-[#63666A] hover:text-[#2B2C30] transition-colors cursor-pointer"
-            title="Previous month"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="font-serif font-bold text-xs text-[#2B2C30] tracking-tight min-w-[125px] text-center flex items-center justify-center gap-1.5 px-2 py-0.5 rounded border border-[#E5DFD5]/70 bg-white/70 shadow-2xs">
-            <span
-              className="w-2 h-2 rounded-full shrink-0 shadow-2xs"
-              style={{ backgroundColor: visibleSeasonal.accentTag }}
-              title={`${visibleMonth.fullName} (${visibleSeasonal.season})`}
-            />
-            <span>{visibleMonth.fullName} {visibleMonth.year}</span>
-          </span>
-          <button
-            type="button"
-            onClick={handleNextMonth}
-            className="p-1 rounded hover:bg-[#EAE3D6] text-[#63666A] hover:text-[#2B2C30] transition-colors cursor-pointer"
-            title="Next month"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="h-11 border-b border-[#E5DFD5] px-2.5 flex items-center justify-between bg-[#FAF8F5]/90 shrink-0">
+        {isCompact && onCompactViewChange ? (
+          /* Compact View Switcher: Split | Grid | Notes */
+          <div className="flex items-center bg-[#F2EDE4] p-0.5 rounded-md border border-[#DDD6C8] text-[11px] font-mono">
+            <button
+              type="button"
+              onClick={() => onCompactViewChange('stacked')}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                compactView === 'stacked'
+                  ? 'bg-[#FAF8F5] text-[#2B2C30] font-bold shadow-2xs'
+                  : 'text-[#71727A] hover:text-[#2B2C30]'
+              }`}
+              title="Split View: Continuous Radar Grid + Month Reflections"
+            >
+              Split
+            </button>
+            <button
+              type="button"
+              onClick={() => onCompactViewChange('grid')}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                compactView === 'grid'
+                  ? 'bg-[#FAF8F5] text-[#2B2C30] font-bold shadow-2xs'
+                  : 'text-[#71727A] hover:text-[#2B2C30]'
+              }`}
+              title="Full Month Grid"
+            >
+              Grid
+            </button>
+            <button
+              type="button"
+              onClick={() => onCompactViewChange('reflections')}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                compactView === 'reflections'
+                  ? 'bg-[#FAF8F5] text-[#2B2C30] font-bold shadow-2xs'
+                  : 'text-[#71727A] hover:text-[#2B2C30]'
+              }`}
+              title="Full Continuous Reflections Roll"
+            >
+              Notes
+            </button>
+          </div>
+        ) : (
+          /* Desktop / Mobile Title */
+          <div className="flex items-center gap-1.5 font-serif font-bold text-xs text-[#2B2C30] tracking-tight">
+            <span>Months</span>
+          </div>
+        )}
 
-        <div className="flex items-center gap-1">
+        {/* Right: Month Navigation (< >) & Today Button */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={handlePrevMonth}
+              className="p-1 rounded hover:bg-[#EAE3D6] text-[#63666A] hover:text-[#2B2C30] transition-colors cursor-pointer"
+              title="Scroll to previous month"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextMonth}
+              className="p-1 rounded hover:bg-[#EAE3D6] text-[#63666A] hover:text-[#2B2C30] transition-colors cursor-pointer"
+              title="Scroll to next month"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={handleResetToCurrent}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/70 rounded transition-colors cursor-pointer"
-            title="Jump radar to today"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/70 rounded transition-colors cursor-pointer border border-[#E5DFD5]"
+            title="Jump calendar to today"
           >
             <Compass className="w-3 h-3 text-[#D23B38]" />
             <span>Today</span>
@@ -636,84 +800,294 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
 
       {/* Column Headers */}
       <div className="h-7 border-b border-[#E5DFD5] flex items-center bg-[#F7F4EC]/60 shrink-0">
-        <div className="w-10 shrink-0 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold text-center border-r border-[#E5DFD5]">
-          Mo
-        </div>
-        <div
-          className="shrink-0 grid grid-cols-7 text-center text-[10px] font-mono font-medium text-[#7E7F85] border-r border-[#E5DFD5]"
-          style={{ width: `${gridWidth}px` }}
-        >
-          {dayHeaders.map((dh) => (
-            <div key={dh}>{dh}</div>
-          ))}
-        </div>
-        <div className="flex-1 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold pl-3">
-          Monthly Notes
-        </div>
-      </div>
-
-      {/* Main Continuous Jigsaw Canvas (Left: Vertical Month Gutter, Center: 7-Day Grid, Right: Month Notes) */}
-      <div
-        ref={gridContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto relative flex scroll-smooth-focus"
-        style={{ overflowAnchor: 'none' }}
-      >
-        {/* Interactive Radar Drawing Overlay for Pencil, Arrow, Eraser */}
-        {settings && (
-          <RadarDrawingOverlay
-            tool={settings.activeTool}
-            inkColor={settings.inkColor}
-            drawings={drawings}
-            onAddDrawing={onAddDrawing}
-            onRemoveDrawing={onRemoveDrawing}
-            onRemoveDrawings={onRemoveDrawings}
-            totalWeeksHeight={totalWeeksHeight}
-            cellHeight={CELL_HEIGHT}
-            weeks={weeks}
-          />
+        {(!isCompact || compactView !== 'reflections') && (
+          <div className="w-10 shrink-0 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold text-center border-r border-[#E5DFD5]">
+            Mo
+          </div>
         )}
-
-        {/* 1. Left Column: Vertical Month Name Gutter */}
-        <VerticalMonthGutter
-          monthMetas={gutterMonthMetas}
-          totalWeeksHeight={totalWeeksHeight}
-          todayKey={todayKey}
-          onJumpToMonth={(mKey) => scrollToDateInRadar(mKey + '-01', true)}
-        />
-
-        {/* 2. Center Column: 7-Day Continuous Radar Grid */}
-        <ContinuousRadarGrid
-          weeks={weeks}
-          svgBoundaries={svgBoundaries}
-          totalWeeksHeight={totalWeeksHeight}
-          cellWidth={CELL_WIDTH}
-          cellHeight={CELL_HEIGHT}
-          onSelectDate={onSelectDate}
-          selectedDateKey={scrollTargetDate?.dateString}
-          onToggleCircleDate={handleToggleCircleDate}
-          onCycleCircleColor={handleCycleCircleColor}
-        />
-
-        {/* 3. Right Column: Month Notes */}
-        <MonthNotesColumn
-          monthMetas={notesMonthMetas}
-          monthNotesByMonth={monthNotesByMonth}
-          totalWeeksHeight={totalWeeksHeight}
-          todayKey={todayKey}
-          quickInputMonth={quickInputMonth}
-          onStartQuickAddMonth={(mKey) => setQuickInputMonth(mKey)}
-          onCancelQuickAddMonth={() => setQuickInputMonth(null)}
-          onAddMonthNote={onAddMonthNote}
-          onToggleStrikeMonthNote={onToggleStrikeMonthNote}
-          onRemoveMonthNote={onRemoveMonthNote}
-          onUpdateMonthNote={onUpdateMonthNote}
-          onAcceptNoteRevision={onAcceptNoteRevision}
-          onReorderMonthNotes={onReorderMonthNotes}
-          onMoveMonthNoteToMonth={onMoveMonthNoteToMonth}
-          onJumpToMonth={(mKey) => scrollToDateInRadar(mKey + '-01', true)}
-        />
+        {(!isCompact || compactView !== 'reflections') && (
+          <div
+            className={`shrink-0 grid grid-cols-7 text-center text-[10px] font-mono font-medium text-[#7E7F85] ${
+              !isCompact ? 'border-r border-[#E5DFD5]' : ''
+            }`}
+            style={{ width: `${gridWidth}px` }}
+          >
+            {dayHeaders.map((dh) => (
+              <div key={dh}>{dh}</div>
+            ))}
+          </div>
+        )}
+        {(!isCompact || compactView === 'reflections') && (
+          <div className="flex-1 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold pl-3 truncate">
+            Monthly Reflections
+          </div>
+        )}
       </div>
+
+      {/* Main Content Areas */}
+      {!isCompact || compactView !== 'reflections' ? (
+        <>
+          {/* Top/Main Pane: Continuous Radar Grid (shared DOM container between stacked, grid, and desktop) */}
+          <div
+            ref={gridContainerRef}
+            onScroll={handleScroll}
+            className={`overflow-y-auto relative flex scroll-smooth-focus ${
+              isCompact && compactView === 'stacked'
+                ? 'shrink-0 max-h-[50%] h-[350px] border-b border-[#E5DFD5]'
+                : 'flex-1 h-full'
+            }`}
+            style={{ overflowAnchor: 'none' }}
+          >
+            {settings && (
+              <RadarDrawingOverlay
+                tool={settings.activeTool}
+                inkColor={settings.inkColor}
+                drawings={drawings}
+                onAddDrawing={onAddDrawing}
+                onRemoveDrawing={onRemoveDrawing}
+                onRemoveDrawings={onRemoveDrawings}
+                totalWeeksHeight={totalWeeksHeight}
+                cellHeight={CELL_HEIGHT}
+                weeks={weeks}
+              />
+            )}
+            <VerticalMonthGutter
+              monthMetas={gutterMonthMetas}
+              totalWeeksHeight={totalWeeksHeight}
+              todayKey={todayKey}
+              onJumpToMonth={handleJumpToMonth}
+            />
+            <ContinuousRadarGrid
+              weeks={weeks}
+              svgBoundaries={svgBoundaries}
+              totalWeeksHeight={totalWeeksHeight}
+              cellWidth={CELL_WIDTH}
+              cellHeight={CELL_HEIGHT}
+              onSelectDate={handleCellClick}
+              selectedDateKey={scrollTargetDate?.dateString}
+              onToggleCircleDate={handleToggleCircleDate}
+              onCycleCircleColor={handleCycleCircleColor}
+            />
+            {!isCompact && (
+              <MonthNotesColumn
+                monthMetas={notesMonthMetas}
+                monthNotesByMonth={monthNotesByMonth}
+                totalWeeksHeight={totalWeeksHeight}
+                todayKey={todayKey}
+                quickInputMonth={quickInputMonth}
+                onStartQuickAddMonth={(mKey) => setQuickInputMonth(mKey)}
+                onCancelQuickAddMonth={() => setQuickInputMonth(null)}
+                onAddMonthNote={onAddMonthNote}
+                onToggleStrikeMonthNote={onToggleStrikeMonthNote}
+                onRemoveMonthNote={onRemoveMonthNote}
+                onUpdateMonthNote={onUpdateMonthNote}
+                onAcceptNoteRevision={onAcceptNoteRevision}
+                onReorderMonthNotes={onReorderMonthNotes}
+                onMoveMonthNoteToMonth={onMoveMonthNoteToMonth}
+                onJumpToMonth={handleJumpToMonth}
+              />
+            )}
+          </div>
+
+          {/* Stacked Divider & Reflections Pane below radar grid */}
+          {isCompact && compactView === 'stacked' && (
+            <>
+              {/* Stacked Divider: Active Focused Month Header */}
+              <div
+                className="border-t-2 border-[#2B2C30] px-3 py-1.5 flex items-center justify-between text-[11px] font-mono shrink-0 transition-colors shadow-2xs"
+                style={{ backgroundColor: focusedSeasonal.notesBg }}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-[#2B2C30] truncate">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+                    style={{ backgroundColor: focusedSeasonal.accentTag }}
+                  />
+                  <span className="truncate">{focusedMonthName} Reflections</span>
+                  {focusedMonthNotes.length > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#E5DFD5] text-[#2B2C30] text-[10px] font-bold">
+                      {focusedMonthNotes.length}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setQuickInputMonth(focusedMonthKey)}
+                  className="flex items-center gap-0.5 text-[#2B2C30] hover:text-[#D23B38] font-bold cursor-pointer text-[10px] uppercase tracking-wider"
+                  title={`Add reflection for ${focusedMonthName}`}
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add</span>
+                </button>
+              </div>
+
+              {/* Bottom Pane: Active Month Reflections with Generous Vertical Space */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-2 bg-[#FAF8F5] flex flex-col gap-1.5">
+                {quickInputMonth === focusedMonthKey && (
+                  <div className="mb-2">
+                    <MonthNoteInlineForm
+                      currentMonthKey={focusedMonthKey}
+                      availableMonths={availableMonths}
+                      onSubmit={(content, parentMonths, colorTag) => {
+                        onAddMonthNote(content, parentMonths, colorTag);
+                        setQuickInputMonth(null);
+                      }}
+                      onCancel={() => setQuickInputMonth(null)}
+                    />
+                  </div>
+                )}
+
+                {focusedMonthNotes.length === 0 && quickInputMonth !== focusedMonthKey && (
+                  <div
+                    onDoubleClick={() => setQuickInputMonth(focusedMonthKey)}
+                    className="text-xs text-[#A19D94] italic py-6 text-center cursor-pointer hover:text-[#7E7F85]"
+                  >
+                    No reflections recorded for {focusedMonthName}.
+                    <br />
+                    <span className="text-[10px] text-[#71727A] not-italic mt-1 inline-block">
+                      Double-click or tap Add to record.
+                    </span>
+                  </div>
+                )}
+
+                {focusedMonthNotes.map((note) => (
+                  <div key={note.id} className="relative">
+                    <NoteCard
+                      id={note.id}
+                      content={note.content}
+                      originalContent={note.originalContent}
+                      isStruck={note.isStruck}
+                      colorTag={note.colorTag}
+                      density="compact"
+                      variant="minimal"
+                      onToggleStrike={onToggleStrikeMonthNote}
+                      onRemove={onRemoveMonthNote}
+                      onUpdate={(id, text) => {
+                        onUpdateMonthNote?.(id, text, note.parentMonths, note.colorTag);
+                      }}
+                      onAcceptEdit={onAcceptNoteRevision}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        /* isCompact && compactView === 'reflections' */
+        <div
+          ref={gridContainerRef}
+          onScroll={handleNotesRollScroll}
+          className="flex-1 overflow-y-auto p-2.5 bg-[#FAF8F5] flex flex-col gap-3 select-none"
+          style={{ overflowAnchor: 'none' }}
+        >
+          {notesMonthMetas.map((m) => {
+            const notes = monthNotesByMonth.get(m.monthKey) || [];
+            const isAdding = quickInputMonth === m.monthKey;
+            const seasonal = getSeasonalColor(m.monthIndex);
+            const isCurrent = m.monthKey === todayKey.slice(0, 7);
+
+            return (
+              <div
+                key={m.monthKey}
+                ref={(el) => {
+                  if (el) monthSectionRefs.current.set(m.monthKey, el);
+                  else monthSectionRefs.current.delete(m.monthKey);
+                }}
+                className={`rounded-lg border transition-colors ${
+                  isCurrent
+                    ? 'border-[#D23B38] bg-[#FAF7F2] shadow-xs'
+                    : 'border-[#E5DFD5] bg-[#FAF8F5]'
+                }`}
+                style={{
+                  borderLeftWidth: '3.5px',
+                  borderLeftColor: seasonal.accentTag,
+                }}
+              >
+                {/* Month Header on TOP of Notes */}
+                <div
+                  className="px-2.5 py-1.5 flex items-center justify-between border-b border-[#E5DFD5]/80 transition-colors rounded-t-lg"
+                  style={{ backgroundColor: seasonal.notesBg }}
+                >
+                  <div className="flex items-center gap-1.5 font-serif font-bold text-xs text-[#2B2C30] truncate">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0 shadow-2xs"
+                      style={{ backgroundColor: seasonal.accentTag }}
+                    />
+                    <span className="truncate">{m.fullName} {m.year}</span>
+                    {isCurrent && (
+                      <span className="text-[9px] font-mono uppercase bg-[#2B2C30] text-[#FAF8F5] px-1 py-0.2 rounded font-bold">
+                        Today
+                      </span>
+                    )}
+                    {notes.length > 0 && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-[#E5DFD5] text-[#2B2C30] text-[10px] font-mono font-bold">
+                        {notes.length}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setQuickInputMonth(m.monthKey)}
+                    className="flex items-center gap-0.5 text-[#2B2C30] hover:text-[#D23B38] font-bold cursor-pointer text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded hover:bg-black/5 transition-colors shrink-0"
+                    title={`Add reflection for ${m.fullName}`}
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add</span>
+                  </button>
+                </div>
+
+                {/* Notes Content */}
+                <div className="p-2 flex flex-col gap-1.5">
+                  {isAdding && (
+                    <div className="mb-2">
+                      <MonthNoteInlineForm
+                        currentMonthKey={m.monthKey}
+                        availableMonths={availableMonths}
+                        onSubmit={(content, parentMonths, colorTag) => {
+                          onAddMonthNote(content, parentMonths, colorTag);
+                          setQuickInputMonth(null);
+                        }}
+                        onCancel={() => setQuickInputMonth(null)}
+                      />
+                    </div>
+                  )}
+
+                  {notes.length === 0 && !isAdding && (
+                    <div
+                      onDoubleClick={() => setQuickInputMonth(m.monthKey)}
+                      className="text-xs text-[#A19D94] italic py-2.5 text-center cursor-pointer hover:text-[#7E7F85]"
+                    >
+                      No reflections for {m.name}. Tap Add to write.
+                    </div>
+                  )}
+
+                  {notes.map((note) => (
+                    <div key={note.id} className="relative">
+                      <NoteCard
+                        id={note.id}
+                        content={note.content}
+                        originalContent={note.originalContent}
+                        isStruck={note.isStruck}
+                        colorTag={note.colorTag}
+                        density="compact"
+                        variant="minimal"
+                        onToggleStrike={onToggleStrikeMonthNote}
+                        onRemove={onRemoveMonthNote}
+                        onUpdate={(id, text) => {
+                          onUpdateMonthNote?.(id, text, note.parentMonths, note.colorTag);
+                        }}
+                        onAcceptEdit={onAcceptNoteRevision}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </aside>
   );
 };
