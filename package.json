@@ -19,6 +19,7 @@
     "argon2": "^0.45.1",
     "cookie": "^2.0.1",
     "lucide-react": "^1.57.0",
+    "marked": "^18.1.1",
     "perfect-freehand": "^1.2.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
