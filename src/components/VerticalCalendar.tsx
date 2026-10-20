@@ -41,6 +41,7 @@ interface VerticalCalendarProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   hideWeekPanel?: boolean;
   onOpenWeekScratchPad?: (weekKey: string) => void;
+  onOpenFolio?: (noteId: string) => void;
 }
 
 export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
@@ -76,6 +77,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   scrollRef,
   hideWeekPanel = false,
   onOpenWeekScratchPad,
+  onOpenFolio,
 }) => {
   const [quickInputDate, setQuickInputDate] = useState<string | null>(null);
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
@@ -436,6 +438,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       onJumpToDateRequested={onJumpToDateRequested}
                       onReorderNotes={onReorderNotes}
                       onMoveNoteToDate={onMoveNoteToDate}
+                      onSizeChange={() => virtualizer.measure()}
+                      onOpenFolio={onOpenFolio}
                     />
                   ))}
                   {/* Mobile In-Stream Week Scratch Pad Bridge */}
@@ -487,6 +491,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                         onJumpToDateRequested(targetBlock.startDate.dateString);
                       }
                     }}
+                    onSizeChange={() => virtualizer.measure()}
+                    onOpenFolio={onOpenFolio}
                   />
                 )}
               </div>

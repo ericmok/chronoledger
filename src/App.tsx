@@ -11,6 +11,7 @@ import { checkAuthSession, logoutUser, type UserProfile } from './services/auth'
 import { HorizonSlider } from './components/layout/HorizonSlider';
 import { StandaloneWeekRoll } from './components/calendar/StandaloneWeekRoll';
 import { StandaloneMonthReflectionsRoll } from './components/radar/StandaloneMonthReflectionsRoll';
+import { NoteFolioModal } from './components/common/NoteFolioModal';
 
 export function App() {
   const {
@@ -96,6 +97,70 @@ export function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [scrollTargetDate, setScrollTargetDate] = useState<{ dateString: string; key: number } | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Active long-form note folio state
+  const [activeFolioNote, setActiveFolioNote] = useState<{
+    id: string;
+    content: string;
+    title: string;
+    subtitle?: string;
+    type: 'daily' | 'week' | 'month';
+  } | null>(null);
+
+  const handleOpenFolio = useCallback(
+    (noteId: string) => {
+      const daily = notes.find((n) => n.id === noteId);
+      if (daily) {
+        setActiveFolioNote({
+          id: daily.id,
+          content: daily.content,
+          title: `Note: ${daily.parentDates.join(', ')}`,
+          subtitle: 'Daily Timeline Note',
+          type: 'daily',
+        });
+        return;
+      }
+
+      const week = weekNotes.find((w) => w.id === noteId);
+      if (week) {
+        setActiveFolioNote({
+          id: week.id,
+          content: week.content,
+          title: `Weekly Note: ${week.parentWeeks.join(', ')}`,
+          subtitle: 'Weekly Scratch Pad',
+          type: 'week',
+        });
+        return;
+      }
+
+      const month = monthNotes.find((m) => m.id === noteId);
+      if (month) {
+        setActiveFolioNote({
+          id: month.id,
+          content: month.content,
+          title: `Month Horizon: ${month.parentMonths.join(', ')}`,
+          subtitle: 'Monthly Reflection & Goals',
+          type: 'month',
+        });
+        return;
+      }
+    },
+    [notes, weekNotes, monthNotes]
+  );
+
+  const handleSaveFolio = useCallback(
+    (newContent: string) => {
+      if (!activeFolioNote) return;
+      if (activeFolioNote.type === 'daily') {
+        updateNote(activeFolioNote.id, newContent);
+      } else if (activeFolioNote.type === 'week') {
+        updateWeekNote(activeFolioNote.id, newContent);
+      } else if (activeFolioNote.type === 'month') {
+        updateMonthNote(activeFolioNote.id, newContent);
+      }
+    },
+    [activeFolioNote, updateNote, updateWeekNote, updateMonthNote]
+  );
 
   // Responsive Layout detection & mobile horizon state
   const {
@@ -473,6 +538,7 @@ export function App() {
               scrollTargetDate={scrollTargetDate}
               scrollRef={scrollRef}
               hideWeekPanel={false}
+              onOpenFolio={handleOpenFolio}
             />
           </main>
 
@@ -503,6 +569,7 @@ export function App() {
               isCompact={isCompact}
               compactView={radarCompactView}
               onCompactViewChange={setRadarCompactView}
+              onOpenFolio={handleOpenFolio}
             />
           )}
         </div>
@@ -514,6 +581,19 @@ export function App() {
         onClose={() => setIsAddNoteOpen(false)}
         onSave={(content, parentDates, colorTag) => addNote(content, parentDates, colorTag)}
       />
+
+      {/* Distraction-Free Note Folio Modal */}
+      {activeFolioNote && (
+        <NoteFolioModal
+          key={activeFolioNote.id}
+          isOpen={Boolean(activeFolioNote)}
+          onClose={() => setActiveFolioNote(null)}
+          initialContent={activeFolioNote.content}
+          title={activeFolioNote.title}
+          subtitle={activeFolioNote.subtitle}
+          onSave={handleSaveFolio}
+        />
+      )}
 
       {/* Auth & Migration Modal */}
       <AuthModal

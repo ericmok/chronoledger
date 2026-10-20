@@ -37,6 +37,7 @@ interface JigsawMonthGridProps {
   isCompact?: boolean;
   compactView?: 'stacked' | 'grid' | 'reflections';
   onCompactViewChange?: (view: 'stacked' | 'grid' | 'reflections') => void;
+  onOpenFolio?: (noteId: string) => void;
   className?: string;
 }
 
@@ -93,6 +94,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   isCompact = false,
   compactView = 'stacked',
   onCompactViewChange,
+  onOpenFolio,
   className = '',
 }) => {
   const baseMonth = useMemo(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1), []);
@@ -885,6 +887,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                 onReorderMonthNotes={onReorderMonthNotes}
                 onMoveMonthNoteToMonth={onMoveMonthNoteToMonth}
                 onJumpToMonth={handleJumpToMonth}
+                onOpenFolio={onOpenFolio}
               />
             )}
           </div>

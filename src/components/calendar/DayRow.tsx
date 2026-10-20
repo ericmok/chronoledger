@@ -30,6 +30,8 @@ export interface DayRowProps {
   onJumpToDateRequested?: (dateKey: string) => void;
   onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
   onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
+  onSizeChange?: () => void;
+  onOpenFolio?: (noteId: string) => void;
 }
 
 export const DayRow: React.FC<DayRowProps> = ({
@@ -53,6 +55,8 @@ export const DayRow: React.FC<DayRowProps> = ({
   onJumpToDateRequested,
   onReorderNotes,
   onMoveNoteToDate,
+  onSizeChange,
+  onOpenFolio,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -106,7 +110,7 @@ export const DayRow: React.FC<DayRowProps> = ({
     <div
       data-day-row="true"
       data-date-string={dateItem.dateString}
-      className="flex flex-col w-full group/row"
+      className="flex flex-col flex-1 w-full group/row"
     >
       {/* Month Milestone Ribbon on 1st of month:
           Rendered inside DayRow to preserve 7-day WeekBlock virtualization,
@@ -156,7 +160,7 @@ export const DayRow: React.FC<DayRowProps> = ({
           onStartQuickAdd(dateItem.dateString);
         }}
         title={`${dateItem.monthName} ${dateItem.dayOfMonth}, ${dateItem.year} — double-click to write note`}
-        className={`flex items-start min-h-[48px] py-1 transition-colors w-full ${
+        className={`flex items-start flex-1 min-h-[48px] py-1 transition-colors w-full ${
           dateItem.isToday
             ? 'bg-[#FAF0E4]/90 hover:bg-[#F5E8D6] relative z-10'
             : 'hover:bg-[#F2EDE4]/30'
@@ -399,6 +403,8 @@ export const DayRow: React.FC<DayRowProps> = ({
                 onStartEdit={() => setEditingNoteId(note.id)}
                 onUpdateNote={(id, text) => onUpdateNote?.(id, text, note.parentDates, note.colorTag)}
                 onAcceptNoteRevision={onAcceptNoteRevision}
+                onSizeChange={onSizeChange}
+                onOpenFolio={onOpenFolio}
                 onJumpToDate={(targetDate) => {
                   if (onJumpToDateRequested) onJumpToDateRequested(targetDate);
                 }}

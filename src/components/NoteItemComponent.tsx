@@ -14,6 +14,8 @@ export interface NoteItemComponentProps {
   onAcceptNoteRevision?: (noteId: string) => void;
   onStartEdit?: (noteId: string) => void;
   onJumpToDate?: (dateKey: string) => void;
+  onSizeChange?: () => void;
+  onOpenFolio?: (noteId: string) => void;
 
   // Drag and drop reordering
   isDraggable?: boolean;
@@ -36,6 +38,8 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
   onAcceptNoteRevision,
   onStartEdit,
   onJumpToDate,
+  onSizeChange,
+  onOpenFolio,
   isDraggable = true,
   onDragStart,
   onDragOver,
@@ -98,6 +102,8 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
       onUpdate={onUpdateNote}
       onAcceptEdit={onAcceptNoteRevision}
       onStartEdit={onStartEdit}
+      onSizeChange={onSizeChange}
+      onOpenFolio={onOpenFolio}
       isDraggable={isDraggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}

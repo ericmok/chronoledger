@@ -35,6 +35,8 @@ export interface MonthNotesColumnProps {
   onReorderMonthNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => void;
   onMoveMonthNoteToMonth?: (noteId: string, targetMonth: string, position?: 'start' | 'end') => void;
   onJumpToMonth?: (monthKey: string) => void;
+  onSizeChange?: () => void;
+  onOpenFolio?: (noteId: string) => void;
 }
 
 export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
@@ -53,6 +55,8 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
   onReorderMonthNotes,
   onMoveMonthNoteToMonth,
   onJumpToMonth,
+  onSizeChange,
+  onOpenFolio,
 }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -252,6 +256,8 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     onStartEdit={() => setEditingNoteId(mn.id)}
                     onUpdate={(id, text) => onUpdateMonthNote?.(id, text, mn.parentMonths, mn.colorTag)}
                     onAcceptEdit={onAcceptNoteRevision}
+                    onSizeChange={onSizeChange}
+                    onOpenFolio={onOpenFolio}
                     onDragStart={(e, id) => {
                       e.dataTransfer.setData(
                         'text/plain',

@@ -21,6 +21,8 @@ export interface WeekFocusPanelProps {
   onReorderWeekNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => void;
   onMoveWeekNoteToWeek?: (noteId: string, targetWeek: string, position?: 'start' | 'end') => void;
   onJumpToWeek?: (weekKey: string) => void;
+  onSizeChange?: () => void;
+  onOpenFolio?: (noteId: string) => void;
   isFullWidth?: boolean;
   className?: string;
 }
@@ -40,6 +42,8 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
   onReorderWeekNotes,
   onMoveWeekNoteToWeek,
   onJumpToWeek,
+  onSizeChange,
+  onOpenFolio,
   isFullWidth = false,
   className,
 }) => {
@@ -243,6 +247,8 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 onStartEdit={() => setEditingNoteId(wn.id)}
                 onUpdate={(id, text) => onUpdateWeekNote?.(id, text, wn.parentWeeks, wn.colorTag)}
                 onAcceptEdit={onAcceptNoteRevision}
+                onSizeChange={onSizeChange}
+                onOpenFolio={onOpenFolio}
                 onDragStart={(e, id) => {
                   e.dataTransfer.setData(
                     'text/plain',
