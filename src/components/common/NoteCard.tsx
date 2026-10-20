@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Strikethrough, Pencil, Trash2, Check, X, GripVertical, Eraser } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Strikethrough, Pencil, Trash2, Check, GripVertical, Eraser, Maximize2 } from 'lucide-react';
 import { computeWordDiff } from '../../utils/diffUtils';
 import {
   parseNoteContent,
@@ -11,6 +11,13 @@ import {
 } from '../../utils/annotationUtils';
 import { useAnnotationInput } from '../../hooks/useAnnotationInput';
 import { AnnotationAutocomplete } from './AnnotationAutocomplete';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import {
+  toggleTaskItemByIndex,
+  estimateRenderedLines,
+  PROGRESSIVE_FOLD_LINE_THRESHOLD,
+} from '../../utils/markdownUtils';
+import { handleSmartMarkdownKeyDown, autoResizeTextarea } from '../../utils/editorUtils';
 
 export interface NoteCardProps {
   id: string;
@@ -24,6 +31,8 @@ export interface NoteCardProps {
   onUpdate?: (id: string, newContent: string) => void;
   onAcceptEdit?: (id: string) => void;
   onStartEdit?: (id: string) => void;
+  onSizeChange?: () => void;
+  onOpenFolio?: (id: string) => void;
   density?: 'comfortable' | 'compact';
   variant?: 'card' | 'minimal';
   badgeTheme?: BadgeTheme;
@@ -52,6 +61,8 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   onUpdate,
   onAcceptEdit,
   onStartEdit,
+  onSizeChange,
+  onOpenFolio,
   density = 'comfortable',
   variant = 'card',
   badgeTheme = DEFAULT_BADGE_THEME,
@@ -70,6 +81,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   const [canDrag, setCanDrag] = useState(false);
   const [isDraggingSelf, setIsDraggingSelf] = useState(false);
   const [localDropIndicator, setLocalDropIndicator] = useState<'before' | 'after' | null>(null);
+  const [isFolded, setIsFolded] = useState(true);
+
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const activeDropIndicator = dropIndicator !== undefined ? dropIndicator : localDropIndicator;
 
@@ -81,6 +95,22 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     () => splitNoteAnchorAndBody(content || originalContent || '', isStruck, badgeTheme),
     [content, originalContent, isStruck, badgeTheme]
   );
+
+  // Progressive disclosure line count estimation
+  const estimatedLines = useMemo(
+    () => estimateRenderedLines(currentSplit.bodyText),
+    [currentSplit.bodyText]
+  );
+  const isFoldable = estimatedLines > PROGRESSIVE_FOLD_LINE_THRESHOLD;
+
+  // Handle in-place checklist toggle
+  const handleToggleTask = (taskIndex: number) => {
+    if (onUpdate) {
+      const current = content || originalContent || '';
+      const newContent = toggleTaskItemByIndex(current, taskIndex);
+      onUpdate(id, newContent);
+    }
+  };
 
   const originalSplit = useMemo(
     () => (originalContent ? splitNoteAnchorAndBody(originalContent, isStruck, badgeTheme) : null),
@@ -177,62 +207,85 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         data-note-id={id}
         onSubmit={handleSaveEdit}
         onClick={(e) => e.stopPropagation()}
-        className={`relative flex items-center gap-1.5 w-full my-1 p-1 bg-white border border-[#2B2C30] rounded-lg shadow-xs animate-in fade-in duration-100 ${className}`}
+        className={`relative flex flex-col gap-1.5 w-full my-1 p-2 bg-white border border-[#2B2C30] rounded-xl shadow-xs animate-in fade-in duration-100 ${className}`}
       >
-        <input
-          autoFocus
-          type="text"
-          value={editText}
-          onChange={(e) => {
-            setEditText(e.target.value);
-            annotationInput.updateCursor(e.target.value, e.target.selectionStart || 0);
-          }}
-          onKeyUp={(e) => {
-            annotationInput.updateCursor(editText, (e.target as HTMLInputElement).selectionStart || 0);
-          }}
-          onClick={(e) => {
-            annotationInput.updateCursor(editText, (e.target as HTMLInputElement).selectionStart || 0);
-          }}
-          onKeyDown={(e) => {
-            if (annotationInput.isOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) {
-              return; // Handled by AnnotationAutocomplete
-            }
-            if (e.key === 'Escape') handleCancelEdit();
-          }}
-          className={`flex-1 bg-transparent border-0 text-[#2B2C30] focus:outline-hidden font-sans placeholder:text-[#A19D94] ${
-            isComfortable ? 'px-3.5 py-2 text-sm' : 'px-2 py-1 text-xs'
-          }`}
-          placeholder="Edit note... (type @ for tags, Enter to save, Esc to cancel)"
-        />
+        <div className="relative w-full">
+          <textarea
+            autoFocus
+            ref={(el) => {
+              editTextareaRef.current = el;
+              autoResizeTextarea(el, 60, 360);
+            }}
+            value={editText}
+            onChange={(e) => {
+              setEditText(e.target.value);
+              autoResizeTextarea(e.target, 60, 360);
+              annotationInput.updateCursor(e.target.value, e.target.selectionStart || 0);
+            }}
+            onKeyUp={(e) => {
+              annotationInput.updateCursor(editText, (e.target as HTMLTextAreaElement).selectionStart || 0);
+            }}
+            onClick={(e) => {
+              annotationInput.updateCursor(editText, (e.target as HTMLTextAreaElement).selectionStart || 0);
+            }}
+            onKeyDown={(e) => {
+              handleSmartMarkdownKeyDown(
+                e,
+                editText,
+                (val) => {
+                  setEditText(val);
+                  setTimeout(() => autoResizeTextarea(editTextareaRef.current, 60, 360), 0);
+                },
+                () => {
+                  const trimmed = editText.trim();
+                  if (onUpdate) onUpdate(id, trimmed);
+                  setIsEditing(false);
+                },
+                () => handleCancelEdit(),
+                annotationInput.isOpen
+              );
+            }}
+            className={`w-full bg-transparent border-0 text-[#2B2C30] focus:outline-hidden font-sans placeholder:text-[#A19D94] resize-none leading-relaxed ${
+              isComfortable ? 'text-sm' : 'text-xs'
+            }`}
+            placeholder="Edit note... (type @ for tags, Enter for newline, ⌘↵ to save, Esc to cancel)"
+            rows={2}
+          />
 
-        <AnnotationAutocomplete
-          isOpen={annotationInput.isOpen}
-          query={annotationInput.query}
-          onSelectTag={annotationInput.selectTag}
-          onClose={annotationInput.close}
-          className="top-full left-0 mt-1"
-        />
+          <AnnotationAutocomplete
+            isOpen={annotationInput.isOpen}
+            query={annotationInput.query}
+            onSelectTag={annotationInput.selectTag}
+            onClose={annotationInput.close}
+            className="top-full left-0 mt-1"
+          />
+        </div>
 
-        <button
-          type="submit"
-          className={`bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] rounded-md font-medium shadow-2xs flex items-center gap-1 transition-colors shrink-0 ${
-            isComfortable ? 'px-3 py-1.5 text-xs' : 'px-2 py-1 text-xs'
-          }`}
-          title="Save changes (Enter)"
-        >
-          <Check className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
-          <span className="hidden sm:inline">Save</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleCancelEdit}
-          className={`text-[#8E8F95] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50 rounded-md transition-colors shrink-0 ${
-            isComfortable ? 'px-2 py-1.5 text-xs' : 'p-1 text-xs'
-          }`}
-          title="Cancel editing (Esc)"
-        >
-          <X className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
-        </button>
+        <div className="flex items-center justify-between pt-1 border-t border-[#E5DFD5]/60 text-[10px] font-mono text-[#8E8F95] select-none">
+          <span>⌘↵ to save • Enter for newline • Esc to cancel</span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className={`text-[#8E8F95] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50 rounded-md transition-colors shrink-0 ${
+                isComfortable ? 'px-2 py-1 text-xs' : 'px-1.5 py-0.5 text-xs'
+              }`}
+              title="Cancel editing (Esc)"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={`bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] rounded-md font-medium shadow-2xs flex items-center gap-1 transition-colors shrink-0 ${
+                isComfortable ? 'px-3 py-1 text-xs' : 'px-2 py-0.5 text-xs'
+              }`}
+              title="Save changes (⌘↵)"
+            >
+              <Check className={isComfortable ? 'w-3 h-3' : 'w-2.5 h-2.5'} />
+              <span>Save</span>
+            </button>
+          </div>
+        </div>
       </form>
     );
   }
@@ -632,88 +685,153 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         </div>
       )}
 
-      {/* Note Content */}
+      {/* Note Content Area */}
       <div className={`flex-1 min-w-0 ${isComfortable ? 'pl-5' : 'pl-4'}`}>
-        <div className="relative inline font-sans leading-relaxed break-words">
-          {/* 1. Leading Anchor Badge: Rendered as first inline element with -ml-5 to anchor at x=0 */}
-          {currentSplit.anchor &&
-            renderAnchorBadge(
-              currentSplit.anchor,
-              Boolean(hasEdits && (anchorAdded || anchorReplaced))
-            )}
-
-          {/* 2. Body Content (or Body Diff) */}
-          {isStruck ? (
-            // Full note strike overrides inner diffs with graphite pencil strike
-            <span className="line-through decoration-[#A19D94] decoration-2">
-              {renderAnnotatedText(
-                currentSplit.bodyText || (!currentSplit.anchor ? '(empty note)' : '')
-              )}
-            </span>
-          ) : hasEdits ? (
-            // Render word-level diff of the body
-            <span
-              className={`inline whitespace-pre-wrap ${
-                parsedNote.isImportant ? 'font-bold text-[#1C1D20]' : ''
-              }`}
-            >
-              {/* If an old leading anchor was replaced or removed, render it as a struck deleted badge at start of body */}
-              {anchorReplaced && originalSplit?.anchor && (
-                <>
-                  {renderInlineBadge(originalSplit.anchor, 'deleted-anchor', true, false)}
-                  {' '}
-                </>
-              )}
-              {bodyDiffChunks.map((chunk, idx) => (
-                <React.Fragment key={idx}>
-                  {renderAnnotatedText(
-                    chunk.value,
-                    chunk.type === 'deleted',
-                    chunk.type === 'added'
+        <div className="relative font-sans leading-relaxed break-words">
+          {/* Progressive Disclosure Folding Container:
+              Clips rendered note content to 5 lines when isFoldable && isFolded.
+              Both the leading anchor badge and the prose share the same line box inside this container,
+              guaranteeing Line 1 flows seamlessly across both tagged and untagged notes. */}
+          <div
+            className={`transition-all duration-200 ${
+              isFoldable && isFolded ? 'max-h-[140px] overflow-hidden' : ''
+            }`}
+          >
+            {isStruck ? (
+              // Full note strike overrides inner diffs with graphite pencil strike
+              <div className="line-through decoration-[#A19D94] decoration-2">
+                <MarkdownRenderer
+                  content={currentSplit.bodyText || (!currentSplit.anchor ? '(empty note)' : '')}
+                  leadingAnchor={
+                    currentSplit.anchor
+                      ? renderAnchorBadge(
+                          currentSplit.anchor,
+                          Boolean(hasEdits && (anchorAdded || anchorReplaced))
+                        )
+                      : null
+                  }
+                  isStruck={true}
+                  density={density}
+                  badgeTheme={badgeTheme}
+                  onToggleTask={handleToggleTask}
+                  renderAnnotationBadge={renderInlineBadge}
+                />
+              </div>
+            ) : hasEdits ? (
+              // Render word-level diff of the body inline with leading anchor badge
+              <span
+                className={`inline whitespace-pre-wrap ${
+                  parsedNote.isImportant ? 'font-bold text-[#1C1D20]' : ''
+                }`}
+              >
+                {/* 1. Leading Anchor Badge: Fused into the left margin at x = 0 via -ml-5 */}
+                {currentSplit.anchor &&
+                  renderAnchorBadge(
+                    currentSplit.anchor,
+                    Boolean(hasEdits && (anchorAdded || anchorReplaced))
                   )}
-                </React.Fragment>
-              ))}
-            </span>
-          ) : (
-            <span
-              className={`inline ${
-                parsedNote.isImportant ? 'font-bold text-[#1C1D20]' : ''
-              }`}
-            >
-              {renderAnnotatedText(
-                currentSplit.bodyText || (!currentSplit.anchor ? '(empty note)' : '')
-              )}
-            </span>
-          )}
 
-          {/* Clean Revisions Action (Eraser Icon) - Revealed on hover / focus */}
-          {hasEdits && !isStruck && (
-            <span className="inline-flex items-center gap-1 ml-1.5 align-middle select-none">
-              {content === '' && (
-                <span
-                  className="text-[8px] font-mono px-1 py-0.2 rounded border uppercase tracking-wider text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]"
-                  title="All text deleted (crossed out)"
-                >
-                  deleted
+                {/* If an old leading anchor was replaced or removed, render it as a struck deleted badge at start of body */}
+                {anchorReplaced && originalSplit?.anchor && (
+                  <>
+                    {' '}
+                    {renderInlineBadge(originalSplit.anchor, 'deleted-anchor', true, false)}
+                    {' '}
+                  </>
+                )}
+
+                {/* 2. Inline Word Diff Chunks: Follows immediately after the badge on Line 1 */}
+                {bodyDiffChunks.map((chunk, idx) => (
+                  <React.Fragment key={idx}>
+                    {renderAnnotatedText(
+                      chunk.value,
+                      chunk.type === 'deleted',
+                      chunk.type === 'added'
+                    )}
+                  </React.Fragment>
+                ))}
+
+                {/* Clean Revisions Action (Eraser Icon) - Revealed on hover / focus */}
+                <span className="inline-flex items-center gap-1 ml-1.5 align-middle select-none">
+                  {content === '' && (
+                    <span
+                      className="text-[8px] font-mono px-1 py-0.2 rounded border uppercase tracking-wider text-[#D23B38] bg-[#FDEDEC] border-[#FADBD8]"
+                      title="All text deleted (crossed out)"
+                    >
+                      deleted
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onAcceptEdit) {
+                        onAcceptEdit(id);
+                      } else if (onUpdate) {
+                        onUpdate(id, content || '');
+                      }
+                    }}
+                    className="p-1 rounded bg-[#EAE3D6]/70 hover:bg-[#D5CDC0] text-[#71727A] hover:text-[#2B2C30] cursor-pointer transition-opacity opacity-0 group-hover:opacity-100 focus:opacity-100 group-focus-within:opacity-100 shadow-2xs inline-flex items-center justify-center align-middle"
+                    title="Clean revision scribbles"
+                    aria-label="Clean revision scribbles"
+                  >
+                    <Eraser className="w-2.5 h-2.5" />
+                  </button>
                 </span>
-              )}
+              </span>
+            ) : (
+              // Standard View: Markdown renderer with fused leadingAnchor for seamless Line 1 flow
+              <MarkdownRenderer
+                content={currentSplit.bodyText || (!currentSplit.anchor ? '(empty note)' : '')}
+                leadingAnchor={
+                  currentSplit.anchor
+                    ? renderAnchorBadge(
+                        currentSplit.anchor,
+                        Boolean(hasEdits && (anchorAdded || anchorReplaced))
+                      )
+                    : null
+                }
+                isStruck={false}
+                density={density}
+                badgeTheme={badgeTheme}
+                onToggleTask={handleToggleTask}
+                renderAnnotationBadge={renderInlineBadge}
+              />
+            )}
+          </div>
+
+          {/* 5-Line Progressive Disclosure Folding Mask & Accordion Pill */}
+          {isFoldable && isFolded && (
+            <div className="absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-[#FAF8F5] via-[#FAF8F5]/85 to-transparent pointer-events-none flex items-end justify-start pt-2">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (onAcceptEdit) {
-                    onAcceptEdit(id);
-                  } else if (onUpdate) {
-                    onUpdate(id, content || '');
-                  }
+                  setIsFolded(false);
+                  onSizeChange?.();
                 }}
-                className="p-1 rounded bg-[#EAE3D6]/70 hover:bg-[#D5CDC0] text-[#71727A] hover:text-[#2B2C30] cursor-pointer transition-opacity opacity-0 group-hover:opacity-100 focus:opacity-100 group-focus-within:opacity-100 shadow-2xs inline-flex items-center justify-center align-middle"
-                title="Clean revision scribbles"
-                aria-label="Clean revision scribbles"
+                className="pointer-events-auto px-2 py-0.5 rounded-full bg-[#FAF8F5] border border-[#DDD6C8] hover:border-[#2B2C30] text-[#2B2C30] text-[10px] font-mono shadow-2xs hover:shadow-xs transition-all flex items-center gap-1 cursor-pointer"
               >
-                <Eraser className="w-2.5 h-2.5" />
+                <span>▾ Show more (+{estimatedLines - PROGRESSIVE_FOLD_LINE_THRESHOLD} lines)</span>
               </button>
-            </span>
+            </div>
+          )}
+
+          {/* Show Less Accordion Button */}
+          {isFoldable && !isFolded && (
+            <div className="mt-1 flex justify-start">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFolded(true);
+                  onSizeChange?.();
+                }}
+                className="px-1.5 py-0.5 rounded text-[10px] font-mono text-[#8E8F95] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50 transition-colors flex items-center gap-0.5 cursor-pointer"
+              >
+                <span>▴ Show less</span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -761,6 +879,23 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         >
           <Pencil className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
         </button>
+
+        {/* Folio / Maximize Button */}
+        {onOpenFolio && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenFolio(id);
+            }}
+            className={`text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-all ${
+              isComfortable ? 'p-1' : 'p-0.5'
+            }`}
+            title="Open in Folio desk (⤢)"
+          >
+            <Maximize2 className={isComfortable ? 'w-3.5 h-3.5' : 'w-3 h-3'} />
+          </button>
+        )}
 
         {/* Delete / Remove Button */}
         <button
