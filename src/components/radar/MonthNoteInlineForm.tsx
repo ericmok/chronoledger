@@ -281,48 +281,55 @@ export const MonthNoteInlineForm: React.FC<MonthNoteInlineFormProps> = ({
         </div>
       )}
 
-      {/* Color Dots & Action Buttons */}
-      <div className="flex items-center justify-between pt-1 border-t border-[#E5DFD5]">
-        <div className="flex items-center gap-1">
-          {/* None / Default uncolored option */}
-          <button
-            type="button"
-            onClick={() => setColorTag(undefined)}
-            className={`w-3.5 h-3.5 rounded-full border border-[#DDD6C8] flex items-center justify-center transition-all cursor-pointer ${
-              !colorTag ? 'ring-2 ring-offset-1 ring-[#2B2C30] bg-[#EAE3D6]' : 'bg-[#FAF8F5] opacity-65 hover:opacity-100'
-            }`}
-            title="No color (Default / Clear)"
-          >
-            <span className="w-1 h-1 rounded-full bg-[#A19D94]" />
-          </button>
-
-          {NOTE_ACCENT_COLORS.map((c) => (
+      {/* Color Palette (2 rows) & Action Buttons */}
+      <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-2 pt-2 border-t border-[#E5DFD5]">
+        {/* Left: 2-row compact color swatches with shortcut hint underneath */}
+        <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-6 gap-1 w-fit items-center" title="Select accent color">
+            {/* None / Default uncolored option */}
             <button
-              key={c}
               type="button"
-              onClick={() => setColorTag(colorTag === c ? undefined : c)}
-              className={`w-3.5 h-3.5 rounded-full transition-transform cursor-pointer ${
-                colorTag === c ? 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]' : 'opacity-65 hover:opacity-100'
+              onClick={() => setColorTag(undefined)}
+              className={`w-3.5 h-3.5 rounded-full border border-[#DDD6C8] flex items-center justify-center transition-all cursor-pointer ${
+                !colorTag ? 'ring-2 ring-offset-1 ring-[#2B2C30] bg-[#EAE3D6]' : 'bg-[#FAF8F5] opacity-65 hover:opacity-100'
               }`}
-              style={{ backgroundColor: c }}
-            />
-          ))}
+              title="No color (Default / Clear)"
+            >
+              <span className="w-1 h-1 rounded-full bg-[#A19D94]" />
+            </button>
+
+            {NOTE_ACCENT_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColorTag(colorTag === c ? undefined : c)}
+                className={`w-3.5 h-3.5 rounded-full transition-transform cursor-pointer ${
+                  colorTag === c ? 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]' : 'opacity-65 hover:opacity-100'
+                }`}
+                style={{ backgroundColor: c }}
+                title={`Accent: ${c}`}
+              />
+            ))}
+          </div>
+
+          {/* Shortcut hint tucked directly beneath the colors */}
+          <span className="text-[10px] font-mono text-[#8E8F95] leading-none select-none">
+            ⌘↵ save • ↵ newline
+          </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-[#8E8F95] hidden sm:inline">
-            ⌘↵ to save • Enter for newline
-          </span>
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={onCancel}
-            className="px-2 py-1 text-[11px] text-[#71727A] hover:text-[#2B2C30] rounded cursor-pointer"
+            className="px-2 py-1 text-[11px] text-[#71727A] hover:text-[#2B2C30] rounded cursor-pointer transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] rounded shadow-2xs transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] rounded shadow-2xs transition-colors cursor-pointer shrink-0"
           >
             <Check className="w-3 h-3" />
             <span>{submitLabel}</span>

@@ -137,6 +137,8 @@ All note creation surfaces have been redesigned for spacious, comfortable writin
 - **Removed Static Tag Bar**: Redundant static tag buttons were removed across all forms (`DayNoteInlineForm`, `WeekNoteInlineForm`, `MonthNoteInlineForm`, `AddNoteModal`), reclaiming vertical space.
 - **Auto-Growing Textareas**: Textareas dynamically expand from `min-h-[85px]` up to `360px` as the user types (`autoResizeTextarea`).
 - **Inline Card Editing**: Double-clicking or clicking edit on `NoteCard` transforms into a multi-line auto-growing textarea rather than a flat `<input>`.
+- **2-Row Compact Color Palette**: Color swatches (10 colors + default clear) are organized into a tight 2-row grid (`grid-cols-6`), reducing horizontal width by $>100\text{px}$ so action buttons (`Cancel`, `Add Note`) never overflow constrained sidebar columns.
+- **Tucked Shortcut Footers**: Shortcut hints (`⌘↵ save • ↵ newline`) sit tucked directly beneath the color grid on the left, leaving the right side unconstrained for submission buttons.
 
 ### Smart Markdown Keybindings:
 - `Enter`: Creates a new line. Automatically continues lists (`- [ ] `, `- `, `* `, `1. `). Pressing Enter on an empty list prefix terminates the list.

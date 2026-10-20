@@ -261,9 +261,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           />
         </div>
 
-        <div className="flex items-center justify-between pt-1 border-t border-[#E5DFD5]/60 text-[10px] font-mono text-[#8E8F95] select-none">
-          <span>⌘↵ to save • Enter for newline • Esc to cancel</span>
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-[#E5DFD5]/60 text-[10px] font-mono text-[#8E8F95] select-none">
+          <span className="truncate">⌘↵ save • ↵ newline • Esc cancel</span>
+          <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={handleCancelEdit}
