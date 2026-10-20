@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { formatDateKey, parseDateKey } from '../utils/dateUtils';
 import { NOTE_ACCENT_COLORS } from '../types/calendar';
-import { SUGGESTED_TAGS } from '../utils/annotationUtils';
 import { useAnnotationInput } from '../hooks/useAnnotationInput';
 import { AnnotationAutocomplete } from './common/AnnotationAutocomplete';
+import { handleSmartMarkdownKeyDown, autoResizeTextarea } from '../utils/editorUtils';
 
 interface AddNoteModalProps {
   initialDate?: string;
@@ -28,6 +28,7 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
   const [newDateInput, setNewDateInput] = useState('');
   const [colorTag, setColorTag] = useState<string | undefined>('#E29578');
 
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const annotationInput = useAnnotationInput(content, setContent);
 
   if (!isOpen) return null;
@@ -90,21 +91,26 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Note content */}
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-mono text-[#7E7F85] uppercase tracking-wider">
-                Note or Task
+                Note or Task (Markdown)
               </label>
-              <span className="text-[10px] font-mono text-[#A19D94]">type @ for tags</span>
+              <span className="text-[10px] font-mono text-[#A19D94]">⌘↵ to save • Enter for newline</span>
             </div>
 
             <div className="relative">
               <textarea
                 autoFocus
                 required
-                rows={3}
+                ref={(el) => {
+                  textareaRef.current = el;
+                  autoResizeTextarea(el, 100, 360);
+                }}
+                rows={4}
                 value={content}
                 onChange={(e) => {
                   setContent(e.target.value);
+                  autoResizeTextarea(e.target, 100, 360);
                   annotationInput.updateCursor(e.target.value, e.target.selectionStart || 0);
                 }}
                 onKeyUp={(e) => {
@@ -113,8 +119,21 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
                 onClick={(e) => {
                   annotationInput.updateCursor(content, (e.target as HTMLTextAreaElement).selectionStart || 0);
                 }}
-                placeholder="e.g. Flight to Tokyo @4:00pm, Review architecture @important..."
-                className="w-full px-3 py-2 text-sm bg-white border border-[#DDD6C8] rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#2B2C30]/20 focus:border-[#2B2C30] placeholder-[#BBB6AC]"
+                onKeyDown={(e) => {
+                  handleSmartMarkdownKeyDown(
+                    e,
+                    content,
+                    (val) => {
+                      setContent(val);
+                      setTimeout(() => autoResizeTextarea(textareaRef.current, 100, 360), 0);
+                    },
+                    () => handleSubmit(e),
+                    () => onClose(),
+                    annotationInput.isOpen
+                  );
+                }}
+                placeholder="Write note... (e.g. Flight to Tokyo @4:00pm, - [ ] Checklist item, ## Section heading)"
+                className="w-full px-3 py-2 text-sm bg-white border border-[#DDD6C8] rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#2B2C30]/20 focus:border-[#2B2C30] placeholder-[#BBB6AC] resize-none leading-relaxed"
               />
 
               <AnnotationAutocomplete
@@ -124,23 +143,6 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
                 onClose={annotationInput.close}
                 className="top-full left-0 mt-1"
               />
-            </div>
-
-            {/* Quick Tag Pills */}
-            <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-              <span className="text-[10px] font-sans font-medium text-[#8E8F95] uppercase">Quick tags:</span>
-              {SUGGESTED_TAGS.map((opt) => (
-                <button
-                  key={opt.tag}
-                  type="button"
-                  onClick={() => annotationInput.insertTagDirectly(opt.tag)}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-sans font-medium border border-[#DDD6C8] bg-white hover:bg-[#EAE3D6] text-[#2B2C30] transition-colors cursor-pointer"
-                  title={opt.description}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />
-                  <span>{opt.label}</span>
-                </button>
-              ))}
             </div>
           </div>
 

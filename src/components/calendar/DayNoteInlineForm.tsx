@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Check, Plus } from 'lucide-react';
 import { analyzeDateSpan, parseDateKey, formatDateKey } from '../../utils/dateUtils';
 import { NOTE_ACCENT_COLORS } from '../../types/calendar';
-import { SUGGESTED_TAGS } from '../../utils/annotationUtils';
 import { useAnnotationInput } from '../../hooks/useAnnotationInput';
 import { AnnotationAutocomplete } from '../common/AnnotationAutocomplete';
+import { handleSmartMarkdownKeyDown, autoResizeTextarea } from '../../utils/editorUtils';
 
 export interface DayNoteInlineFormProps {
   initialContent?: string;
@@ -93,36 +93,29 @@ export const DayNoteInlineForm: React.FC<DayNoteInlineFormProps> = ({
     onSubmit(trimmed, targetDates, colorTag);
   };
 
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const annotationInput = useAnnotationInput(content, setContent);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (annotationInput.isOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) {
-      return; // Handled by AnnotationAutocomplete
-    }
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onCancel();
-    }
-  };
 
   return (
     <form
       onSubmit={handleSubmit}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
-      className="p-2.5 bg-white border border-[#2B2C30]/80 rounded-xl shadow-sm space-y-2 text-xs font-sans animate-in fade-in duration-100"
+      className="p-2.5 bg-white border border-[#2B2C30]/80 rounded-xl shadow-sm space-y-2.5 text-xs font-sans animate-in fade-in duration-100"
     >
       {/* Content Textarea with Autocomplete */}
       <div className="relative">
         <textarea
           autoFocus
-          rows={2}
+          ref={(el) => {
+            textareaRef.current = el;
+            autoResizeTextarea(el, 85, 360);
+          }}
+          rows={3}
           value={content}
           onChange={(e) => {
             setContent(e.target.value);
+            autoResizeTextarea(e.target, 85, 360);
             annotationInput.updateCursor(e.target.value, e.target.selectionStart || 0);
           }}
           onKeyUp={(e) => {
@@ -131,9 +124,21 @@ export const DayNoteInlineForm: React.FC<DayNoteInlineFormProps> = ({
           onClick={(e) => {
             annotationInput.updateCursor(content, (e.target as HTMLTextAreaElement).selectionStart || 0);
           }}
-          onKeyDown={handleKeyDown}
-          placeholder="Write a note... type @ for tags (@important, @wait, @explore, @4:00pm...)"
-          className="w-full px-3 py-1.5 text-xs bg-[#FAF8F5] border border-[#DDD6C8] rounded-md focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#2B2C30] placeholder:text-[#A19D94] resize-none"
+          onKeyDown={(e) => {
+            handleSmartMarkdownKeyDown(
+              e,
+              content,
+              (val) => {
+                setContent(val);
+                setTimeout(() => autoResizeTextarea(textareaRef.current, 85, 360), 0);
+              },
+              () => handleSubmit(),
+              () => onCancel(),
+              annotationInput.isOpen
+            );
+          }}
+          placeholder="Write a note... supports markdown (type @ for tags, Enter for newline, ⌘↵ to save)"
+          className="w-full px-3 py-2 text-xs bg-[#FAF8F5] border border-[#DDD6C8] rounded-md focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-[#2B2C30] placeholder:text-[#A19D94] resize-none leading-relaxed"
         />
 
         <AnnotationAutocomplete
@@ -143,23 +148,6 @@ export const DayNoteInlineForm: React.FC<DayNoteInlineFormProps> = ({
           onClose={annotationInput.close}
           className="top-full left-0 mt-1"
         />
-      </div>
-
-      {/* Quick Annotation Helper Bar */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] font-sans font-medium text-[#8E8F95] uppercase tracking-wider">Tags:</span>
-        {SUGGESTED_TAGS.map((opt) => (
-          <button
-            key={opt.tag}
-            type="button"
-            onClick={() => annotationInput.insertTagDirectly(opt.tag)}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-sans font-medium border border-[#DDD6C8] bg-[#FAF8F5] hover:bg-[#EAE3D6] text-[#2B2C30] transition-colors cursor-pointer"
-            title={opt.description}
-          >
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />
-            <span>{opt.label}</span>
-          </button>
-        ))}
       </div>
 
       {/* Scope Mode Selector */}
@@ -299,7 +287,10 @@ export const DayNoteInlineForm: React.FC<DayNoteInlineFormProps> = ({
           ))}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-[#8E8F95] hidden sm:inline">
+            ⌘↵ to save • Enter for newline
+          </span>
           <button
             type="button"
             onClick={onCancel}
