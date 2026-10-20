@@ -128,6 +128,7 @@ export interface SplitNoteResult {
 2. **Reordering Grip**: Hovering over the anchor badge reveals the reordering grip in place of the bullet.
 3. **Negative Margin**: The badge uses `-ml-5` (or `-ml-4` in compact mode) so that its internal bullet aligns precisely where an untagged note's bullet would rest.
 4. **No Addition Prefix**: When a user adds a tag to the start of an untagged note, the anchor badge fuses quietly into the margin without a `+` symbol. If added during an edit revision, it subtly tilts ($-3^\circ$, anchored near the dot at `20% 50%`) to signal the addition organically.
+5. **Markdown & Inline Flow**: The anchor badge is rendered within the exact same line formatting context as Line 1 of the prose (via `leadingAnchor` in `MarkdownRenderer`), ensuring text flows immediately after the badge chip at $x \approx 65\text{px}$, with Line 2+ wrapping to the $x = 20\text{px}$ content baseline (`pl-5`). See [`MARKDOWN_AND_LONGFORM_NOTES.md`](./MARKDOWN_AND_LONGFORM_NOTES.md).
 
 ---
 
