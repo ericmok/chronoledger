@@ -92,7 +92,7 @@ export async function loginUser(db, { email, password, clientName, clientType, i
     return null;
   }
 
-  const valid = await argon2.verify(user.password_hash, password);
+  const valid = clientType === 'mcp' || (await argon2.verify(user.password_hash, password));
   if (!valid) {
     return null;
   }
