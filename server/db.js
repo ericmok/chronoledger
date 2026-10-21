@@ -455,10 +455,30 @@ export function migrateDatabase(db) {
 
 /**
  * Automatically purges tombstones older than the retention threshold (default: 30 days).
+ * Records the highest purged revision watermark into metadata so clients that were offline
+ * longer than the retention window can be safely informed to perform a full baseline sync.
  */
 export function purgeExpiredTombstones(db = getDatabase(), days = 30) {
   try {
     const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const toPurge = db.prepare(`
+      SELECT COALESCE(user_id, '__guest__') as user_key, MAX(revision) as max_rev
+      FROM deleted_records
+      WHERE deleted_at < ?
+      GROUP BY user_key
+    `).all(threshold);
+
+    for (const row of toPurge) {
+      const metaKey = `last_purged_rev_${row.user_key}`;
+      const existing = db.prepare('SELECT value FROM metadata WHERE key = ?').get(metaKey);
+      const newMax = Math.max(Number(existing?.value) || 0, Number(row.max_rev) || 0);
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `).run(metaKey, String(newMax));
+    }
+
     const result = db.prepare('DELETE FROM deleted_records WHERE deleted_at < ?').run(threshold);
     if (result.changes > 0) {
       console.log(`[Tombstone TTL] Purged ${result.changes} expired tombstones older than ${days} days.`);
@@ -488,14 +508,14 @@ export function getNextLedgerRevision(db = getDatabase(), userId = null) {
 
   db.prepare(`
     INSERT INTO ledger_sequences (user_id, current_revision, updated_at)
-    VALUES (?, 1, ?)
+    VALUES (?, 2, ?)
     ON CONFLICT(user_id) DO UPDATE SET
       current_revision = ledger_sequences.current_revision + 1,
       updated_at = excluded.updated_at
   `).run(userKey, now);
 
   const row = db.prepare('SELECT current_revision FROM ledger_sequences WHERE user_id = ?').get(userKey);
-  return Number(row?.current_revision) || 1;
+  return Number(row?.current_revision) || 2;
 }
 
 /**
@@ -845,6 +865,14 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
       ? db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?')
       : db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL');
 
+    const executeRemoveTombstone = (id) => {
+      if (userId) {
+        removeTombstone.run(id, userId);
+      } else {
+        removeTombstone.run(id);
+      }
+    };
+
     // 1. Day Notes
     if (delta.notes) {
       if (Array.isArray(delta.notes.delete) && delta.notes.delete.length > 0) {
@@ -886,7 +914,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             n.updatedAt || now,
             revision
           );
-          removeTombstone.run(n.id, userId || null);
+          executeRemoveTombstone(n.id);
         }
       }
     }
@@ -932,7 +960,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             wn.updatedAt || now,
             revision
           );
-          removeTombstone.run(wn.id, userId || null);
+          executeRemoveTombstone(wn.id);
         }
       }
     }
@@ -978,7 +1006,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             mn.updatedAt || now,
             revision
           );
-          removeTombstone.run(mn.id, userId || null);
+          executeRemoveTombstone(mn.id);
         }
       }
     }
@@ -1031,7 +1059,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             d.createdAt || now,
             revision
           );
-          removeTombstone.run(d.id, userId || null);
+          executeRemoveTombstone(d.id);
         }
       }
     }
@@ -1059,7 +1087,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
         `);
         for (const [dateKey, val] of Object.entries(delta.circledDates.upsert)) {
           upsertCircle.run(dateKey, userId || null, val.color, now, revision);
-          removeTombstone.run(dateKey, userId || null);
+          executeRemoveTombstone(dateKey);
         }
       }
     }
@@ -1130,12 +1158,14 @@ export function getCalendarDelta(db = getDatabase(), sinceRevision = 0, userId =
   const currentRevision = getCurrentLedgerRevision(db, userId);
   const since = Number(sinceRevision) || 0;
 
+  const userKey = userId || '__guest__';
+
   // Verify whether sinceRevision has fallen outside the active retention window (30-day tombstone TTL)
   if (since > 0) {
-    const oldestRow = userId
-      ? db.prepare('SELECT MIN(revision) as min_rev FROM deleted_records WHERE user_id = ?').get(userId)
-      : db.prepare('SELECT MIN(revision) as min_rev FROM deleted_records WHERE user_id IS NULL').get();
-    if (oldestRow?.min_rev && since < oldestRow.min_rev) {
+    const metaKey = `last_purged_rev_${userKey}`;
+    const purgedRow = db.prepare('SELECT value FROM metadata WHERE key = ?').get(metaKey);
+    const lastPurgedRev = Number(purgedRow?.value) || 0;
+    if (lastPurgedRev > 0 && since <= lastPurgedRev) {
       return { ok: true, requiresFullSync: true, currentRevision };
     }
   }

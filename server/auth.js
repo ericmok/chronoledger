@@ -50,6 +50,15 @@ export async function registerUser(db, { email, password, clientName, clientType
       `).run(userId, guestSeq.current_revision, now);
     }
 
+    // Migrate tombstone purge watermark if present
+    const guestPurged = db.prepare("SELECT value FROM metadata WHERE key = 'last_purged_rev___guest__'").get();
+    if (guestPurged) {
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `).run(`last_purged_rev_${userId}`, guestPurged.value);
+    }
+
     const migratedCount = {
       notes: claimNotes.changes,
       weekNotes: claimWeekNotes.changes,
