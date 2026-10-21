@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   CIRCLED_DATES: 'chrono_ledger_circled_dates_v1',
   DELETED_CIRCLES: 'chrono_ledger_deleted_circles_v1',
   DELETED_IDS: 'chrono_ledger_deleted_ids_v1',
+  LAST_SYNCED_REVISION: 'chrono_ledger_last_synced_revision_v1',
   SETTINGS: 'chrono_ledger_settings_v1',
   SCHEMA_VERSION: 'chrono_ledger_schema_version',
 } as const;
@@ -47,6 +48,8 @@ export interface CalendarStorage {
   addDeletedId(id: string): void;
   removeDeletedId(id: string): void;
   clearDeletedIds(): void;
+  loadLastSyncedRevision(): number;
+  saveLastSyncedRevision(revision: number): void;
   loadSettings(): CalendarSettings;
   saveSettings(settings: CalendarSettings): void;
   exportBackup(): string;
@@ -360,6 +363,15 @@ export class LocalStorageAdapter implements CalendarStorage {
     localStorage.removeItem(STORAGE_KEYS.DELETED_IDS);
   }
 
+  loadLastSyncedRevision(): number {
+    const raw = localStorage.getItem(STORAGE_KEYS.LAST_SYNCED_REVISION);
+    return raw ? parseInt(raw, 10) || 0 : 0;
+  }
+
+  saveLastSyncedRevision(revision: number): void {
+    safeLocalStorageSet(STORAGE_KEYS.LAST_SYNCED_REVISION, String(revision));
+  }
+
   loadSettings(): CalendarSettings {
     const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (!raw) return DEFAULT_SETTINGS;
@@ -431,6 +443,13 @@ export class LocalStorageAdapter implements CalendarStorage {
 
 export const storage = new LocalStorageAdapter();
 
+export interface DeletedRecordItem {
+  id: string;
+  entityType: 'note' | 'week_note' | 'month_note' | 'drawing' | 'circle' | 'setting';
+  deletedAt: string;
+  revision: number;
+}
+
 export interface RemoteCalendarResponse {
   notes: NoteItem[];
   weekNotes: WeekNote[];
@@ -438,9 +457,23 @@ export interface RemoteCalendarResponse {
   drawings: DrawingElement[];
   circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings | null;
+  currentRevision?: number;
+  deletedRecords?: DeletedRecordItem[];
   syncedAt: string | null;
   schemaVersion: number;
   hasData: boolean;
+}
+
+export interface RemoteCalendarDeltaResponse {
+  ok: boolean;
+  currentRevision: number;
+  requiresFullSync?: boolean;
+  notes: { upsert: NoteItem[]; delete: string[] };
+  weekNotes: { upsert: WeekNote[]; delete: string[] };
+  monthNotes: { upsert: MonthNote[]; delete: string[] };
+  drawings: { upsert: DrawingElement[]; delete: string[] };
+  circledDates: { upsert: Record<string, { color: string }>; delete: string[] };
+  syncedAt: string;
 }
 
 export interface CalendarDeltaPayload {
@@ -464,7 +497,7 @@ export interface CalendarDeltaPayload {
     upsert?: Record<string, { color: string }>;
     delete?: string[];
   };
-  settings?: CalendarSettings;
+  settings?: Partial<CalendarSettings>;
 }
 
 export async function fetchRemoteCalendar(): Promise<RemoteCalendarResponse | null> {
@@ -480,6 +513,21 @@ export async function fetchRemoteCalendar(): Promise<RemoteCalendarResponse | nu
   }
 }
 
+export async function fetchRemoteCalendarDelta(
+  sinceRevision: number
+): Promise<RemoteCalendarDeltaResponse | null> {
+  try {
+    const res = await fetch(`/api/calendar/delta?since=${encodeURIComponent(sinceRevision)}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as RemoteCalendarDeltaResponse;
+  } catch (err) {
+    console.debug('Failed to fetch calendar delta:', err);
+    return null;
+  }
+}
+
 export async function saveRemoteCalendar(data: {
   notes: NoteItem[];
   weekNotes: WeekNote[];
@@ -487,7 +535,7 @@ export async function saveRemoteCalendar(data: {
   drawings: DrawingElement[];
   circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings;
-}): Promise<{ ok: boolean; syncedAt?: string } | null> {
+}): Promise<{ ok: boolean; revision?: number; syncedAt?: string } | null> {
   try {
     const res = await fetch('/api/calendar', {
       method: 'POST',
@@ -498,7 +546,7 @@ export async function saveRemoteCalendar(data: {
       body: JSON.stringify(data),
     });
     if (!res.ok) return null;
-    return (await res.json()) as { ok: boolean; syncedAt?: string };
+    return (await res.json()) as { ok: boolean; revision?: number; syncedAt?: string };
   } catch (err) {
     console.debug('Failed to save to SQLite server:', err);
     return null;
@@ -507,7 +555,7 @@ export async function saveRemoteCalendar(data: {
 
 export async function saveRemoteCalendarDelta(
   delta: CalendarDeltaPayload
-): Promise<{ ok: boolean; syncedAt?: string } | null> {
+): Promise<{ ok: boolean; revision?: number; syncedAt?: string } | null> {
   try {
     const res = await fetch('/api/calendar/delta', {
       method: 'POST',
@@ -518,7 +566,7 @@ export async function saveRemoteCalendarDelta(
       body: JSON.stringify(delta),
     });
     if (!res.ok) return null;
-    return (await res.json()) as { ok: boolean; syncedAt?: string };
+    return (await res.json()) as { ok: boolean; revision?: number; syncedAt?: string };
   } catch (err) {
     console.debug('Failed to save delta to SQLite server:', err);
     return null;
