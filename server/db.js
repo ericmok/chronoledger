@@ -137,6 +137,7 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
   `);
 
   migrateDatabase(db);
+  purgeExpiredTombstones(db, 30);
 
   cachedDb = db;
   return db;
@@ -395,6 +396,106 @@ export function migrateDatabase(db) {
       throw err;
     }
   }
+
+  // Schema v7: Incremental Log Sync (ILS) - ledger sequences, revision columns, and server-side tombstones
+  if (currentVersion < 7) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      // 1. Create ledger_sequences table to track monotonic per-user revision watermarks
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS ledger_sequences (
+          user_id TEXT PRIMARY KEY,
+          current_revision INTEGER NOT NULL DEFAULT 1,
+          updated_at TEXT NOT NULL
+        );
+
+        INSERT OR IGNORE INTO ledger_sequences (user_id, current_revision, updated_at)
+        VALUES ('__guest__', 1, datetime('now'));
+      `);
+
+      // 2. Create deleted_records table (server-side tombstones for multi-device sync)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS deleted_records (
+          id TEXT NOT NULL,
+          user_id TEXT,
+          entity_type TEXT NOT NULL,
+          deleted_at TEXT NOT NULL,
+          revision INTEGER NOT NULL,
+          PRIMARY KEY (id, user_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_deleted_records_sync ON deleted_records(user_id, revision);
+        CREATE INDEX IF NOT EXISTS idx_deleted_records_ttl ON deleted_records(deleted_at);
+      `);
+
+      // 3. Add revision column to notes, week_notes, month_notes, drawings, circled_dates if missing
+      const tablesWithRevision = ['notes', 'week_notes', 'month_notes', 'drawings', 'circled_dates'];
+      for (const table of tablesWithRevision) {
+        const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+        const hasRevision = cols.some((c) => c.name === 'revision');
+        if (!hasRevision) {
+          db.exec(`ALTER TABLE ${table} ADD COLUMN revision INTEGER NOT NULL DEFAULT 1;`);
+        }
+      }
+
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES ('schema_version', '7')
+        ON CONFLICT(key) DO UPDATE SET value = '7'
+      `).run();
+
+      db.exec('COMMIT;');
+      console.log('[DB Migration] Applied schema v7: Incremental Log Sync (ILS) tables & revision tracking initialized.');
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      console.error('[DB Migration Error schema v7]:', err);
+      throw err;
+    }
+  }
+}
+
+/**
+ * Automatically purges tombstones older than the retention threshold (default: 30 days).
+ */
+export function purgeExpiredTombstones(db = getDatabase(), days = 30) {
+  try {
+    const threshold = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const result = db.prepare('DELETE FROM deleted_records WHERE deleted_at < ?').run(threshold);
+    if (result.changes > 0) {
+      console.log(`[Tombstone TTL] Purged ${result.changes} expired tombstones older than ${days} days.`);
+    }
+    return result.changes;
+  } catch (err) {
+    console.debug('Failed to purge expired tombstones:', err);
+    return 0;
+  }
+}
+
+/**
+ * Retrieves the current monotonic revision sequence number for a user (or guest).
+ */
+export function getCurrentLedgerRevision(db = getDatabase(), userId = null) {
+  const userKey = userId || '__guest__';
+  const row = db.prepare('SELECT current_revision FROM ledger_sequences WHERE user_id = ?').get(userKey);
+  return Number(row?.current_revision) || 1;
+}
+
+/**
+ * Atomically increments and returns the next monotonic revision sequence number for a user (or guest).
+ */
+export function getNextLedgerRevision(db = getDatabase(), userId = null) {
+  const userKey = userId || '__guest__';
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO ledger_sequences (user_id, current_revision, updated_at)
+    VALUES (?, 1, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      current_revision = ledger_sequences.current_revision + 1,
+      updated_at = excluded.updated_at
+  `).run(userKey, now);
+
+  const row = db.prepare('SELECT current_revision FROM ledger_sequences WHERE user_id = ?').get(userKey);
+  return Number(row?.current_revision) || 1;
 }
 
 /**
@@ -402,7 +503,8 @@ export function migrateDatabase(db) {
  * If userId is null, returns legacy unassigned data.
  */
 export function getCalendarData(db = getDatabase(), userId = null) {
-  let noteRows, weekNoteRows, monthNoteRows, drawingRows, circledRows, settingsRow;
+  let noteRows, weekNoteRows, monthNoteRows, drawingRows, circledRows, settingsRow, deletedRows;
+  const currentRevision = getCurrentLedgerRevision(db, userId);
 
   if (userId) {
     noteRows = db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
@@ -411,6 +513,7 @@ export function getCalendarData(db = getDatabase(), userId = null) {
     drawingRows = db.prepare("SELECT * FROM drawings WHERE user_id = ? AND type != 'circle' ORDER BY created_at ASC").all(userId);
     circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id = ? ORDER BY created_at ASC').all(userId);
     settingsRow = db.prepare('SELECT * FROM settings WHERE user_id = ? OR id = ?').get(userId, userId);
+    deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id = ? ORDER BY revision ASC').all(userId);
   } else {
     noteRows = db.prepare('SELECT * FROM notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
     weekNoteRows = db.prepare('SELECT * FROM week_notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
@@ -418,6 +521,7 @@ export function getCalendarData(db = getDatabase(), userId = null) {
     drawingRows = db.prepare("SELECT * FROM drawings WHERE user_id IS NULL AND type != 'circle' ORDER BY created_at ASC").all();
     circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id IS NULL ORDER BY created_at ASC').all();
     settingsRow = db.prepare("SELECT * FROM settings WHERE user_id IS NULL OR id = 'default'").get();
+    deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id IS NULL ORDER BY revision ASC').all();
   }
 
   const metaRows = db.prepare('SELECT * FROM metadata').all();
@@ -508,8 +612,15 @@ export function getCalendarData(db = getDatabase(), userId = null) {
     drawings,
     circledDates,
     settings,
-    syncedAt: metaMap['last_synced_at'] || null,
-    schemaVersion: Number(metaMap['schema_version']) || 4,
+    currentRevision,
+    deletedRecords: deletedRows.map((r) => ({
+      id: r.id,
+      entityType: r.entity_type,
+      deletedAt: r.deleted_at,
+      revision: r.revision,
+    })),
+    syncedAt: metaMap['last_synced_at'] || new Date().toISOString(),
+    schemaVersion: Number(metaMap['schema_version']) || 7,
     hasData,
   };
 }
@@ -522,6 +633,9 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
 
   db.exec('BEGIN TRANSACTION;');
   try {
+    const revision = getNextLedgerRevision(db, userId);
+    const now = new Date().toISOString();
+
     // 1. Day Notes
     if (Array.isArray(data.notes)) {
       if (userId) {
@@ -531,8 +645,8 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
       }
 
       const insertNote = db.prepare(`
-        INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const n of data.notes) {
         insertNote.run(
@@ -544,8 +658,9 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
           n.isStruck ? 1 : 0,
           n.strikeStyle || null,
           n.colorTag || null,
-          n.createdAt || new Date().toISOString(),
-          n.updatedAt || null
+          n.createdAt || now,
+          n.updatedAt || null,
+          revision
         );
       }
     }
@@ -559,8 +674,8 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
       }
 
       const insertWeekNote = db.prepare(`
-        INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const wn of data.weekNotes) {
         insertWeekNote.run(
@@ -572,8 +687,9 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
           wn.isStruck ? 1 : 0,
           wn.strikeStyle || null,
           wn.colorTag || null,
-          wn.createdAt || new Date().toISOString(),
-          wn.updatedAt || null
+          wn.createdAt || now,
+          wn.updatedAt || null,
+          revision
         );
       }
     }
@@ -587,8 +703,8 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
       }
 
       const insertMonthNote = db.prepare(`
-        INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const mn of data.monthNotes) {
         insertMonthNote.run(
@@ -600,8 +716,9 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
           mn.isStruck ? 1 : 0,
           mn.strikeStyle || null,
           mn.colorTag || null,
-          mn.createdAt || new Date().toISOString(),
-          mn.updatedAt || null
+          mn.createdAt || now,
+          mn.updatedAt || null,
+          revision
         );
       }
     }
@@ -615,8 +732,8 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
       }
 
       const insertDrawing = db.prepare(`
-        INSERT INTO drawings (id, user_id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_offset, end_offset, points, created_at, start_anchor, end_anchor)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO drawings (id, user_id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_offset, end_offset, points, created_at, start_anchor, end_anchor, revision)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const d of data.drawings) {
         if (d.type === 'circle') continue;
@@ -631,9 +748,10 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
           JSON.stringify(d.startOffset || { x: 0, y: 0 }),
           d.endOffset ? JSON.stringify(d.endOffset) : null,
           JSON.stringify(d.points || []),
-          d.createdAt || new Date().toISOString(),
+          d.createdAt || now,
           d.startAnchor ? JSON.stringify(d.startAnchor) : null,
-          d.endAnchor ? JSON.stringify(d.endAnchor) : null
+          d.endAnchor ? JSON.stringify(d.endAnchor) : null,
+          revision
         );
       }
     }
@@ -647,18 +765,18 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
       }
 
       const insertCircled = db.prepare(`
-        INSERT INTO circled_dates (date_key, user_id, color, created_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO circled_dates (date_key, user_id, color, created_at, revision)
+        VALUES (?, ?, ?, ?, ?)
       `);
       const entries = Array.isArray(data.circledDates)
         ? data.circledDates
         : Object.entries(data.circledDates).map(([k, v]) => ({
             dateKey: k,
             color: typeof v === 'string' ? v : (v.color || '#D23B38'),
-            createdAt: (v && v.createdAt) || new Date().toISOString(),
+            createdAt: (v && v.createdAt) || now,
           }));
       for (const c of entries) {
-        insertCircled.run(c.dateKey, userId || null, c.color || '#D23B38', c.createdAt || new Date().toISOString());
+        insertCircled.run(c.dateKey, userId || null, c.color || '#D23B38', c.createdAt || now, revision);
       }
     }
 
@@ -686,7 +804,7 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
         s.activeTool || 'select',
         s.inkColor || '#2B2C30',
         s.badgeTheme || 'solid',
-        new Date().toISOString()
+        now
       );
     }
 
@@ -695,12 +813,11 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
       VALUES (?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
     `);
-    const now = new Date().toISOString();
     setMeta.run('last_synced_at', now);
-    setMeta.run('schema_version', '4');
+    setMeta.run('schema_version', '7');
 
     db.exec('COMMIT;');
-    return { ok: true, syncedAt: now };
+    return { ok: true, revision, syncedAt: now };
   } catch (err) {
     db.exec('ROLLBACK;');
     throw err;
@@ -717,6 +834,16 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
   db.exec('BEGIN TRANSACTION;');
   try {
     const now = new Date().toISOString();
+    const revision = getNextLedgerRevision(db, userId);
+
+    const insertTombstone = db.prepare(`
+      INSERT OR REPLACE INTO deleted_records (id, user_id, entity_type, deleted_at, revision)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const removeTombstone = userId
+      ? db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?')
+      : db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL');
 
     // 1. Day Notes
     if (delta.notes) {
@@ -727,13 +854,14 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
         for (const id of delta.notes.delete) {
           if (userId) deleteStmt.run(id, userId);
           else deleteStmt.run(id);
+          insertTombstone.run(id, userId || null, 'note', now, revision);
         }
       }
 
       if (Array.isArray(delta.notes.upsert)) {
         const upsertNote = db.prepare(`
-          INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             content = excluded.content,
             original_content = excluded.original_content,
@@ -741,7 +869,8 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             is_struck = excluded.is_struck,
             strike_style = excluded.strike_style,
             color_tag = excluded.color_tag,
-            updated_at = excluded.updated_at
+            updated_at = excluded.updated_at,
+            revision = excluded.revision
         `);
         for (const n of delta.notes.upsert) {
           upsertNote.run(
@@ -754,8 +883,10 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             n.strikeStyle || null,
             n.colorTag || null,
             n.createdAt || now,
-            n.updatedAt || now
+            n.updatedAt || now,
+            revision
           );
+          removeTombstone.run(n.id, userId || null);
         }
       }
     }
@@ -769,13 +900,14 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
         for (const id of delta.weekNotes.delete) {
           if (userId) deleteStmt.run(id, userId);
           else deleteStmt.run(id);
+          insertTombstone.run(id, userId || null, 'week_note', now, revision);
         }
       }
 
       if (Array.isArray(delta.weekNotes.upsert)) {
         const upsertWeekNote = db.prepare(`
-          INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             content = excluded.content,
             original_content = excluded.original_content,
@@ -783,7 +915,8 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             is_struck = excluded.is_struck,
             strike_style = excluded.strike_style,
             color_tag = excluded.color_tag,
-            updated_at = excluded.updated_at
+            updated_at = excluded.updated_at,
+            revision = excluded.revision
         `);
         for (const wn of delta.weekNotes.upsert) {
           upsertWeekNote.run(
@@ -796,8 +929,10 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             wn.strikeStyle || null,
             wn.colorTag || null,
             wn.createdAt || now,
-            wn.updatedAt || now
+            wn.updatedAt || now,
+            revision
           );
+          removeTombstone.run(wn.id, userId || null);
         }
       }
     }
@@ -811,13 +946,14 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
         for (const id of delta.monthNotes.delete) {
           if (userId) deleteStmt.run(id, userId);
           else deleteStmt.run(id);
+          insertTombstone.run(id, userId || null, 'month_note', now, revision);
         }
       }
 
       if (Array.isArray(delta.monthNotes.upsert)) {
         const upsertMonthNote = db.prepare(`
-          INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             content = excluded.content,
             original_content = excluded.original_content,
@@ -825,7 +961,8 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             is_struck = excluded.is_struck,
             strike_style = excluded.strike_style,
             color_tag = excluded.color_tag,
-            updated_at = excluded.updated_at
+            updated_at = excluded.updated_at,
+            revision = excluded.revision
         `);
         for (const mn of delta.monthNotes.upsert) {
           upsertMonthNote.run(
@@ -838,8 +975,10 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             mn.strikeStyle || null,
             mn.colorTag || null,
             mn.createdAt || now,
-            mn.updatedAt || now
+            mn.updatedAt || now,
+            revision
           );
+          removeTombstone.run(mn.id, userId || null);
         }
       }
     }
@@ -853,13 +992,14 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
         for (const id of delta.drawings.delete) {
           if (userId) deleteStmt.run(id, userId);
           else deleteStmt.run(id);
+          insertTombstone.run(id, userId || null, 'drawing', now, revision);
         }
       }
 
       if (Array.isArray(delta.drawings.upsert)) {
         const upsertDrawing = db.prepare(`
-          INSERT INTO drawings (id, user_id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_anchor, end_anchor, start_offset, end_offset, points, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO drawings (id, user_id, type, color, stroke_width, anchor_start_date, anchor_end_date, start_anchor, end_anchor, start_offset, end_offset, points, created_at, revision)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             type = excluded.type,
             color = excluded.color,
@@ -870,7 +1010,8 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             end_anchor = excluded.end_anchor,
             start_offset = excluded.start_offset,
             end_offset = excluded.end_offset,
-            points = excluded.points
+            points = excluded.points,
+            revision = excluded.revision
         `);
         for (const d of delta.drawings.upsert) {
           if (d.type === 'circle') continue;
@@ -887,8 +1028,10 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             JSON.stringify(d.startOffset || { x: 0, y: 0 }),
             d.endOffset ? JSON.stringify(d.endOffset) : null,
             JSON.stringify(d.points || []),
-            d.createdAt || now
+            d.createdAt || now,
+            revision
           );
+          removeTombstone.run(d.id, userId || null);
         }
       }
     }
@@ -902,18 +1045,21 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
         for (const dateKey of delta.circledDates.delete) {
           if (userId) deleteStmt.run(dateKey, userId);
           else deleteStmt.run(dateKey);
+          insertTombstone.run(dateKey, userId || null, 'circle', now, revision);
         }
       }
 
       if (delta.circledDates.upsert && typeof delta.circledDates.upsert === 'object') {
         const upsertCircle = db.prepare(`
-          INSERT INTO circled_dates (date_key, user_id, color, created_at)
-          VALUES (?, ?, ?, ?)
+          INSERT INTO circled_dates (date_key, user_id, color, created_at, revision)
+          VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(date_key) DO UPDATE SET
-            color = excluded.color
+            color = excluded.color,
+            revision = excluded.revision
         `);
         for (const [dateKey, val] of Object.entries(delta.circledDates.upsert)) {
-          upsertCircle.run(dateKey, userId || null, val.color, now);
+          upsertCircle.run(dateKey, userId || null, val.color, now, revision);
+          removeTombstone.run(dateKey, userId || null);
         }
       }
     }
@@ -969,12 +1115,141 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
     setMeta.run('last_synced_at', now);
 
     db.exec('COMMIT;');
-    return { ok: true, syncedAt: now };
+    return { ok: true, revision, syncedAt: now };
   } catch (err) {
     db.exec('ROLLBACK;');
     console.error('Failed to save calendar delta:', err);
     throw err;
   }
+}
+
+/**
+ * Retrieves incremental delta changes and tombstones modified since the specified revision.
+ */
+export function getCalendarDelta(db = getDatabase(), sinceRevision = 0, userId = null) {
+  const currentRevision = getCurrentLedgerRevision(db, userId);
+  const since = Number(sinceRevision) || 0;
+
+  // Verify whether sinceRevision has fallen outside the active retention window (30-day tombstone TTL)
+  if (since > 0) {
+    const oldestRow = userId
+      ? db.prepare('SELECT MIN(revision) as min_rev FROM deleted_records WHERE user_id = ?').get(userId)
+      : db.prepare('SELECT MIN(revision) as min_rev FROM deleted_records WHERE user_id IS NULL').get();
+    if (oldestRow?.min_rev && since < oldestRow.min_rev) {
+      return { ok: true, requiresFullSync: true, currentRevision };
+    }
+  }
+
+  let noteUpserts, weekNoteUpserts, monthNoteUpserts, drawingUpserts, circledUpserts, deletedRows;
+
+  if (userId) {
+    noteUpserts = db.prepare('SELECT * FROM notes WHERE user_id = ? AND revision > ? ORDER BY rowid ASC').all(userId, since);
+    weekNoteUpserts = db.prepare('SELECT * FROM week_notes WHERE user_id = ? AND revision > ? ORDER BY rowid ASC').all(userId, since);
+    monthNoteUpserts = db.prepare('SELECT * FROM month_notes WHERE user_id = ? AND revision > ? ORDER BY rowid ASC').all(userId, since);
+    drawingUpserts = db.prepare("SELECT * FROM drawings WHERE user_id = ? AND type != 'circle' AND revision > ? ORDER BY created_at ASC").all(userId, since);
+    circledUpserts = db.prepare('SELECT * FROM circled_dates WHERE user_id = ? AND revision > ? ORDER BY created_at ASC').all(userId, since);
+    deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id = ? AND revision > ? ORDER BY revision ASC').all(userId, since);
+  } else {
+    noteUpserts = db.prepare('SELECT * FROM notes WHERE user_id IS NULL AND revision > ? ORDER BY rowid ASC').all(since);
+    weekNoteUpserts = db.prepare('SELECT * FROM week_notes WHERE user_id IS NULL AND revision > ? ORDER BY rowid ASC').all(since);
+    monthNoteUpserts = db.prepare('SELECT * FROM month_notes WHERE user_id IS NULL AND revision > ? ORDER BY rowid ASC').all(since);
+    drawingUpserts = db.prepare("SELECT * FROM drawings WHERE user_id IS NULL AND type != 'circle' AND revision > ? ORDER BY created_at ASC").all(since);
+    circledUpserts = db.prepare('SELECT * FROM circled_dates WHERE user_id IS NULL AND revision > ? ORDER BY created_at ASC').all(since);
+    deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id IS NULL AND revision > ? ORDER BY revision ASC').all(since);
+  }
+
+  const formatNote = (n) => ({
+    id: n.id,
+    content: n.content,
+    originalContent: n.original_content || undefined,
+    parentDates: JSON.parse(n.parent_dates || '[]'),
+    isStruck: Boolean(n.is_struck),
+    strikeStyle: n.strike_style || undefined,
+    colorTag: n.color_tag || undefined,
+    createdAt: n.created_at,
+    updatedAt: n.updated_at || undefined,
+  });
+
+  const formatWeekNote = (wn) => ({
+    id: wn.id,
+    content: wn.content,
+    originalContent: wn.original_content || undefined,
+    parentWeeks: JSON.parse(wn.parent_weeks || '[]'),
+    isStruck: Boolean(wn.is_struck),
+    strikeStyle: wn.strike_style || undefined,
+    colorTag: wn.color_tag || undefined,
+    createdAt: wn.created_at,
+    updatedAt: wn.updated_at || undefined,
+  });
+
+  const formatMonthNote = (mn) => ({
+    id: mn.id,
+    content: mn.content,
+    originalContent: mn.original_content || undefined,
+    parentMonths: JSON.parse(mn.parent_months || '[]'),
+    isStruck: Boolean(mn.is_struck),
+    strikeStyle: mn.strike_style || undefined,
+    colorTag: mn.color_tag || undefined,
+    createdAt: mn.created_at,
+    updatedAt: mn.updated_at || undefined,
+  });
+
+  const formatDrawing = (d) => ({
+    id: d.id,
+    type: d.type,
+    color: d.color,
+    strokeWidth: d.stroke_width,
+    anchorStartDate: d.anchor_start_date,
+    anchorEndDate: d.anchor_end_date || undefined,
+    startAnchor: d.start_anchor ? JSON.parse(d.start_anchor) : undefined,
+    endAnchor: d.end_anchor ? JSON.parse(d.end_anchor) : undefined,
+    startOffset: JSON.parse(d.start_offset || '{"x":0,"y":0}'),
+    endOffset: d.end_offset ? JSON.parse(d.end_offset) : undefined,
+    points: JSON.parse(d.points || '[]'),
+    createdAt: d.created_at,
+  });
+
+  const circledMap = {};
+  for (const c of circledUpserts) {
+    circledMap[c.date_key] = { color: c.color };
+  }
+
+  const noteDeletes = [];
+  const weekNoteDeletes = [];
+  const monthNoteDeletes = [];
+  const drawingDeletes = [];
+  const circleDeletes = [];
+
+  for (const del of deletedRows) {
+    switch (del.entity_type) {
+      case 'note':
+        noteDeletes.push(del.id);
+        break;
+      case 'week_note':
+        weekNoteDeletes.push(del.id);
+        break;
+      case 'month_note':
+        monthNoteDeletes.push(del.id);
+        break;
+      case 'drawing':
+        drawingDeletes.push(del.id);
+        break;
+      case 'circle':
+        circleDeletes.push(del.id);
+        break;
+    }
+  }
+
+  return {
+    ok: true,
+    currentRevision,
+    notes: { upsert: noteUpserts.map(formatNote), delete: noteDeletes },
+    weekNotes: { upsert: weekNoteUpserts.map(formatWeekNote), delete: weekNoteDeletes },
+    monthNotes: { upsert: monthNoteUpserts.map(formatMonthNote), delete: monthNoteDeletes },
+    drawings: { upsert: drawingUpserts.map(formatDrawing), delete: drawingDeletes },
+    circledDates: { upsert: circledMap, delete: circleDeletes },
+    syncedAt: new Date().toISOString(),
+  };
 }
 
 function readRequestBody(req, maxBytes = 25 * 1024 * 1024) {
@@ -1326,7 +1601,27 @@ export function handleApiRequest(req, res, db = getDatabase()) {
     return true;
   }
 
-  // 8b. Incremental Calendar Delta POST (Batch Delta Sync)
+  // 8b-1. Incremental Calendar Delta GET (Pull changes since revision)
+  if (pathname === '/api/calendar/delta' && req.method === 'GET') {
+    const session = authenticateRequest(req, db);
+    const totalUsers = getUserCount(db);
+    if (!session && totalUsers > 0) {
+      sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+      return true;
+    }
+    const userId = session?.userId || null;
+    const sinceParam = parsedUrl.searchParams.get('since') || '0';
+    try {
+      const delta = getCalendarDelta(db, parseInt(sinceParam, 10) || 0, userId);
+      sendJsonResponse(req, res, 200, delta);
+    } catch (err) {
+      console.error('Failed to get calendar delta:', err);
+      sendJsonResponse(req, res, 500, { error: 'Failed to read calendar delta', details: err.message });
+    }
+    return true;
+  }
+
+  // 8b-2. Incremental Calendar Delta POST (Batch Delta Sync)
   if (pathname === '/api/calendar/delta' && req.method === 'POST') {
     readRequestBody(req)
       .then((payload) => {

@@ -38,6 +38,17 @@ export async function registerUser(db, { email, password, clientName, clientType
     const claimDrawings = db.prepare('UPDATE drawings SET user_id = ? WHERE user_id IS NULL').run(userId);
     const claimCircled = db.prepare('UPDATE circled_dates SET user_id = ? WHERE user_id IS NULL').run(userId);
     const claimSettings = db.prepare("UPDATE settings SET user_id = ?, id = ? WHERE user_id IS NULL OR id = 'default'").run(userId, userId);
+    const claimTombstones = db.prepare("UPDATE deleted_records SET user_id = ? WHERE user_id IS NULL OR user_id = '__guest__'").run(userId);
+
+    // Migrate guest ledger sequence to newly registered account
+    const guestSeq = db.prepare("SELECT current_revision FROM ledger_sequences WHERE user_id = '__guest__'").get();
+    if (guestSeq) {
+      db.prepare(`
+        INSERT INTO ledger_sequences (user_id, current_revision, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET current_revision = excluded.current_revision
+      `).run(userId, guestSeq.current_revision, now);
+    }
 
     const migratedCount = {
       notes: claimNotes.changes,
@@ -46,6 +57,7 @@ export async function registerUser(db, { email, password, clientName, clientType
       drawings: claimDrawings.changes,
       circledDates: claimCircled.changes,
       settings: claimSettings.changes,
+      tombstones: claimTombstones.changes,
     };
 
     // Create persistent session (30-day expiry)
