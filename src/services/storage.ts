@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   MONTH_NOTES: 'chrono_ledger_month_notes_v1',
   DRAWINGS: 'chrono_ledger_drawings_v1',
   CIRCLED_DATES: 'chrono_ledger_circled_dates_v1',
+  DELETED_CIRCLES: 'chrono_ledger_deleted_circles_v1',
+  DELETED_IDS: 'chrono_ledger_deleted_ids_v1',
   SETTINGS: 'chrono_ledger_settings_v1',
   SCHEMA_VERSION: 'chrono_ledger_schema_version',
 } as const;
@@ -35,6 +37,16 @@ export interface CalendarStorage {
   saveDrawings(drawings: DrawingElement[]): void;
   loadCircledDates(): Record<string, { color: string }>;
   saveCircledDates(circledDates: Record<string, { color: string }>): void;
+  loadDeletedCircleKeys(): Set<string>;
+  saveDeletedCircleKeys(keys: Set<string>): void;
+  addDeletedCircleKey(key: string): void;
+  removeDeletedCircleKey(key: string): void;
+  clearDeletedCircleKeys(): void;
+  loadDeletedIds(): Set<string>;
+  saveDeletedIds(keys: Set<string>): void;
+  addDeletedId(id: string): void;
+  removeDeletedId(id: string): void;
+  clearDeletedIds(): void;
   loadSettings(): CalendarSettings;
   saveSettings(settings: CalendarSettings): void;
   exportBackup(): string;
@@ -191,27 +203,36 @@ export class LocalStorageAdapter implements CalendarStorage {
       const notes = this.loadNotes();
       const migrated = migrateDrawingsV1ToV2(parsed, notes);
 
+      // Permanently filter out any legacy circle drawings so they never persist in drawings store
+      const cleanDrawings = migrated.filter((d) => d.type !== 'circle');
+      if (cleanDrawings.length !== parsed.length) {
+        this.saveDrawings(cleanDrawings);
+      }
+
       const hadUnmigrated = parsed.some(
         (d) => d.type === 'arrow' && (!d.startAnchor || !d.endAnchor)
       );
       if (hadUnmigrated) {
-        this.saveDrawings(migrated);
+        this.saveDrawings(cleanDrawings);
         safeLocalStorageSet(STORAGE_KEYS.SCHEMA_VERSION, String(STORAGE_VERSION));
       }
 
-      return migrated;
+      return cleanDrawings;
     } catch {
       return [];
     }
   }
 
   saveDrawings(drawings: DrawingElement[]): void {
-    safeLocalStorageSet(STORAGE_KEYS.DRAWINGS, JSON.stringify(drawings));
+    const cleanDrawings = drawings.filter((d) => d.type !== 'circle');
+    safeLocalStorageSet(STORAGE_KEYS.DRAWINGS, JSON.stringify(cleanDrawings));
   }
 
   loadCircledDates(): Record<string, { color: string }> {
     const raw = localStorage.getItem(STORAGE_KEYS.CIRCLED_DATES);
     let circled: Record<string, { color: string }> = {};
+    const hasExistingCircledStore = raw !== null;
+
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
@@ -223,25 +244,30 @@ export class LocalStorageAdapter implements CalendarStorage {
       }
     }
 
-    // Auto-migrate any legacy circle drawings found in local drawings store
+    // One-time auto-migration for legacy circle drawings found in local drawings store.
+    // If the user already has a first-class circledDates store (hasExistingCircledStore is true),
+    // NEVER resurrect previously deleted circles from drawings!
     const rawDrawings = localStorage.getItem(STORAGE_KEYS.DRAWINGS);
     if (rawDrawings) {
       try {
         const drawings = JSON.parse(rawDrawings);
         if (Array.isArray(drawings)) {
-          let hasLegacyCircles = false;
-          for (const d of drawings) {
-            if (d.type === 'circle' && d.anchorStartDate) {
-              if (!circled[d.anchorStartDate]) {
-                circled[d.anchorStartDate] = { color: d.color || '#D23B38' };
-              }
-              hasLegacyCircles = true;
-            }
-          }
+          const hasLegacyCircles = drawings.some((d: { type?: string }) => d.type === 'circle');
           if (hasLegacyCircles) {
+            // Only seed circled dates if no circled store existed yet
+            if (!hasExistingCircledStore || Object.keys(circled).length === 0) {
+              for (const d of drawings) {
+                if (d.type === 'circle' && d.anchorStartDate) {
+                  if (!circled[d.anchorStartDate]) {
+                    circled[d.anchorStartDate] = { color: d.color || '#D23B38' };
+                  }
+                }
+              }
+              this.saveCircledDates(circled);
+            }
+            // Permanently purge legacy circles from drawings store so they never re-appear
             const cleanDrawings = drawings.filter((d: { type?: string }) => d.type !== 'circle');
             safeLocalStorageSet(STORAGE_KEYS.DRAWINGS, JSON.stringify(cleanDrawings));
-            this.saveCircledDates(circled);
           }
         }
       } catch {
@@ -254,6 +280,84 @@ export class LocalStorageAdapter implements CalendarStorage {
 
   saveCircledDates(circledDates: Record<string, { color: string }>): void {
     safeLocalStorageSet(STORAGE_KEYS.CIRCLED_DATES, JSON.stringify(circledDates));
+  }
+
+  loadDeletedCircleKeys(): Set<string> {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_CIRCLES);
+    if (!raw) return new Set();
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((k) => typeof k === 'string'));
+      }
+    } catch {
+      // ignore parse error
+    }
+    return new Set();
+  }
+
+  saveDeletedCircleKeys(keys: Set<string>): void {
+    if (keys.size === 0) {
+      localStorage.removeItem(STORAGE_KEYS.DELETED_CIRCLES);
+    } else {
+      safeLocalStorageSet(STORAGE_KEYS.DELETED_CIRCLES, JSON.stringify(Array.from(keys)));
+    }
+  }
+
+  addDeletedCircleKey(key: string): void {
+    const keys = this.loadDeletedCircleKeys();
+    keys.add(key);
+    this.saveDeletedCircleKeys(keys);
+  }
+
+  removeDeletedCircleKey(key: string): void {
+    const keys = this.loadDeletedCircleKeys();
+    if (keys.delete(key)) {
+      this.saveDeletedCircleKeys(keys);
+    }
+  }
+
+  clearDeletedCircleKeys(): void {
+    localStorage.removeItem(STORAGE_KEYS.DELETED_CIRCLES);
+  }
+
+  loadDeletedIds(): Set<string> {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_IDS);
+    if (!raw) return new Set();
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((k) => typeof k === 'string'));
+      }
+    } catch {
+      // ignore parse error
+    }
+    return new Set();
+  }
+
+  saveDeletedIds(keys: Set<string>): void {
+    if (keys.size === 0) {
+      localStorage.removeItem(STORAGE_KEYS.DELETED_IDS);
+    } else {
+      safeLocalStorageSet(STORAGE_KEYS.DELETED_IDS, JSON.stringify(Array.from(keys)));
+    }
+  }
+
+  addDeletedId(id: string): void {
+    const keys = this.loadDeletedIds();
+    keys.add(id);
+    this.saveDeletedIds(keys);
+  }
+
+  removeDeletedId(id: string): void {
+    const keys = this.loadDeletedIds();
+    if (keys.delete(id)) {
+      this.saveDeletedIds(keys);
+    }
+  }
+
+  clearDeletedIds(): void {
+    localStorage.removeItem(STORAGE_KEYS.DELETED_IDS);
   }
 
   loadSettings(): CalendarSettings {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { DateItem, NoteItem, DrawingTool, CircleDateColor } from '../../types/calendar';
 import { CIRCLE_DATE_COLOR_NAMES } from '../../types/calendar';
 import { analyzeDateSpan, DAY_NAMES_SHORT, FULL_MONTH_NAMES } from '../../utils/dateUtils';
@@ -106,6 +106,54 @@ export const DayRow: React.FC<DayRowProps> = ({
   );
   const fullMonthName = FULL_MONTH_NAMES[dateItem.monthIndex] || dateItem.monthName;
 
+  const circleClickTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (circleClickTimeoutRef.current) {
+        window.clearTimeout(circleClickTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleDateClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeTool === 'eraser' && isCircled) {
+      if (circleClickTimeoutRef.current) {
+        window.clearTimeout(circleClickTimeoutRef.current);
+        circleClickTimeoutRef.current = null;
+      }
+      onToggleCircleDate?.(dateItem.dateString);
+      return;
+    }
+    if (isCircled) {
+      // If a double-click is occurring (click 2 has e.detail > 1), abort single-click cycling
+      if (e.detail > 1) {
+        if (circleClickTimeoutRef.current) {
+          window.clearTimeout(circleClickTimeoutRef.current);
+          circleClickTimeoutRef.current = null;
+        }
+        return;
+      }
+      if (circleClickTimeoutRef.current) {
+        window.clearTimeout(circleClickTimeoutRef.current);
+      }
+      circleClickTimeoutRef.current = window.setTimeout(() => {
+        onCycleCircleColor?.(dateItem.dateString);
+        circleClickTimeoutRef.current = null;
+      }, 220);
+    }
+  };
+
+  const handleDateDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (circleClickTimeoutRef.current) {
+      window.clearTimeout(circleClickTimeoutRef.current);
+      circleClickTimeoutRef.current = null;
+    }
+    onToggleCircleDate?.(dateItem.dateString);
+  };
+
   return (
     <div
       data-day-row="true"
@@ -183,20 +231,8 @@ export const DayRow: React.FC<DayRowProps> = ({
                 ? `Today (${circleColorName} - click to cycle color, double-click to remove)`
                 : 'Today (Double-click to circle)'
             }
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              onToggleCircleDate?.(dateItem.dateString);
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (activeTool === 'eraser' && isCircled) {
-                onToggleCircleDate?.(dateItem.dateString);
-                return;
-              }
-              if (isCircled) {
-                onCycleCircleColor?.(dateItem.dateString);
-              }
-            }}
+            onDoubleClick={handleDateDoubleClick}
+            onClick={handleDateClick}
           >
             <span className="text-base sm:text-[17px] font-bold text-[#FAF8F5] leading-none">
               {dateItem.dayOfMonth}
@@ -230,20 +266,8 @@ export const DayRow: React.FC<DayRowProps> = ({
                 ? `${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`
                 : `${dateItem.monthName} ${dateItem.dayOfMonth} (Double-click to circle)`
             }
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              onToggleCircleDate?.(dateItem.dateString);
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (activeTool === 'eraser' && isCircled) {
-                onToggleCircleDate?.(dateItem.dateString);
-                return;
-              }
-              if (isCircled) {
-                onCycleCircleColor?.(dateItem.dateString);
-              }
-            }}
+            onDoubleClick={handleDateDoubleClick}
+            onClick={handleDateClick}
           >
             <span
               className="relative inline-flex items-center justify-center min-w-[22px] h-6 px-0.5 rounded text-base sm:text-[17px] font-bold text-[#2B2C30] group-hover/date:bg-black/5 transition-colors leading-none"
@@ -253,9 +277,8 @@ export const DayRow: React.FC<DayRowProps> = ({
               {/* Tactile Hand-Drawn Pen Ring around day number */}
               {isCircled && (
                 <span
-                  role="button"
-                  tabIndex={0}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[40px] pointer-events-auto cursor-pointer flex items-center justify-center z-10 hover:scale-105 transition-transform"
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[40px] pointer-events-none flex items-center justify-center z-10"
+                  aria-hidden="true"
                 >
                   <RoughCircledRing
                     dateKey={dateItem.dateString}

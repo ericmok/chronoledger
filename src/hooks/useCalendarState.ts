@@ -45,7 +45,7 @@ function safeMerge<T extends { id: string; createdAt?: string; updatedAt?: strin
     } else {
       const localTime = new Date(localItem.updatedAt || localItem.createdAt || 0).getTime();
       const remoteTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
-      if (remoteTime >= localTime) {
+      if (remoteTime > localTime) {
         map.set(item.id, item);
       }
     }
@@ -61,15 +61,17 @@ export function useCalendarState() {
   const [circledDates, setCircledDates] = useState<Record<string, { color: string }>>(() => storage.loadCircledDates());
   const [settings, setSettings] = useState<CalendarSettings>(() => storage.loadSettings());
 
-  // Session deletion tombstone tracking (prevents zombie note/drawing resurrection on remote sync)
-  const deletedIdsRef = useRef<Set<string>>(new Set());
-  const deletedCircleKeysRef = useRef<Set<string>>(new Set());
+  // Session deletion tombstone tracking (persisted to prevent zombie note/drawing/circle resurrection on remote sync/refresh)
+  const deletedIdsRef = useRef<Set<string>>(storage.loadDeletedIds());
+  const deletedCircleKeysRef = useRef<Set<string>>(storage.loadDeletedCircleKeys());
 
   // SQLite sync state
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('syncing');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const isHydratedRef = useRef(false);
   const syncDebounceRef = useRef<number | null>(null);
+  const retryTimeoutRef = useRef<number | null>(null);
+  const retryAttemptRef = useRef<number>(0);
 
   // History stack for Undo / Redo (bounded depth to prevent memory leaks with heavy multi-year drawings)
   const undoStackRef = useRef<HistorySnapshot[]>([]);
@@ -122,7 +124,9 @@ export function useCalendarState() {
         const filteredRemoteNotes = remote.notes.filter((n) => !deletedIdsRef.current.has(n.id));
         const filteredRemoteWeekNotes = remote.weekNotes.filter((wn) => !deletedIdsRef.current.has(wn.id));
         const filteredRemoteMonthNotes = remote.monthNotes.filter((mn) => !deletedIdsRef.current.has(mn.id));
-        const filteredRemoteDrawings = remote.drawings.filter((d) => !deletedIdsRef.current.has(d.id));
+        const filteredRemoteDrawings = remote.drawings
+          .filter((d) => !deletedIdsRef.current.has(d.id))
+          .filter((d) => d.type !== 'circle');
         const filteredRemoteCircled = Object.fromEntries(
           Object.entries(remote.circledDates || {}).filter(([k]) => !deletedCircleKeysRef.current.has(k))
         );
@@ -130,7 +134,7 @@ export function useCalendarState() {
         const mergedNotes = safeMerge(activeLocalNotes, filteredRemoteNotes);
         const mergedWeekNotes = safeMerge(activeLocalWeekNotes, filteredRemoteWeekNotes);
         const mergedMonthNotes = safeMerge(activeLocalMonthNotes, filteredRemoteMonthNotes);
-        const mergedDrawings = safeMerge(activeLocalDrawings, filteredRemoteDrawings);
+        const mergedDrawings = safeMerge(activeLocalDrawings, filteredRemoteDrawings).filter((d) => d.type !== 'circle');
         const mergedCircledDates = {
           ...activeLocalCircledDates,
           ...filteredRemoteCircled,
@@ -175,6 +179,8 @@ export function useCalendarState() {
           if (saveResult && saveResult.ok) {
             deletedIdsRef.current.clear();
             deletedCircleKeysRef.current.clear();
+            storage.clearDeletedCircleKeys();
+            storage.clearDeletedIds();
           }
         }
 
@@ -198,6 +204,8 @@ export function useCalendarState() {
         if (result && result.ok) {
           deletedIdsRef.current.clear();
           deletedCircleKeysRef.current.clear();
+          storage.clearDeletedCircleKeys();
+          storage.clearDeletedIds();
           setLastSyncedAt(result.syncedAt || new Date().toISOString());
         }
         setSyncStatus('synced');
@@ -314,6 +322,30 @@ export function useCalendarState() {
     setDrawings(previous.drawings);
     setCircledDates(previous.circledDates || {});
 
+    // For any entity restored by undo, ensure it's removed from tombstone sets
+    for (const n of previous.notes) {
+      deletedIdsRef.current.delete(n.id);
+      storage.removeDeletedId(n.id);
+    }
+    for (const wn of previous.weekNotes) {
+      deletedIdsRef.current.delete(wn.id);
+      storage.removeDeletedId(wn.id);
+    }
+    for (const mn of previous.monthNotes) {
+      deletedIdsRef.current.delete(mn.id);
+      storage.removeDeletedId(mn.id);
+    }
+    for (const d of previous.drawings) {
+      deletedIdsRef.current.delete(d.id);
+      storage.removeDeletedId(d.id);
+    }
+    if (previous.circledDates) {
+      for (const k of Object.keys(previous.circledDates)) {
+        deletedCircleKeysRef.current.delete(k);
+        storage.removeDeletedCircleKey(k);
+      }
+    }
+
     setCanUndo(undoStackRef.current.length > 0);
     setCanRedo(true);
   }, []);
@@ -339,6 +371,30 @@ export function useCalendarState() {
     setMonthNotes(next.monthNotes);
     setDrawings(next.drawings);
     setCircledDates(next.circledDates || {});
+
+    // For any entity restored by redo, ensure it's removed from tombstone sets
+    for (const n of next.notes) {
+      deletedIdsRef.current.delete(n.id);
+      storage.removeDeletedId(n.id);
+    }
+    for (const wn of next.weekNotes) {
+      deletedIdsRef.current.delete(wn.id);
+      storage.removeDeletedId(wn.id);
+    }
+    for (const mn of next.monthNotes) {
+      deletedIdsRef.current.delete(mn.id);
+      storage.removeDeletedId(mn.id);
+    }
+    for (const d of next.drawings) {
+      deletedIdsRef.current.delete(d.id);
+      storage.removeDeletedId(d.id);
+    }
+    if (next.circledDates) {
+      for (const k of Object.keys(next.circledDates)) {
+        deletedCircleKeysRef.current.delete(k);
+        storage.removeDeletedCircleKey(k);
+      }
+    }
 
     setCanUndo(true);
     setCanRedo(redoStackRef.current.length > 0);
@@ -369,70 +425,160 @@ export function useCalendarState() {
     storage.saveSettings(settings);
   }, [settings]);
 
-  // Debounced auto-sync to SQLite database
+  // Perform remote sync with SQLite, with automatic exponential backoff on failure
+  const performSync = useCallback(async (): Promise<boolean> => {
+    if (!isHydratedRef.current) return false;
+
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+
+    setSyncStatus('syncing');
+    const snapshot = currentStateRef.current;
+    const payload = {
+      notes: snapshot.notes,
+      weekNotes: snapshot.weekNotes,
+      monthNotes: snapshot.monthNotes,
+      drawings: snapshot.drawings.filter((d) => d.type !== 'circle'),
+      circledDates: snapshot.circledDates,
+      settings: storage.loadSettings(),
+    };
+
+    const result = await saveRemoteCalendar(payload);
+    if (result && result.ok) {
+      retryAttemptRef.current = 0;
+      deletedIdsRef.current.clear();
+      deletedCircleKeysRef.current.clear();
+      storage.clearDeletedCircleKeys();
+      storage.clearDeletedIds();
+      setSyncStatus('synced');
+      setLastSyncedAt(result.syncedAt || new Date().toISOString());
+      return true;
+    } else {
+      setSyncStatus('offline');
+      // Automatic retry with exponential backoff: 2s, 4s, 8s, 16s, up to max 30s
+      const delay = Math.min(2000 * Math.pow(1.5, retryAttemptRef.current), 30000);
+      retryAttemptRef.current += 1;
+      retryTimeoutRef.current = window.setTimeout(() => {
+        retryTimeoutRef.current = null;
+        performSync();
+      }, delay);
+      return false;
+    }
+  }, []);
+
+  // Debounced auto-sync to SQLite database on state change
   useEffect(() => {
     if (!isHydratedRef.current) return;
 
-    setSyncStatus('syncing');
     if (syncDebounceRef.current) {
       window.clearTimeout(syncDebounceRef.current);
     }
+    // A fresh local edit supersedes any pending background retry timer
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
 
-    syncDebounceRef.current = window.setTimeout(async () => {
-      const payload = {
-        notes,
-        weekNotes,
-        monthNotes,
-        drawings,
-        circledDates,
-        settings,
-      };
-
-      const result = await saveRemoteCalendar(payload);
-      if (result && result.ok) {
-        deletedIdsRef.current.clear();
-        deletedCircleKeysRef.current.clear();
-        setSyncStatus('synced');
-        setLastSyncedAt(result.syncedAt || new Date().toISOString());
-      } else {
-        setSyncStatus('offline');
-      }
-    }, 600);
+    setSyncStatus('syncing');
+    syncDebounceRef.current = window.setTimeout(() => {
+      syncDebounceRef.current = null;
+      performSync();
+    }, 400);
 
     return () => {
       if (syncDebounceRef.current) {
         window.clearTimeout(syncDebounceRef.current);
       }
     };
-  }, [notes, weekNotes, monthNotes, drawings, circledDates, settings]);
+  }, [notes, weekNotes, monthNotes, drawings, circledDates, settings, performSync]);
+
+  // Listen for device coming back online to immediately retry sync
+  useEffect(() => {
+    const handleOnline = () => {
+      if (retryTimeoutRef.current) {
+        window.clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+      retryAttemptRef.current = 0;
+      performSync();
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [performSync]);
+
+  // Flush any pending sync on page refresh, unload, or tab hiding
+  useEffect(() => {
+    const flushPendingSync = () => {
+      if (syncDebounceRef.current) {
+        window.clearTimeout(syncDebounceRef.current);
+        syncDebounceRef.current = null;
+        const payload = {
+          notes: currentStateRef.current.notes,
+          weekNotes: currentStateRef.current.weekNotes,
+          monthNotes: currentStateRef.current.monthNotes,
+          drawings: currentStateRef.current.drawings.filter((d) => d.type !== 'circle'),
+          circledDates: currentStateRef.current.circledDates,
+          settings: storage.loadSettings(),
+        };
+        try {
+          fetch('/api/calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+            keepalive: true,
+          }).catch(() => {});
+        } catch {
+          if (navigator.sendBeacon) {
+            const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+            navigator.sendBeacon('/api/calendar', blob);
+          }
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushPendingSync();
+      }
+    };
+
+    window.addEventListener('beforeunload', flushPendingSync);
+    window.addEventListener('pagehide', flushPendingSync);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', flushPendingSync);
+      window.removeEventListener('pagehide', flushPendingSync);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const forceSync = useCallback(async () => {
-    setSyncStatus('syncing');
-    const payload = {
-      notes,
-      weekNotes,
-      monthNotes,
-      drawings,
-      circledDates,
-      settings,
-    };
-    const result = await saveRemoteCalendar(payload);
-    if (result && result.ok) {
-      deletedIdsRef.current.clear();
-      deletedCircleKeysRef.current.clear();
-      setSyncStatus('synced');
-      setLastSyncedAt(result.syncedAt || new Date().toISOString());
-      return true;
-    } else {
-      setSyncStatus('offline');
-      return false;
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
     }
-  }, [notes, weekNotes, monthNotes, drawings, circledDates, settings]);
+    retryAttemptRef.current = 0;
+    return performSync();
+  }, [performSync]);
 
   const clearCalendarState = useCallback(() => {
     if (syncDebounceRef.current) {
       window.clearTimeout(syncDebounceRef.current);
+      syncDebounceRef.current = null;
     }
+    if (retryTimeoutRef.current) {
+      window.clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    retryAttemptRef.current = 0;
+    storage.clearDeletedCircleKeys();
+    storage.clearDeletedIds();
     setNotes([]);
     setWeekNotes([]);
     setMonthNotes([]);
@@ -470,6 +616,7 @@ export function useCalendarState() {
       createdAt: new Date().toISOString(),
     };
     deletedIdsRef.current.delete(newNote.id);
+    storage.removeDeletedId(newNote.id);
     setNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
@@ -477,13 +624,14 @@ export function useCalendarState() {
   const toggleStrikeNote = useCallback((noteId: string) => {
     recordHistory(true);
     setNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
+      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck, updatedAt: new Date().toISOString() } : n))
     );
   }, [recordHistory]);
 
   const removeNote = useCallback((noteId: string) => {
     recordHistory(true);
     deletedIdsRef.current.add(noteId);
+    storage.addDeletedId(noteId);
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
@@ -619,6 +767,7 @@ export function useCalendarState() {
       createdAt: new Date().toISOString(),
     };
     deletedIdsRef.current.delete(newNote.id);
+    storage.removeDeletedId(newNote.id);
     setWeekNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
@@ -626,13 +775,14 @@ export function useCalendarState() {
   const toggleStrikeWeekNote = useCallback((noteId: string) => {
     recordHistory(true);
     setWeekNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
+      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck, updatedAt: new Date().toISOString() } : n))
     );
   }, [recordHistory]);
 
   const removeWeekNote = useCallback((noteId: string) => {
     recordHistory(true);
     deletedIdsRef.current.add(noteId);
+    storage.addDeletedId(noteId);
     setWeekNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
@@ -755,6 +905,7 @@ export function useCalendarState() {
       createdAt: new Date().toISOString(),
     };
     deletedIdsRef.current.delete(newNote.id);
+    storage.removeDeletedId(newNote.id);
     setMonthNotes((prev) => [...prev, newNote]);
     return newNote;
   }, [recordHistory]);
@@ -762,13 +913,14 @@ export function useCalendarState() {
   const toggleStrikeMonthNote = useCallback((noteId: string) => {
     recordHistory(true);
     setMonthNotes((prev) =>
-      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck } : n))
+      prev.map((n) => (n.id === noteId ? { ...n, isStruck: !n.isStruck, updatedAt: new Date().toISOString() } : n))
     );
   }, [recordHistory]);
 
   const removeMonthNote = useCallback((noteId: string) => {
     recordHistory(true);
     deletedIdsRef.current.add(noteId);
+    storage.addDeletedId(noteId);
     setMonthNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory]);
 
@@ -888,6 +1040,7 @@ export function useCalendarState() {
       createdAt: new Date().toISOString(),
     };
     deletedIdsRef.current.delete(newDrawing.id);
+    storage.removeDeletedId(newDrawing.id);
     setDrawings((prev) => [...prev, newDrawing]);
     return newDrawing;
   }, [recordHistory]);
@@ -895,6 +1048,7 @@ export function useCalendarState() {
   const removeDrawing = useCallback((drawingId: string) => {
     recordHistory(false);
     deletedIdsRef.current.add(drawingId);
+    storage.addDeletedId(drawingId);
     setDrawings((prev) => prev.filter((d) => d.id !== drawingId));
   }, [recordHistory]);
 
@@ -903,6 +1057,7 @@ export function useCalendarState() {
     recordHistory(false);
     for (const id of drawingIds) {
       deletedIdsRef.current.add(id);
+      storage.addDeletedId(id);
     }
     const idSet = new Set(drawingIds);
     setDrawings((prev) => prev.filter((d) => !idSet.has(d.id)));
@@ -917,8 +1072,10 @@ export function useCalendarState() {
 
   const clearAllDrawings = useCallback(() => {
     recordHistory(true);
-    for (const d of currentStateRef.current.drawings) {
-      deletedIdsRef.current.add(d.id);
+    const drawingIds = currentStateRef.current.drawings.map((d) => d.id);
+    for (const id of drawingIds) {
+      deletedIdsRef.current.add(id);
+      storage.addDeletedId(id);
     }
     setDrawings([]);
   }, [recordHistory]);
@@ -932,11 +1089,22 @@ export function useCalendarState() {
         if (next[dateKey]) {
           delete next[dateKey];
           deletedCircleKeysRef.current.add(dateKey);
+          storage.addDeletedCircleKey(dateKey);
         } else {
           next[dateKey] = { color };
           deletedCircleKeysRef.current.delete(dateKey);
+          storage.removeDeletedCircleKey(dateKey);
         }
         return next;
+      });
+
+      // Purge any lingering drawing elements matching this date from drawings state
+      setDrawings((prev) => {
+        const remaining = prev.filter((d) => !(d.type === 'circle' && d.anchorStartDate === dateKey));
+        if (remaining.length !== prev.length) {
+          storage.saveDrawings(remaining);
+        }
+        return remaining;
       });
     },
     [recordHistory]
@@ -946,6 +1114,7 @@ export function useCalendarState() {
     (dateKey: string) => {
       recordHistory();
       deletedCircleKeysRef.current.delete(dateKey);
+      storage.removeDeletedCircleKey(dateKey);
       setCircledDates((prev) => {
         const existing = prev[dateKey];
         const currentColor = existing?.color || CIRCLE_DATE_COLORS[0];
@@ -966,11 +1135,22 @@ export function useCalendarState() {
     (dateKey: string) => {
       recordHistory();
       deletedCircleKeysRef.current.add(dateKey);
+      storage.addDeletedCircleKey(dateKey);
+
       setCircledDates((prev) => {
         if (!prev[dateKey]) return prev;
         const next = { ...prev };
         delete next[dateKey];
         return next;
+      });
+
+      // Purge any lingering drawing elements matching this date from drawings state
+      setDrawings((prev) => {
+        const remaining = prev.filter((d) => !(d.type === 'circle' && d.anchorStartDate === dateKey));
+        if (remaining.length !== prev.length) {
+          storage.saveDrawings(remaining);
+        }
+        return remaining;
       });
     },
     [recordHistory]

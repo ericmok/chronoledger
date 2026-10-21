@@ -365,6 +365,36 @@ export function migrateDatabase(db) {
       throw err;
     }
   }
+
+  // Schema v6: Permanently purge residual drawings of type 'circle' to prevent zombie circle resurrection
+  if (currentVersion < 6) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      const residualCircles = db.prepare("SELECT * FROM drawings WHERE type = 'circle'").all();
+      const insertCircled = db.prepare(`
+        INSERT OR IGNORE INTO circled_dates (date_key, user_id, color, created_at)
+        VALUES (?, ?, ?, ?)
+      `);
+      for (const c of residualCircles) {
+        if (c.anchor_start_date) {
+          insertCircled.run(c.anchor_start_date, c.user_id || null, c.color || '#D23B38', c.created_at || new Date().toISOString());
+        }
+      }
+      db.exec("DELETE FROM drawings WHERE type = 'circle';");
+
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES ('schema_version', '6')
+        ON CONFLICT(key) DO UPDATE SET value = '6'
+      `).run();
+
+      db.exec('COMMIT;');
+      console.log(`[DB Migration] Applied schema v6: permanently purged ${residualCircles.length} residual circle drawings.`);
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      console.error('[DB Migration Error schema v6]:', err);
+      throw err;
+    }
+  }
 }
 
 /**
@@ -378,14 +408,14 @@ export function getCalendarData(db = getDatabase(), userId = null) {
     noteRows = db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
     weekNoteRows = db.prepare('SELECT * FROM week_notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
     monthNoteRows = db.prepare('SELECT * FROM month_notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
-    drawingRows = db.prepare('SELECT * FROM drawings WHERE user_id = ? ORDER BY created_at ASC').all(userId);
+    drawingRows = db.prepare("SELECT * FROM drawings WHERE user_id = ? AND type != 'circle' ORDER BY created_at ASC").all(userId);
     circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id = ? ORDER BY created_at ASC').all(userId);
     settingsRow = db.prepare('SELECT * FROM settings WHERE user_id = ? OR id = ?').get(userId, userId);
   } else {
     noteRows = db.prepare('SELECT * FROM notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
     weekNoteRows = db.prepare('SELECT * FROM week_notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
     monthNoteRows = db.prepare('SELECT * FROM month_notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
-    drawingRows = db.prepare('SELECT * FROM drawings WHERE user_id IS NULL ORDER BY created_at ASC').all();
+    drawingRows = db.prepare("SELECT * FROM drawings WHERE user_id IS NULL AND type != 'circle' ORDER BY created_at ASC").all();
     circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id IS NULL ORDER BY created_at ASC').all();
     settingsRow = db.prepare("SELECT * FROM settings WHERE user_id IS NULL OR id = 'default'").get();
   }
@@ -589,6 +619,7 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const d of data.drawings) {
+        if (d.type === 'circle') continue;
         insertDrawing.run(
           d.id,
           userId || null,
@@ -842,6 +873,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             points = excluded.points
         `);
         for (const d of delta.drawings.upsert) {
+          if (d.type === 'circle') continue;
           upsertDrawing.run(
             d.id,
             userId || null,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { getSeasonalColor } from '../../utils/seasonalColors';
 import { RoughCircledRing } from '../common/RoughCircledRing';
 import { CIRCLE_DATE_COLOR_NAMES, type CircleDateColor } from '../../types/calendar';
@@ -51,6 +51,14 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
   selectedDateKey,
 }) => {
   const gridWidth = 7 * cellWidth;
+  const circleClickTimeoutsRef = useRef<{ [dateKey: string]: number }>({});
+
+  useEffect(() => {
+    const timeouts = circleClickTimeoutsRef.current;
+    return () => {
+      Object.values(timeouts).forEach((t) => window.clearTimeout(t));
+    };
+  }, []);
 
   return (
     <div
@@ -134,11 +142,28 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                       tabIndex={0}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onCycleCircleColor?.(cell.dateKey);
                         onSelectDate(cell.dateKey);
+                        if (e.detail > 1) {
+                          if (circleClickTimeoutsRef.current[cell.dateKey]) {
+                            window.clearTimeout(circleClickTimeoutsRef.current[cell.dateKey]);
+                            delete circleClickTimeoutsRef.current[cell.dateKey];
+                          }
+                          return;
+                        }
+                        if (circleClickTimeoutsRef.current[cell.dateKey]) {
+                          window.clearTimeout(circleClickTimeoutsRef.current[cell.dateKey]);
+                        }
+                        circleClickTimeoutsRef.current[cell.dateKey] = window.setTimeout(() => {
+                          onCycleCircleColor?.(cell.dateKey);
+                          delete circleClickTimeoutsRef.current[cell.dateKey];
+                        }, 220);
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
+                        if (circleClickTimeoutsRef.current[cell.dateKey]) {
+                          window.clearTimeout(circleClickTimeoutsRef.current[cell.dateKey]);
+                          delete circleClickTimeoutsRef.current[cell.dateKey];
+                        }
                         onToggleCircleDate?.(cell.dateKey);
                       }}
                       className="absolute inset-[1.5px] rounded-full pointer-events-auto cursor-pointer hover:scale-105 transition-transform flex items-center justify-center z-10"
