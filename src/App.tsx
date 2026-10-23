@@ -40,6 +40,7 @@ export function App() {
     updateMonthNote,
     reorderMonthNotes,
     moveMonthNoteToMonth,
+    moveNoteScope,
     addDrawing,
     removeDrawing,
     removeDrawings,
@@ -395,6 +396,7 @@ export function App() {
                 onAcceptNoteRevision={acceptNoteRevision}
                 onReorderNotes={reorderNotes}
                 onMoveNoteToDate={moveNoteToDate}
+                onMoveNoteScope={moveNoteScope}
                 onAddQuickNote={(date, text, parentDates, colorTag) => addNote(text, parentDates || [date], colorTag)}
                 onAddWeekNote={addWeekNote}
                 onToggleStrikeWeekNote={toggleStrikeWeekNote}
@@ -432,6 +434,7 @@ export function App() {
                 onAcceptNoteRevision={acceptNoteRevision}
                 onReorderWeekNotes={reorderWeekNotes}
                 onMoveWeekNoteToWeek={moveWeekNoteToWeek}
+                onMoveNoteScope={moveNoteScope}
                 onJumpToDateRequested={(d) => {
                   scrollToDate(d);
                   handlePanelChange('day');
@@ -463,6 +466,7 @@ export function App() {
                   onAcceptNoteRevision={acceptNoteRevision}
                   onReorderMonthNotes={reorderMonthNotes}
                   onMoveMonthNoteToMonth={moveMonthNoteToMonth}
+                  onMoveNoteScope={moveNoteScope}
                   scrollTargetDate={scrollTargetDate}
                   onAddDrawing={addDrawing}
                   onRemoveDrawing={removeDrawing}
@@ -521,6 +525,7 @@ export function App() {
               onAcceptNoteRevision={acceptNoteRevision}
               onReorderNotes={reorderNotes}
               onMoveNoteToDate={moveNoteToDate}
+              onMoveNoteScope={moveNoteScope}
               onAddQuickNote={(date, text, parentDates, colorTag) => addNote(text, parentDates || [date], colorTag)}
               onAddWeekNote={addWeekNote}
               onToggleStrikeWeekNote={toggleStrikeWeekNote}
@@ -559,6 +564,7 @@ export function App() {
               onAcceptNoteRevision={acceptNoteRevision}
               onReorderMonthNotes={reorderMonthNotes}
               onMoveMonthNoteToMonth={moveMonthNoteToMonth}
+              onMoveNoteScope={moveNoteScope}
               scrollTargetDate={scrollTargetDate}
               onAddDrawing={addDrawing}
               onRemoveDrawing={removeDrawing}

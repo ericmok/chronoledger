@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Link2 } from 'lucide-react';
-import type { WeekNote } from '../../types/calendar';
+import type { WeekNote, NoteScope } from '../../types/calendar';
 import type { WeekBlock } from '../../utils/dateUtils';
 import { analyzeWeekSpan } from '../../utils/dateUtils';
 import { NoteCard } from '../common/NoteCard';
@@ -20,6 +20,7 @@ export interface WeekFocusPanelProps {
   onAcceptNoteRevision?: (noteId: string) => void;
   onReorderWeekNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => void;
   onMoveWeekNoteToWeek?: (noteId: string, targetWeek: string, position?: 'start' | 'end') => void;
+  onMoveNoteScope?: (noteId: string, targetScope: NoteScope, targetTargets: string[], position?: 'start' | 'end') => boolean;
   onJumpToWeek?: (weekKey: string) => void;
   onSizeChange?: () => void;
   onOpenFolio?: (noteId: string) => void;
@@ -41,6 +42,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
   onAcceptNoteRevision,
   onReorderWeekNotes,
   onMoveWeekNoteToWeek,
+  onMoveNoteScope,
   onJumpToWeek,
   onSizeChange,
   onOpenFolio,
@@ -58,8 +60,15 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
       const raw = e.dataTransfer.getData('text/plain');
       if (!raw) return;
       const data = JSON.parse(raw);
-      if (data.type === 'week-note' && data.id) {
-        onReorderWeekNotes?.(data.id, targetNoteId, position, weekBlock.weekKey);
+      if (data.id) {
+        // Cross-horizon move: if dragged from day or month, transition scope in-place
+        if (data.scope && data.scope !== 'week') {
+          onMoveNoteScope?.(data.id, 'week', [weekBlock.weekKey], position === 'before' ? 'start' : 'end');
+        } else if (data.type === 'week-note') {
+          onReorderWeekNotes?.(data.id, targetNoteId, position, weekBlock.weekKey);
+        } else if (data.type === 'daily-note' || data.type === 'month-note') {
+          onMoveNoteScope?.(data.id, 'week', [weekBlock.weekKey], position === 'before' ? 'start' : 'end');
+        }
       }
     } catch (err) {
       console.error('Failed to parse drag drop data:', err);
@@ -73,6 +82,9 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
 
   return (
     <div
+      data-week-panel="true"
+      data-date-string={weekBlock.startDate.dateString}
+      data-week-key={weekBlock.weekKey}
       onDoubleClick={(e) => {
         const target = e.target as HTMLElement;
         if (target.closest('button, form, input, textarea, select')) return;
@@ -136,9 +148,15 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
               const raw = e.dataTransfer.getData('text/plain');
               if (!raw) return;
               const data = JSON.parse(raw);
-              if (data.type === 'week-note' && data.id) {
-                if (!dropTargetId) {
-                  onMoveWeekNoteToWeek?.(data.id, weekBlock.weekKey, 'end');
+              if (data.id) {
+                if (data.scope && data.scope !== 'week') {
+                  onMoveNoteScope?.(data.id, 'week', [weekBlock.weekKey], 'end');
+                } else if (data.type === 'week-note') {
+                  if (!dropTargetId) {
+                    onMoveWeekNoteToWeek?.(data.id, weekBlock.weekKey, 'end');
+                  }
+                } else if (data.type === 'daily-note' || data.type === 'month-note') {
+                  onMoveNoteScope?.(data.id, 'week', [weekBlock.weekKey], 'end');
                 }
               }
             } catch (err) {
@@ -252,7 +270,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 onDragStart={(e, id) => {
                   e.dataTransfer.setData(
                     'text/plain',
-                    JSON.stringify({ type: 'week-note', id, sourceWeek: weekBlock.weekKey })
+                    JSON.stringify({ type: 'week-note', scope: 'week', noteType: 'chrono-note', id, sourceWeek: weekBlock.weekKey })
                   );
                   setActiveDragId(id);
                 }}

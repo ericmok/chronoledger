@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Link2 } from 'lucide-react';
-import type { MonthNote } from '../../types/calendar';
+import type { MonthNote, NoteScope } from '../../types/calendar';
 import { analyzeMonthSpan } from '../../utils/dateUtils';
 import { NoteCard } from '../common/NoteCard';
 import { getSeasonalColor } from '../../utils/seasonalColors';
@@ -34,6 +34,7 @@ export interface MonthNotesColumnProps {
   onAcceptNoteRevision?: (noteId: string) => void;
   onReorderMonthNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => void;
   onMoveMonthNoteToMonth?: (noteId: string, targetMonth: string, position?: 'start' | 'end') => void;
+  onMoveNoteScope?: (noteId: string, targetScope: NoteScope, targetTargets: string[], position?: 'start' | 'end') => boolean;
   onJumpToMonth?: (monthKey: string) => void;
   onSizeChange?: () => void;
   onOpenFolio?: (noteId: string) => void;
@@ -54,6 +55,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
   onAcceptNoteRevision,
   onReorderMonthNotes,
   onMoveMonthNoteToMonth,
+  onMoveNoteScope,
   onJumpToMonth,
   onSizeChange,
   onOpenFolio,
@@ -81,8 +83,15 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
       const raw = e.dataTransfer.getData('text/plain');
       if (!raw) return;
       const data = JSON.parse(raw);
-      if (data.type === 'month-note' && data.id) {
-        onReorderMonthNotes?.(data.id, targetNoteId, position, targetMonthKey);
+      if (data.id) {
+        // Cross-horizon move: if dragged from day or week, transition scope in-place
+        if (data.scope && data.scope !== 'month') {
+          onMoveNoteScope?.(data.id, 'month', [targetMonthKey], position === 'before' ? 'start' : 'end');
+        } else if (data.type === 'month-note') {
+          onReorderMonthNotes?.(data.id, targetNoteId, position, targetMonthKey);
+        } else if (data.type === 'daily-note' || data.type === 'week-note') {
+          onMoveNoteScope?.(data.id, 'month', [targetMonthKey], position === 'before' ? 'start' : 'end');
+        }
       }
     } catch (err) {
       console.error('Failed to parse month note drag data:', err);
@@ -104,6 +113,8 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
         return (
           <div
             key={meta.monthKey}
+            data-month-panel="true"
+            data-month-key={meta.monthKey}
             onDoubleClick={(e) => {
               const target = e.target as HTMLElement;
               if (target.closest('button, form, input, textarea, select')) return;
@@ -143,9 +154,15 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                   const raw = e.dataTransfer.getData('text/plain');
                   if (!raw) return;
                   const data = JSON.parse(raw);
-                  if (data.type === 'month-note' && data.id) {
-                    if (!dropTargetId) {
-                      onMoveMonthNoteToMonth?.(data.id, meta.monthKey, 'end');
+                  if (data.id) {
+                    if (data.scope && data.scope !== 'month') {
+                      onMoveNoteScope?.(data.id, 'month', [meta.monthKey], 'end');
+                    } else if (data.type === 'month-note') {
+                      if (!dropTargetId) {
+                        onMoveMonthNoteToMonth?.(data.id, meta.monthKey, 'end');
+                      }
+                    } else if (data.type === 'daily-note' || data.type === 'week-note') {
+                      onMoveNoteScope?.(data.id, 'month', [meta.monthKey], 'end');
                     }
                   }
                 } catch (err) {
@@ -261,7 +278,7 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     onDragStart={(e, id) => {
                       e.dataTransfer.setData(
                         'text/plain',
-                        JSON.stringify({ type: 'month-note', id, sourceMonth: meta.monthKey })
+                        JSON.stringify({ type: 'month-note', scope: 'month', noteType: 'chrono-note', id, sourceMonth: meta.monthKey })
                       );
                       setActiveDragId(id);
                     }}

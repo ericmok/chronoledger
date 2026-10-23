@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import type React from 'react';
 import { ChevronLeft, ChevronRight, Compass, Plus } from 'lucide-react';
-import type { NoteItem, MonthNote, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
+import type { NoteItem, MonthNote, NoteScope, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
 import { formatDateKey, MONTH_NAMES, FULL_MONTH_NAMES } from '../utils/dateUtils';
 import { getSeasonalColor } from '../utils/seasonalColors';
 import { getGutterDotsForNotes } from '../utils/annotationUtils';
@@ -27,6 +27,7 @@ interface JigsawMonthGridProps {
   onAcceptNoteRevision?: (noteId: string) => void;
   onReorderMonthNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => void;
   onMoveMonthNoteToMonth?: (noteId: string, targetMonth: string, position?: 'start' | 'end') => void;
+  onMoveNoteScope?: (noteId: string, targetScope: NoteScope, targetTargets: string[], position?: 'start' | 'end') => boolean;
   scrollTargetDate?: { dateString: string; key: number } | null;
   onAddDrawing: (d: Omit<DrawingElement, 'id' | 'createdAt'>) => DrawingElement;
   onRemoveDrawing: (id: string) => void;
@@ -84,6 +85,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
   onAcceptNoteRevision,
   onReorderMonthNotes,
   onMoveMonthNoteToMonth,
+  onMoveNoteScope,
   scrollTargetDate,
   onAddDrawing,
   onRemoveDrawing,
@@ -886,6 +888,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
                 onAcceptNoteRevision={onAcceptNoteRevision}
                 onReorderMonthNotes={onReorderMonthNotes}
                 onMoveMonthNoteToMonth={onMoveMonthNoteToMonth}
+                onMoveNoteScope={onMoveNoteScope}
                 onJumpToMonth={handleJumpToMonth}
                 onOpenFolio={onOpenFolio}
               />

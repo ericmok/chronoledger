@@ -46,8 +46,12 @@ function hitTestCalendar(clientX: number, clientY: number): CalendarHitResult | 
     if (!noteEl && el instanceof HTMLElement && el.closest('[data-note-id]')) {
       noteEl = el.closest('[data-note-id]') as HTMLElement;
     }
-    if (!dayEl && el instanceof HTMLElement && el.closest('[data-day-row]')) {
-      dayEl = el.closest('[data-day-row]') as HTMLElement;
+    if (!dayEl && el instanceof HTMLElement) {
+      if (el.closest('[data-day-row]')) {
+        dayEl = el.closest('[data-day-row]') as HTMLElement;
+      } else if (el.closest('[data-week-panel]')) {
+        dayEl = el.closest('[data-week-panel]') as HTMLElement;
+      }
     }
     if (!notesColEl && el instanceof HTMLElement && el.closest('[data-notes-column]')) {
       notesColEl = el.closest('[data-notes-column]') as HTMLElement;
@@ -55,10 +59,10 @@ function hitTestCalendar(clientX: number, clientY: number): CalendarHitResult | 
   }
 
   if (noteEl && !dayEl) {
-    dayEl = noteEl.closest('[data-day-row]') as HTMLElement | null;
+    dayEl = (noteEl.closest('[data-day-row]') || noteEl.closest('[data-week-panel]')) as HTMLElement | null;
   }
   if (dayEl && !notesColEl) {
-    notesColEl = dayEl.querySelector('[data-notes-column]') as HTMLElement | null;
+    notesColEl = (dayEl.querySelector('[data-notes-column]') || (dayEl.hasAttribute('data-week-panel') ? dayEl : null)) as HTMLElement | null;
   }
 
   const dateString = dayEl?.getAttribute('data-date-string');
@@ -114,20 +118,31 @@ function resolveEndpoint(
 
   let noteEl: HTMLElement | null = null;
   if (anchor.noteId) {
-    noteEl = document.querySelector(`[data-note-id="${anchor.noteId}"]`);
+    // Look up note element, ensuring it resides within the active vertical timeline canvas
+    // (inside a daily row or weekly scratchpad). If the note was moved to the monthly
+    // reflection column in the sidebar, candidate.closest() is null, triggering non-destructive
+    // arrow suspension without DOM coordinate distortion.
+    const candidate = document.querySelector(`[data-note-id="${anchor.noteId}"]`) as HTMLElement | null;
+    if (candidate && (candidate.closest('[data-day-row]') || candidate.closest('[data-week-panel]'))) {
+      noteEl = candidate;
+    }
   }
 
-  const dayEl: HTMLElement | null = document.querySelector(`[data-date-string="${dateString}"]`);
+  // Anchor container: points to either the note's parent row/panel or the original date row
+  const dayEl: HTMLElement | null =
+    (noteEl?.closest('[data-day-row]') || noteEl?.closest('[data-week-panel]')) as HTMLElement | null ||
+    document.querySelector(`[data-date-string="${dateString}"]`);
+
   const notesColEl: HTMLElement | null =
     dayEl?.querySelector('[data-notes-column]') ||
     noteEl?.closest('[data-notes-column]') ||
-    null;
+    (dayEl?.hasAttribute('data-week-panel') ? dayEl : null);
 
   let x: number;
   let y: number;
   let hasDot = false;
 
-  // Resolve X: scale proportionally across the notes column
+  // Resolve X: scale proportionally across the notes column (or day/week element width)
   if (notesColEl) {
     const colRect = notesColEl.getBoundingClientRect();
     x = (colRect.left - svgRect.left) + anchor.xRatio * colRect.width;
@@ -138,21 +153,20 @@ function resolveEndpoint(
     x = fallbackOffset.x;
   }
 
-  // Resolve Y: center on note if present; otherwise fall back to day row
+  // Resolve Y: center directly on note card if present; otherwise fall back to day row
   if (noteEl) {
     const noteRect = noteEl.getBoundingClientRect();
     y = (noteRect.top - svgRect.top) + noteRect.height * 0.5;
-    hasDot = true; // Connected to existing note: draw dot!
+    hasDot = true; // Connected to existing note: draw solid anchor dot!
   } else if (dayEl) {
     const dayRect = dayEl.getBoundingClientRect();
     const yRatio = anchor.yRatio ?? 0.5;
     y = (dayRect.top - svgRect.top) + yRatio * dayRect.height;
-    hasDot = false; // Connected to day or note was deleted: no dot!
+    hasDot = false; // Connected to day row or note moved outside canvas: no dot
+  } else if (anchorY !== null) {
+    y = anchorY + fallbackOffset.y; // Fallback to virtualized Y offset
   } else {
-    if (anchorY === null) return null;
-    const yRatio = anchor.yRatio ?? 0.5;
-    y = anchorY + yRatio * 48;
-    hasDot = Boolean(anchor.noteId);
+    return null;
   }
 
   return { x, y, hasDot };

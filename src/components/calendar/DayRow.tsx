@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import type { DateItem, NoteItem, DrawingTool, CircleDateColor } from '../../types/calendar';
+import type { DateItem, NoteItem, NoteScope, DrawingTool, CircleDateColor } from '../../types/calendar';
 import { CIRCLE_DATE_COLOR_NAMES } from '../../types/calendar';
 import { analyzeDateSpan, DAY_NAMES_SHORT, FULL_MONTH_NAMES } from '../../utils/dateUtils';
 import { getSeasonalColor } from '../../utils/seasonalColors';
@@ -30,6 +30,7 @@ export interface DayRowProps {
   onJumpToDateRequested?: (dateKey: string) => void;
   onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
   onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
+  onMoveNoteScope?: (noteId: string, targetScope: NoteScope, targetTargets: string[], position?: 'start' | 'end') => boolean;
   onSizeChange?: () => void;
   onOpenFolio?: (noteId: string) => void;
 }
@@ -55,6 +56,7 @@ export const DayRow: React.FC<DayRowProps> = ({
   onJumpToDateRequested,
   onReorderNotes,
   onMoveNoteToDate,
+  onMoveNoteScope,
   onSizeChange,
   onOpenFolio,
 }) => {
@@ -69,8 +71,15 @@ export const DayRow: React.FC<DayRowProps> = ({
       const raw = e.dataTransfer.getData('text/plain');
       if (!raw) return;
       const data = JSON.parse(raw);
-      if (data.type === 'daily-note' && data.id) {
-        onReorderNotes?.(data.id, targetNoteId, position, dateItem.dateString);
+      if (data.id) {
+        // Cross-horizon move: if dragged from week or month, transition scope in-place
+        if (data.scope && data.scope !== 'day') {
+          onMoveNoteScope?.(data.id, 'day', [dateItem.dateString], position === 'before' ? 'start' : 'end');
+        } else if (data.type === 'daily-note') {
+          onReorderNotes?.(data.id, targetNoteId, position, dateItem.dateString);
+        } else if (data.type === 'week-note' || data.type === 'month-note') {
+          onMoveNoteScope?.(data.id, 'day', [dateItem.dateString], position === 'before' ? 'start' : 'end');
+        }
       }
     } catch (err) {
       console.error('Failed to parse drag drop data:', err);
@@ -377,9 +386,15 @@ export const DayRow: React.FC<DayRowProps> = ({
             const raw = e.dataTransfer.getData('text/plain');
             if (!raw) return;
             const data = JSON.parse(raw);
-            if (data.type === 'daily-note' && data.id) {
-              if (!dropTargetId) {
-                onMoveNoteToDate?.(data.id, dateItem.dateString, 'end');
+            if (data.id) {
+              if (data.scope && data.scope !== 'day') {
+                onMoveNoteScope?.(data.id, 'day', [dateItem.dateString], 'end');
+              } else if (data.type === 'daily-note') {
+                if (!dropTargetId) {
+                  onMoveNoteToDate?.(data.id, dateItem.dateString, 'end');
+                }
+              } else if (data.type === 'week-note' || data.type === 'month-note') {
+                onMoveNoteScope?.(data.id, 'day', [dateItem.dateString], 'end');
               }
             }
           } catch (err) {
@@ -434,7 +449,7 @@ export const DayRow: React.FC<DayRowProps> = ({
                 onDragStart={(e, id) => {
                   e.dataTransfer.setData(
                     'text/plain',
-                    JSON.stringify({ type: 'daily-note', id, sourceDate: dateItem.dateString })
+                    JSON.stringify({ type: 'daily-note', scope: 'day', noteType: 'chrono-note', id, sourceDate: dateItem.dateString })
                   );
                   setActiveDragId(id);
                 }}

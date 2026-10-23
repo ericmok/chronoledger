@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import type React from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { DateItem, WeekNote, CalendarSettings } from '../../types/calendar';
+import type { DateItem, WeekNote, NoteScope, CalendarSettings } from '../../types/calendar';
 import { groupDatesIntoWeeks } from '../../utils/dateUtils';
 import { WeekFocusPanel } from './WeekFocusPanel';
 
@@ -16,6 +16,7 @@ export interface StandaloneWeekRollProps {
   onAcceptNoteRevision?: (noteId: string) => void;
   onReorderWeekNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => void;
   onMoveWeekNoteToWeek?: (noteId: string, targetWeek: string, position?: 'start' | 'end') => void;
+  onMoveNoteScope?: (noteId: string, targetScope: NoteScope, targetTargets: string[], position?: 'start' | 'end') => boolean;
   onJumpToDateRequested?: (dateKey: string) => void;
   scrollTargetWeekKey?: string | null;
   onLoadEarlierWeeks?: () => void;
@@ -33,6 +34,7 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
   onAcceptNoteRevision,
   onReorderWeekNotes,
   onMoveWeekNoteToWeek,
+  onMoveNoteScope,
   onJumpToDateRequested,
   scrollTargetWeekKey,
   onLoadEarlierWeeks,
@@ -233,6 +235,7 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
                   onAcceptNoteRevision={onAcceptNoteRevision}
                   onReorderWeekNotes={onReorderWeekNotes}
                   onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
+                  onMoveNoteScope={onMoveNoteScope}
                   onJumpToWeek={(wKey) => {
                     const targetBlock = weekBlocks.find((b) => b.weekKey === wKey);
                     if (targetBlock && onJumpToDateRequested) {

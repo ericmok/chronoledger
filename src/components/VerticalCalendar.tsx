@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import type React from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { DateItem, NoteItem, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
+import type { DateItem, NoteItem, WeekNote, NoteScope, DrawingElement, CalendarSettings } from '../types/calendar';
 import { DrawingOverlay } from './DrawingOverlay';
 import { DayRow } from './calendar/DayRow';
 import { WeekFocusPanel } from './calendar/WeekFocusPanel';
@@ -23,6 +23,7 @@ interface VerticalCalendarProps {
   onAcceptNoteRevision?: (noteId: string) => void;
   onReorderNotes?: (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetDate?: string) => void;
   onMoveNoteToDate?: (noteId: string, targetDate: string, position?: 'start' | 'end') => void;
+  onMoveNoteScope?: (noteId: string, targetScope: NoteScope, targetTargets: string[], position?: 'start' | 'end') => boolean;
   onAddQuickNote: (dateString: string, content: string, parentDates?: string[], colorTag?: string) => void;
   onAddWeekNote: (content: string, parentWeeks: string[], colorTag?: string) => void;
   onToggleStrikeWeekNote: (id: string) => void;
@@ -59,6 +60,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
   onAcceptNoteRevision,
   onReorderNotes,
   onMoveNoteToDate,
+  onMoveNoteScope,
   onAddQuickNote,
   onAddWeekNote,
   onToggleStrikeWeekNote,
@@ -438,6 +440,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                       onJumpToDateRequested={onJumpToDateRequested}
                       onReorderNotes={onReorderNotes}
                       onMoveNoteToDate={onMoveNoteToDate}
+                      onMoveNoteScope={onMoveNoteScope}
                       onSizeChange={() => virtualizer.measure()}
                       onOpenFolio={onOpenFolio}
                     />
@@ -485,6 +488,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
                     onAcceptNoteRevision={onAcceptNoteRevision}
                     onReorderWeekNotes={onReorderWeekNotes}
                     onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
+                    onMoveNoteScope={onMoveNoteScope}
                     onJumpToWeek={(wKey) => {
                       const targetBlock = weekBlocks.find((b) => b.weekKey === wKey);
                       if (targetBlock && onJumpToDateRequested) {
