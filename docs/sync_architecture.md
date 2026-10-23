@@ -43,11 +43,11 @@ ILS replaces snapshot overwrites with **Monotonic Revision Watermarks** and **Ro
 |   +-----------------------+     +-----------------------+     +---------------------+   |
 |   |   ledger_sequences    |     |    deleted_records    |     |    Entity Tables    |   |
 |   |-----------------------|     |-----------------------|     |---------------------|   |
-|   | user_id (PK)          |     | id, user_id (PK)      |     | notes (rev)         |   |
-|   | current_revision (int)|     | entity_type           |     | week_notes (rev)    |   |
-|   | updated_at (text)     |     | revision (int)        |     | month_notes (rev)   |   |
-|   +-----------------------+     | deleted_at (TTL 30d)  |     | drawings (rev)      |   |
-|                                 +-----------------------+     | circled_dates (rev) |   |
+|   | user_id (PK)          |     | id, user_id (PK)      |     | notes (unified rev) |   |
+|   | current_revision (int)|     | entity_type           |     | - scope & targets   |   |
+|   | updated_at (text)     |     | revision (int)        |     | drawings (rev)      |   |
+|   +-----------------------+     | deleted_at (TTL 30d)  |     | circled_dates (rev) |   |
+|                                 +-----------------------+     | (views: week/month) |   |
 |                                                               +---------------------+   |
 +-----------------------------------------------------------------------------------------+
 ```
@@ -56,8 +56,8 @@ ILS replaces snapshot overwrites with **Monotonic Revision Watermarks** and **Ro
 
 1. **Monotonic Sequence Ledger**:
    Each user (and anonymous guest sessions) maintains a strictly increasing integer sequence in `ledger_sequences`. Every mutating transaction atomically increments `current_revision` and tags all inserted, updated, and deleted entities with that sequence number.
-2. **Row-Level Revisions**:
-   All entities (`notes`, `week_notes`, `month_notes`, `drawings`, `circled_dates`) carry a `revision INTEGER NOT NULL` column.
+2. **Unified Row-Level Revisions (Schema v8)**:
+   All notes across all temporal horizons (Day, Week, Month, Year, Custom Spans) are stored in a single unified `notes` table with `scope`, `targets`, `start_at`, `end_at`, and `revision INTEGER NOT NULL`. Virtual views `week_notes` and `month_notes` provide backward compatibility. Drawings and circled dates also carry monotonic `revision` watermarks.
 3. **Server-Side Tombstones**:
    Deletions are recorded in `deleted_records(id, user_id, entity_type, deleted_at, revision)`. Tombstones persist for 30 days to inform other devices that an item was deleted rather than created offline.
 4. **Client-Side Dirty Queue**:
@@ -66,6 +66,8 @@ ILS replaces snapshot overwrites with **Monotonic Revision Watermarks** and **Ro
    When the server acknowledges a delta commit and returns the new revision `R`, the client evicts *only* those specific records from its dirty queue, preserving any newer keystrokes that arrived while the network request was in flight.
 6. **Graceful Watermark Invalidation**:
    If a client remains offline longer than the 30-day tombstone retention horizon, the server responds with `{ requiresFullSync: true }`, directing the client to perform a clean baseline reconciliation.
+7. **Cross-Horizon In-Place Moves & Tombstone Immunity**:
+   Moving notes between temporal horizons (Day $\leftrightarrow$ Week $\leftrightarrow$ Month) is executed as an in-place mutation: `UPDATE notes SET scope = ?, targets = ?, start_at = ?, end_at = ? WHERE id = ?`. Because the record is never deleted and recreated, **zero tombstones are generated**. Peer devices receive the updated note as an upsert, completely eliminating ghost duplicates and resurrection collisions.
 
 ---
 

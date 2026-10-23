@@ -128,12 +128,13 @@ Searches and filters notes across daily, weekly, and monthly scopes with support
 #### Query Parameters:
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `scope` | string | `'all'` | Target scope: `'day'`, `'week'`, `'month'`, or `'all'`. |
+| `scope` | string | `'all'` | Target scope: `'time'`, `'day'`, `'week'`, `'month'`, `'year'`, `'span'`, or `'all'`. |
 | `date` | string | _none_ | Exact date in `YYYY-MM-DD` format (takes precedence over range). |
 | `start_date` | string | _none_ | Range start date `YYYY-MM-DD` (inclusive). Used when `date` is omitted. |
 | `end_date` | string | _none_ | Range end date `YYYY-MM-DD` (inclusive). Used when `date` is omitted. |
 | `week` | string | _none_ | Week key in `YYYY-Www` format (e.g. `2026-W42`). |
 | `month` | string | _none_ | Month key in `YYYY-MM` format (e.g. `2026-10`). |
+| `year` | string | _none_ | Year key in `YYYY` format (e.g. `2026`). |
 | `tag` | string | _none_ | Semantic tag name without `@` (e.g. `todo`, `wait`, `important`, `celebrate`). |
 | `status` | string | `'all'` | Status filter: `'all'`, `'open'` (active tag & unstruck note), or `'completed'` (resolved `~~@tag~~` or struck note). |
 | `q` | string | _none_ | Case-insensitive substring match on `content`. |
@@ -205,7 +206,7 @@ Creates a new note with raw Markdown text.
   "isStruck": false
 }
 ```
-*Note: If `targets` is omitted, defaults to today's date for `day`, the current ISO week for `week`, or the current month for `month`.*
+*Note: `scope` supports `'time'`, `'day'`, `'week'`, `'month'`, `'year'`, or `'span'`. If `targets` is omitted, defaults to today's date for `day`/`time`, the current ISO week for `week`, the current month for `month`, or current year for `year`. The API automatically calculates continuous UTC interval bounds (`startAt` and `endAt`) for the note.*
 
 #### Example Request:
 ```bash
@@ -223,21 +224,23 @@ curl -X POST http://localhost:5174/api/notes \
 
 ---
 
-### 5.4 Update Note: `PATCH /api/notes/:id`
+### 5.4 Update Note & Cross-Horizon Move: `PATCH /api/notes/:id`
 
-Performs partial updates on an existing note.
+Performs partial updates on an existing note or transitions it across temporal horizons (Day $\leftrightarrow$ Week $\leftrightarrow$ Month $\leftrightarrow$ Year).
 
 #### Request Body (all fields optional):
 ```json
 {
   "content": "~~@wait~~ for Alice to review PR #42 (merged!)",
-  "targets": ["2026-10-18"],
+  "scope": "week",
+  "targets": ["2026-W42"],
   "colorTag": "#51C391",
   "isStruck": false,
   "preserveDiff": false
 }
 ```
 
+- **Cross-Horizon In-Place Moves**: Specifying a new `scope` and `targets` moves the note across temporal horizons in-place. SQLite updates the row's interval bounds and stamps the next revision watermark without deleting the record or generating tombstones.
 - **`preserveDiff`**: When `false` (default for API consumers), updates `content` cleanly and sets `originalContent = null`. When `true`, saves the previous text into `originalContent` so the web interface displays paper-style red/green revision marks.
 
 **Response (200 OK)**: Returns the updated note object.
@@ -319,10 +322,11 @@ node server/mcp.js
 | Tool | Parameters | Description |
 | :--- | :--- | :--- |
 | **`login`** | `email`, `password` | Authenticates with credentials and activates a session token for subsequent tool calls. |
-| **`list_notes`** | `scope`, `date`, `startDate`, `endDate`, `week`, `month`, `tag`, `status`, `query`, `limit`, `offset` | Queries and filters notes across the ledger. Returns formatted Markdown with note IDs. |
+| **`list_notes`** | `scope`, `date`, `startDate`, `endDate`, `week`, `month`, `year`, `tag`, `status`, `query`, `limit`, `offset` | Queries and filters notes across the ledger. Returns formatted Markdown with note IDs. |
 | **`get_note`** | `id` | Fetches full raw content and metadata for a specific note. |
-| **`create_note`** | `content`, `scope`, `date`, `colorTag` | Creates a new note in the day, week, or month bucket. |
-| **`update_note`** | `id`, `content`, `targets`, `colorTag`, `isStruck`, `preserveDiff` | Edits note content or properties. |
+| **`create_note`** | `content`, `scope`, `date`, `colorTag` | Creates a new note in the day, week, month, year, time, or span bucket. |
+| **`update_note`** | `id`, `content`, `scope`, `targets`, `colorTag`, `isStruck`, `preserveDiff` | Edits note content, horizon scope, target keys, or properties. |
+| **`move_note`** | `id`, `targetScope`, `targetKey` | **(New)** Moves a note across temporal horizons (e.g. `'day'` to `'week'`, `'week'` to `'month'`, `'month'` to `'day'`) in-place without generating tombstones. |
 | **`toggle_note_status`** | `id`, `action`, `tag` | Performs status transitions:<br>• `action: "toggle_strike"`: Strikes through entire note.<br>• `action: "resolve_tag"`: Converts `@tag` to `~~@tag~~`.<br>• `action: "reopen_tag"`: Converts `~~@tag~~` back to `@tag`. |
 | **`delete_note`** | `id` | Permanently deletes a note by ID. |
 | **`get_agenda_summary`** | `date` | Returns an executive summary containing today's notes, active to-dos, and waiting-for blockers. |

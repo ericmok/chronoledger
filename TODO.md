@@ -1,5 +1,35 @@
 # ChronoLedger Roadmap & Feature Backlog
 
+## 🏹 Feature: Cross-Horizon Semantic Arrows & Unified Connector Overlay
+
+### Overview
+Enable drawn arrows to connect notes across different temporal horizons (Day ↔ Week, and Day ↔ Month). Implement **Non-Destructive Association**: when a note is moved across horizons (e.g., from a Day into a Month reflection), any arrows attached to it are **not destroyed**; they enter a **Suspended / Dormant** state in the database and automatically reconnect when the note returns to the execution timeline.
+
+---
+
+### Implementation Scope & Mechanics
+
+1. **Non-Destructive Arrow Lifecycle**
+   - **Active (Connected)**: Both endpoints live in the active timeline (Day or Week). The arrow dynamically renders a curved Rough.js Bézier line with anchor dots pinned to `[data-note-id]`.
+   - **Suspended (Dormant)**: When a connected note moves to Month Notes (or outside the timeline canvas):
+     - The drawing record remains safely persisted in SQLite and client state (`drawings: DrawingElement[]`).
+     - In the timeline UI: The arrow gracefully steps aside (hidden, or rendered as a subtle dashed margin stub `↗ [Oct Goals]`).
+   - **Re-Activation (Restoration)**: When the note is moved back from Month into the timeline (e.g. into Thursday or the Week scratchpad), `resolveEndpoint` re-finds the card via `[data-note-id]`. The arrow **instantly re-awakens and snaps to the note's new date/position**.
+   - **Permanent Deletion**: An arrow is only deleted if explicitly painted over with the **Eraser tool** or if either connected note is permanently deleted with the **Trash icon**.
+
+2. **The "Hybrid Overlay" Architecture**
+   - **Local In-Pane SVGs (Freehand Ink)**: Freehand sketches, scribbles, and highlights remain inside each local scroll container (`VerticalCalendar` and `JigsawMonthGrid`), ensuring 100% GPU hardware-accelerated 120 FPS scrolling with zero lag.
+   - **Global Connector Layer (Semantic Arrows)**: A single lightweight SVG overlay at the root of `App.tsx` (`pointer-events-none`) dedicated to rendering inter-card arrows across pane boundaries.
+
+3. **Key Technical Challenges to Address**
+   - **Scroll Desync / Rubber-Banding**: Compositor thread scrolling runs ahead of the main JavaScript thread by ~1 frame (16ms). Mitigate with `requestAnimationFrame` dampening and CSS `transform: translate3d`.
+   - **DOM Virtualization Fallback**: When an arrow's target note is scrolled out of view (~10 weeks away), the note is unmounted from the DOM. The overlay must calculate fallback coordinates using virtualizer index offsets (`getYForDate`) and clamp/clip the arrow cleanly at the viewport edge.
+   - **DOM Scoping in `DrawingOverlay.tsx`**: Replace global `document.querySelector('[data-note-id]')` with container-scoped queries (`svgRef.current.closest('[data-calendar-container]')`) to prevent timeline arrows from erroneously linking into the sidebar or open modals.
+   - **Tagging `WeekFocusPanel`**: Add `data-week-panel="true"` and `data-date-string={weekBlock.startDate.dateString}` to allow the arrow tool to hit-test and anchor directly into weekly scratchpad notes.
+   - **Visual Ergonomics**: Prevent cross-pane "spiderweb clutter" by rendering arrows in subtle graphite pencil tint (`#A19D94`), dimming lines when not focused, and highlighting at full opacity on card hover.
+
+---
+
 ## 📋 High-Priority Feature: Global Annotation Search & To-Do Aggregator
 
 ### Overview

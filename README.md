@@ -35,7 +35,7 @@ Plans naturally exist at different scales:
 - **Weekly Focus**: Notes that belong to a seven-day span rather than a single afternoon.
 - **Monthly Reflections**: Broader themes and ongoing intentions set beside the month radar.
 
-All notes carry a subtle grip icon on hover for reordering.
+All notes carry a subtle grip icon on hover for reordering, and can be freely dragged and dropped across temporal horizons (Day $\leftrightarrow$ Week $\leftrightarrow$ Month) with instant in-place scope transitions and zero loss of revision diffs or annotations.
 
 ### Plaintext Annotations
 Typing `@` anywhere in a note opens an autocomplete menu for common categories drawing from a canonical palette:
@@ -150,10 +150,10 @@ The backend provides both full-calendar state sync and fine-grained note CRUD en
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/notes` | Query & filter notes by `scope` (day/week/month), `date`, `week`, `month`, `tag` (`todo`, `wait`), `status` (`open`/`completed`), and `q` text search. |
+| `GET` | `/api/notes` | Query & filter notes by `scope` (day/week/month/year/all), `date`, `week`, `month`, `year`, `tag` (`todo`, `wait`), `status` (`open`/`completed`), and `q` text search. |
 | `GET` | `/api/notes/:id` | Fetch single note by ID. |
-| `POST` | `/api/notes` | Create a note (`scope`, `content`, `targets`, `colorTag`). |
-| `PATCH` | `/api/notes/:id` | Update note content, targets, or strike state. |
+| `POST` | `/api/notes` | Create a note (`scope`, `content`, `targets`, `colorTag`). Computes UTC interval bounds. |
+| `PATCH` | `/api/notes/:id` | Update note content, scope/targets (cross-horizon move), or strike state. |
 | `POST` | `/api/notes/:id/toggle-strike` | Quick-toggle note strike status (`isStruck`). |
 | `DELETE` | `/api/notes/:id` | Delete note by ID. |
 | `GET` | `/api/calendar` | Atomic read of entire ledger. |
@@ -174,10 +174,11 @@ npm run mcp
 
 ### Registered Tools
 - `login(email, password)`: Authenticate with credentials.
-- `list_notes({ scope, date, tag, status, query })`: Search & filter notes.
+- `list_notes({ scope, date, week, month, year, tag, status, query })`: Search & filter notes across scopes.
 - `get_note({ id })`: Fetch full note text & metadata.
-- `create_note({ content, scope, date, colorTag })`: Add note to ledger.
-- `update_note({ id, content, ... })`: Edit note content.
+- `create_note({ content, scope, date, colorTag })`: Add note to ledger across horizons (day, week, month, year, time, span).
+- `update_note({ id, content, scope, targets, ... })`: Edit note content, scope, or properties.
+- `move_note({ id, targetScope, targetKey })`: Atomically move note across temporal horizons in-place.
 - `toggle_note_status({ id, action, tag })`: Strike note or resolve/reopen tags (`@todo` $\leftrightarrow$ `~~@todo~~`).
 - `delete_note({ id })`: Permanently remove note.
 - `get_agenda_summary({ date })`: Executive agenda for a date.
