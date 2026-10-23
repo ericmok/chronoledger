@@ -46,42 +46,36 @@ export interface CircledDate {
   createdAt?: string;
 }
 
-export interface NoteItem {
+export type NoteScope = 'time' | 'day' | 'week' | 'month' | 'year' | 'span';
+
+export interface UnifiedNote {
   id: string;
+  userId?: string | null;
   content: string;
   originalContent?: string; // Baseline content before edits for computing diffs
-  updatedAt?: string;
-  parentDates: string[]; // List of ISO "YYYY-MM-DD" dates
+  scope?: NoteScope;
+  targets?: string[];        // Discrete target keys (e.g. ['2026-10-23'] or ['2026-W43'])
+  startAt?: string;         // Normalized UTC ISO start timestamp
+  endAt?: string;           // Normalized UTC ISO end timestamp
   isStruck: boolean;
   strikeStyle?: 'single' | 'double' | 'scribble';
   colorTag?: string;
   createdAt: string;
+  updatedAt?: string;
+  revision?: number;
   isDemo?: boolean;
+
+  // Backward compatibility fields
+  parentDates?: string[];
+  parentWeeks?: string[];
+  parentMonths?: string[];
 }
 
-export interface MonthNote {
-  id: string;
-  content: string;
-  originalContent?: string;
-  updatedAt?: string;
-  parentMonths: string[]; // List of "YYYY-MM" strings, e.g. ["2026-10"] or multi-month spans ["2026-10", "2026-11", "2026-12"]
-  isStruck: boolean;
-  colorTag?: string;
-  createdAt: string;
-  isDemo?: boolean;
-}
+export type NoteItem = UnifiedNote & { parentDates: string[] };
 
-export interface WeekNote {
-  id: string;
-  content: string;
-  originalContent?: string;
-  updatedAt?: string;
-  parentWeeks: string[]; // List of "YYYY-Www" strings, e.g. ["2026-W42"] or multi-week spans ["2026-W42", "2026-W43"]
-  isStruck: boolean;
-  colorTag?: string;
-  createdAt: string;
-  isDemo?: boolean;
-}
+export type MonthNote = UnifiedNote & { parentMonths: string[] };
+
+export type WeekNote = UnifiedNote & { parentWeeks: string[] };
 
 export const NOTE_ACCENT_COLORS = [
   '#F47290', // Red

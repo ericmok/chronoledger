@@ -1,4 +1,4 @@
-import type { NoteItem, MonthNote, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
+import type { NoteItem, MonthNote, WeekNote, UnifiedNote, DrawingElement, CalendarSettings } from '../types/calendar';
 import { createDefaultNotes, createDefaultWeekNotes, createDefaultMonthNotes } from './demoNotes';
 
 export const STORAGE_VERSION = 3;
@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   NOTES: 'chrono_ledger_notes_v1',
   WEEK_NOTES: 'chrono_ledger_week_notes_v1',
   MONTH_NOTES: 'chrono_ledger_month_notes_v1',
+  UNIFIED_NOTES: 'chrono_ledger_unified_notes_v1',
   DRAWINGS: 'chrono_ledger_drawings_v1',
   CIRCLED_DATES: 'chrono_ledger_circled_dates_v1',
   DELETED_CIRCLES: 'chrono_ledger_deleted_circles_v1',
@@ -22,6 +23,7 @@ export interface CalendarBackupData {
   notes: NoteItem[];
   weekNotes: WeekNote[];
   monthNotes: MonthNote[];
+  allNotes?: UnifiedNote[];
   drawings: DrawingElement[];
   circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings;
@@ -34,6 +36,8 @@ export interface CalendarStorage {
   saveWeekNotes(weekNotes: WeekNote[]): void;
   loadMonthNotes(): MonthNote[];
   saveMonthNotes(monthNotes: MonthNote[]): void;
+  loadUnifiedNotes?(): UnifiedNote[];
+  saveUnifiedNotes?(notes: UnifiedNote[]): void;
   loadDrawings(): DrawingElement[];
   saveDrawings(drawings: DrawingElement[]): void;
   loadCircledDates(): Record<string, { color: string }>;
@@ -193,6 +197,62 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   saveMonthNotes(monthNotes: MonthNote[]): void {
+    safeLocalStorageSet(STORAGE_KEYS.MONTH_NOTES, JSON.stringify(monthNotes));
+  }
+
+  loadUnifiedNotes(): UnifiedNote[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.UNIFIED_NOTES);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        // Fall back to migrating legacy stores
+      }
+    }
+
+    // Auto-migrate legacy stores if unified store is absent
+    const dayNotes = this.loadNotes();
+    const weekNotes = this.loadWeekNotes();
+    const monthNotes = this.loadMonthNotes();
+
+    const unified: UnifiedNote[] = [
+      ...dayNotes.map((n) => ({
+        ...n,
+        scope: 'day' as const,
+        targets: n.targets || n.parentDates || [],
+      })),
+      ...weekNotes.map((wn) => ({
+        ...wn,
+        scope: 'week' as const,
+        targets: wn.targets || wn.parentWeeks || [],
+      })),
+      ...monthNotes.map((mn) => ({
+        ...mn,
+        scope: 'month' as const,
+        targets: mn.targets || mn.parentMonths || [],
+      })),
+    ];
+
+    safeLocalStorageSet(STORAGE_KEYS.UNIFIED_NOTES, JSON.stringify(unified));
+    return unified;
+  }
+
+  saveUnifiedNotes(notes: UnifiedNote[]): void {
+    safeLocalStorageSet(STORAGE_KEYS.UNIFIED_NOTES, JSON.stringify(notes));
+    // Keep legacy stores in sync for backward compatibility
+    const dayNotes = notes
+      .filter((n) => n.scope === 'day' || n.scope === 'time')
+      .map((n) => ({ ...n, parentDates: n.targets || n.parentDates || [] } as NoteItem));
+    const weekNotes = notes
+      .filter((n) => n.scope === 'week')
+      .map((n) => ({ ...n, parentWeeks: n.targets || n.parentWeeks || [] } as WeekNote));
+    const monthNotes = notes
+      .filter((n) => n.scope === 'month')
+      .map((n) => ({ ...n, parentMonths: n.targets || n.parentMonths || [] } as MonthNote));
+
+    safeLocalStorageSet(STORAGE_KEYS.NOTES, JSON.stringify(dayNotes));
+    safeLocalStorageSet(STORAGE_KEYS.WEEK_NOTES, JSON.stringify(weekNotes));
     safeLocalStorageSet(STORAGE_KEYS.MONTH_NOTES, JSON.stringify(monthNotes));
   }
 
@@ -454,6 +514,7 @@ export interface RemoteCalendarResponse {
   notes: NoteItem[];
   weekNotes: WeekNote[];
   monthNotes: MonthNote[];
+  allNotes?: UnifiedNote[];
   drawings: DrawingElement[];
   circledDates?: Record<string, { color: string }>;
   settings: CalendarSettings | null;
@@ -471,6 +532,7 @@ export interface RemoteCalendarDeltaResponse {
   notes: { upsert: NoteItem[]; delete: string[] };
   weekNotes: { upsert: WeekNote[]; delete: string[] };
   monthNotes: { upsert: MonthNote[]; delete: string[] };
+  allNotes?: { upsert: UnifiedNote[]; delete: string[] };
   drawings: { upsert: DrawingElement[]; delete: string[] };
   circledDates: { upsert: Record<string, { color: string }>; delete: string[] };
   syncedAt: string;
@@ -487,6 +549,10 @@ export interface CalendarDeltaPayload {
   };
   monthNotes?: {
     upsert?: MonthNote[];
+    delete?: string[];
+  };
+  allNotes?: {
+    upsert?: UnifiedNote[];
     delete?: string[];
   };
   drawings?: {

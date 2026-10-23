@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { NoteItem, MonthNote, WeekNote, DrawingElement, CalendarSettings } from '../types/calendar';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type { NoteItem, MonthNote, WeekNote, UnifiedNote, NoteScope, DrawingElement, CalendarSettings } from '../types/calendar';
 import { CIRCLE_DATE_COLORS } from '../types/calendar';
 import { formatDateKey } from '../utils/dateUtils';
 import { 
@@ -252,15 +252,25 @@ export function useCalendarState() {
             });
           }
 
-          // Apply remote upserts locally
+          // Apply remote upserts locally with cross-horizon move deduplication
+          const upsertedWeekIds = new Set(delta.weekNotes.upsert.map((w) => w.id));
+          const upsertedMonthIds = new Set(delta.monthNotes.upsert.map((m) => m.id));
+          const upsertedDayIds = new Set(delta.notes.upsert.map((d) => d.id));
+
           if (delta.notes.upsert.length > 0) {
             setNotes((prev) => safeMerge(prev, delta.notes.upsert));
+            setWeekNotes((prev) => prev.filter((wn) => !upsertedDayIds.has(wn.id)));
+            setMonthNotes((prev) => prev.filter((mn) => !upsertedDayIds.has(mn.id)));
           }
           if (delta.weekNotes.upsert.length > 0) {
             setWeekNotes((prev) => safeMerge(prev, delta.weekNotes.upsert));
+            setNotes((prev) => prev.filter((n) => !upsertedWeekIds.has(n.id)));
+            setMonthNotes((prev) => prev.filter((mn) => !upsertedWeekIds.has(mn.id)));
           }
           if (delta.monthNotes.upsert.length > 0) {
             setMonthNotes((prev) => safeMerge(prev, delta.monthNotes.upsert));
+            setNotes((prev) => prev.filter((n) => !upsertedMonthIds.has(n.id)));
+            setWeekNotes((prev) => prev.filter((wn) => !upsertedMonthIds.has(wn.id)));
           }
           if (delta.drawings.upsert.length > 0) {
             setDrawings((prev) => safeMerge(prev, delta.drawings.upsert).filter((d) => d.type !== 'circle'));
@@ -337,8 +347,15 @@ export function useCalendarState() {
           ...filteredRemoteCircled,
         };
 
-        setNotes(mergedNotes);
-        setWeekNotes(mergedWeekNotes);
+        const finalWeekIds = new Set(mergedWeekNotes.map((w) => w.id));
+        const finalMonthIds = new Set(mergedMonthNotes.map((m) => m.id));
+        const cleanMergedNotes = mergedNotes.filter(
+          (n) => !finalWeekIds.has(n.id) && !finalMonthIds.has(n.id)
+        );
+        const cleanMergedWeekNotes = mergedWeekNotes.filter((w) => !finalMonthIds.has(w.id));
+
+        setNotes(cleanMergedNotes);
+        setWeekNotes(cleanMergedWeekNotes);
         setMonthNotes(mergedMonthNotes);
         setDrawings(mergedDrawings);
         setCircledDates(mergedCircledDates);
@@ -1089,10 +1106,13 @@ export function useCalendarState() {
   // Date notes
   const addNote = useCallback((content: string, parentDates: string[], colorTag?: string) => {
     recordHistory(true);
+    const targets = parentDates.length > 0 ? parentDates : [formatDateKey(new Date())];
     const newNote: NoteItem = {
       id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       content: content.trim(),
-      parentDates: parentDates.length > 0 ? parentDates : [formatDateKey(new Date())],
+      scope: 'day',
+      targets,
+      parentDates: targets,
       isStruck: false,
       colorTag,
       createdAt: new Date().toISOString(),
@@ -1273,6 +1293,8 @@ export function useCalendarState() {
     const newNote: WeekNote = {
       id: `wnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       content: content.trim(),
+      scope: 'week',
+      targets: parentWeeks,
       parentWeeks,
       isStruck: false,
       colorTag,
@@ -1420,6 +1442,8 @@ export function useCalendarState() {
     const newNote: MonthNote = {
       id: `mnote-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       content: content.trim(),
+      scope: 'month',
+      targets: parentMonths,
       parentMonths,
       isStruck: false,
       colorTag,
@@ -1559,6 +1583,84 @@ export function useCalendarState() {
       });
     },
     [recordHistory, stageMonthNoteUpsert]
+  );
+
+  /**
+   * Unified cross-horizon note move (Day <-> Week <-> Month)
+   * Moves a note to a different scope and target keys in place without generating tombstones.
+   */
+  const moveNoteScope = useCallback(
+    (
+      noteId: string,
+      targetScope: NoteScope,
+      targetTargets: string[],
+      position: 'start' | 'end' = 'end'
+    ) => {
+      recordHistory(true);
+      const current = currentStateRef.current;
+      const foundInNotes = current.notes.find((n) => n.id === noteId);
+      const foundInWeek = current.weekNotes.find((wn) => wn.id === noteId);
+      const foundInMonth = current.monthNotes.find((mn) => mn.id === noteId);
+      const sourceNote = foundInNotes || foundInWeek || foundInMonth;
+
+      if (!sourceNote) {
+        console.warn(`[moveNoteScope] Note not found with id: ${noteId}`);
+        return false;
+      }
+
+      // If scope and targets haven't changed, no-op
+      const currentScope: NoteScope = foundInNotes ? 'day' : foundInWeek ? 'week' : 'month';
+      const currentTargets = foundInNotes
+        ? foundInNotes.parentDates
+        : foundInWeek
+        ? foundInWeek.parentWeeks
+        : foundInMonth?.parentMonths || [];
+      if (
+        currentScope === targetScope &&
+        currentTargets.length === targetTargets.length &&
+        currentTargets.every((t, i) => t === targetTargets[i])
+      ) {
+        return true;
+      }
+
+      // 1. Remove from all collections
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setWeekNotes((prev) => prev.filter((wn) => wn.id !== noteId));
+      setMonthNotes((prev) => prev.filter((mn) => mn.id !== noteId));
+
+      // 2. Build updated unified note (preserving originalContent, isStruck, strikeStyle, colorTag)
+      const now = new Date().toISOString();
+      const updatedNote: UnifiedNote = {
+        ...sourceNote,
+        scope: targetScope,
+        targets: targetTargets,
+        parentDates: targetScope === 'day' || targetScope === 'time' ? targetTargets : undefined,
+        parentWeeks: targetScope === 'week' ? targetTargets : undefined,
+        parentMonths: targetScope === 'month' ? targetTargets : undefined,
+        updatedAt: now,
+      };
+
+      // 3. Insert into target collection and stage upsert
+      if (targetScope === 'day' || targetScope === 'time') {
+        const item = updatedNote as NoteItem;
+        item.parentDates = targetTargets;
+        setNotes((prev) => (position === 'start' ? [item, ...prev] : [...prev, item]));
+        stageNoteUpsert(item);
+      } else if (targetScope === 'week') {
+        const item = updatedNote as WeekNote;
+        item.parentWeeks = targetTargets;
+        setWeekNotes((prev) => (position === 'start' ? [item, ...prev] : [...prev, item]));
+        stageWeekNoteUpsert(item);
+      } else if (targetScope === 'month') {
+        const item = updatedNote as MonthNote;
+        item.parentMonths = targetTargets;
+        setMonthNotes((prev) => (position === 'start' ? [item, ...prev] : [...prev, item]));
+        stageMonthNoteUpsert(item);
+      }
+
+      return true;
+    },
+    [recordHistory, stageNoteUpsert, stageWeekNoteUpsert, stageMonthNoteUpsert]
   );
 
   // Drawings
@@ -1739,10 +1841,18 @@ export function useCalendarState() {
     }
   }, [recordHistory]);
 
+  const allNotes = useMemo<UnifiedNote[]>(() => [
+    ...notes.map((n) => ({ ...n, scope: (n.scope || 'day') as NoteScope, targets: n.targets || n.parentDates || [] })),
+    ...weekNotes.map((wn) => ({ ...wn, scope: (wn.scope || 'week') as NoteScope, targets: wn.targets || wn.parentWeeks || [] })),
+    ...monthNotes.map((mn) => ({ ...mn, scope: (mn.scope || 'month') as NoteScope, targets: mn.targets || mn.parentMonths || [] })),
+  ], [notes, weekNotes, monthNotes]);
+
   return {
     notes,
     weekNotes,
     monthNotes,
+    allNotes,
+    moveNoteScope,
     drawings,
     circledDates,
     settings,
