@@ -109,7 +109,7 @@ test('Schema v7: ledger sequences and monotonic revisions', () => {
   const db = createTestDb();
 
   const meta = db.prepare("SELECT value FROM metadata WHERE key = 'schema_version'").get();
-  assert.equal(meta.value, '7', 'Database schema_version must be 7');
+  assert.equal(meta.value, '8', 'Database schema_version must be 8');
 
   // Baseline revision before any mutations is 1
   assert.equal(getCurrentLedgerRevision(db, null), 1);

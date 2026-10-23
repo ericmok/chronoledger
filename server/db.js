@@ -47,38 +47,16 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
       user_id TEXT,
       content TEXT NOT NULL,
       original_content TEXT,
-      parent_dates TEXT NOT NULL,
+      scope TEXT NOT NULL DEFAULT 'day',
+      targets TEXT NOT NULL DEFAULT '[]',
+      start_at TEXT,
+      end_at TEXT,
       is_struck INTEGER NOT NULL DEFAULT 0,
       strike_style TEXT,
       color_tag TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS week_notes (
-      id TEXT PRIMARY KEY,
-      user_id TEXT,
-      content TEXT NOT NULL,
-      original_content TEXT,
-      parent_weeks TEXT NOT NULL,
-      is_struck INTEGER NOT NULL DEFAULT 0,
-      strike_style TEXT,
-      color_tag TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS month_notes (
-      id TEXT PRIMARY KEY,
-      user_id TEXT,
-      content TEXT NOT NULL,
-      original_content TEXT,
-      parent_months TEXT NOT NULL,
-      is_struck INTEGER NOT NULL DEFAULT 0,
-      strike_style TEXT,
-      color_tag TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT
+      updated_at TEXT,
+      revision INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS drawings (
@@ -141,6 +119,107 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
 
   cachedDb = db;
   return db;
+}
+
+export function getIsoWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+export function getIsoWeekBounds(weekKey) {
+  const match = String(weekKey || '').match(/^(\d{4})-W(\d{2})$/);
+  if (!match) {
+    const now = new Date();
+    return {
+      startAt: `${now.toISOString().slice(0, 10)}T00:00:00.000Z`,
+      endAt: `${now.toISOString().slice(0, 10)}T23:59:59.999Z`,
+    };
+  }
+  const year = parseInt(match[1], 10);
+  const week = parseInt(match[2], 10);
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const dayOfWeek = jan4.getUTCDay() || 7;
+  const monWeek1 = new Date(jan4.getTime() - (dayOfWeek - 1) * 86400000);
+  const monTarget = new Date(monWeek1.getTime() + (week - 1) * 7 * 86400000);
+  const sunTarget = new Date(monTarget.getTime() + 6 * 86400000);
+
+  const startAt = monTarget.toISOString().slice(0, 10) + 'T00:00:00.000Z';
+  const endAt = sunTarget.toISOString().slice(0, 10) + 'T23:59:59.999Z';
+  return { startAt, endAt };
+}
+
+/**
+ * Calculates normalized ISO-8601 UTC start and end bounding timestamps for a given temporal scope and target array.
+ * Enables high-speed multi-year range queries and calendar view bounding.
+ * 
+ * @param {'time' | 'day' | 'week' | 'month' | 'year' | 'span'} scope 
+ * @param {string[]} targets Array of target keys (e.g. ['2026-10-23'], ['2026-W43'], ['2026-10'])
+ * @returns {{ startAt: string, endAt: string }}
+ */
+export function calculateBounds(scope, targets) {
+  const targetList = Array.isArray(targets) ? targets : [];
+  if (targetList.length === 0) {
+    const now = new Date().toISOString();
+    return { startAt: now, endAt: now };
+  }
+
+  if (scope === 'day' || scope === 'time') {
+    const sorted = [...targetList].sort();
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const startDate = first.includes('T') ? first.slice(0, 10) : first;
+    const endDate = last.includes('T') ? last.slice(0, 10) : last;
+    const startTime = first.includes('T') ? first.slice(11, 19) : '00:00:00';
+    const endTime = last.includes('T') ? last.slice(11, 19) : '23:59:59';
+    return {
+      startAt: `${startDate}T${startTime}.000Z`,
+      endAt: `${endDate}T${endTime}.999Z`,
+    };
+  }
+
+  if (scope === 'week') {
+    const sorted = [...targetList].sort();
+    const firstBounds = getIsoWeekBounds(sorted[0]);
+    const lastBounds = getIsoWeekBounds(sorted[sorted.length - 1]);
+    return {
+      startAt: firstBounds.startAt,
+      endAt: lastBounds.endAt,
+    };
+  }
+
+  if (scope === 'month') {
+    const sorted = [...targetList].sort();
+    const firstMatch = String(sorted[0] || '').match(/^(\d{4})-(\d{2})$/);
+    const lastMatch = String(sorted[sorted.length - 1] || '').match(/^(\d{4})-(\d{2})$/);
+    if (!firstMatch || !lastMatch) {
+      const now = new Date().toISOString();
+      return { startAt: now, endAt: now };
+    }
+    const startYear = parseInt(firstMatch[1], 10);
+    const startMonth = parseInt(firstMatch[2], 10) - 1;
+    const endYear = parseInt(lastMatch[1], 10);
+    const endMonth = parseInt(lastMatch[2], 10);
+    const startAt = new Date(Date.UTC(startYear, startMonth, 1, 0, 0, 0, 0)).toISOString();
+    const endAt = new Date(Date.UTC(endYear, endMonth, 0, 23, 59, 59, 999)).toISOString();
+    return { startAt, endAt };
+  }
+
+  if (scope === 'year') {
+    const sorted = [...targetList].sort();
+    const firstYear = parseInt(sorted[0], 10) || new Date().getFullYear();
+    const lastYear = parseInt(sorted[sorted.length - 1], 10) || firstYear;
+    return {
+      startAt: `${firstYear}-01-01T00:00:00.000Z`,
+      endAt: `${lastYear}-12-31T23:59:59.999Z`,
+    };
+  }
+
+  const now = new Date().toISOString();
+  return { startAt: now, endAt: now };
 }
 
 /**
@@ -451,6 +530,196 @@ export function migrateDatabase(db) {
       throw err;
     }
   }
+
+  // Schema v8: Unified Notes Architecture with single table, range bounds, and compatibility views
+  if (currentVersion < 8) {
+    db.exec('BEGIN TRANSACTION;');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS notes_v2 (
+          id TEXT PRIMARY KEY,
+          user_id TEXT,
+          content TEXT NOT NULL,
+          original_content TEXT,
+          scope TEXT NOT NULL,
+          targets TEXT NOT NULL CHECK (json_valid(targets) AND json_type(targets) = 'array'),
+          start_at TEXT NOT NULL,
+          end_at TEXT NOT NULL,
+          is_struck INTEGER NOT NULL DEFAULT 0,
+          strike_style TEXT,
+          color_tag TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT,
+          revision INTEGER NOT NULL DEFAULT 1
+        );
+      `);
+
+      const insertUnifiedStmt = db.prepare(`
+        INSERT OR REPLACE INTO notes_v2 (id, user_id, content, original_content, scope, targets, start_at, end_at, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      // 1. Migrate existing notes (day notes)
+      const existingNotes = db.prepare('SELECT * FROM notes').all();
+      for (const r of existingNotes) {
+        let targets = [];
+        try {
+          targets = JSON.parse(r.targets || r.parent_dates || '[]');
+        } catch {
+          targets = [];
+        }
+        if (!Array.isArray(targets) || targets.length === 0) {
+          targets = [r.created_at ? r.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10)];
+        }
+        const scope = r.scope || 'day';
+        const bounds = calculateBounds(scope, targets);
+        insertUnifiedStmt.run(
+          r.id,
+          r.user_id || null,
+          r.content,
+          r.original_content || null,
+          scope,
+          JSON.stringify(targets),
+          bounds.startAt,
+          bounds.endAt,
+          r.is_struck ? 1 : 0,
+          r.strike_style || null,
+          r.color_tag || null,
+          r.created_at,
+          r.updated_at || null,
+          r.revision || 1
+        );
+      }
+
+      // 2. Migrate existing week_notes table if present
+      const weekCheck = db.prepare("SELECT type FROM sqlite_master WHERE name = 'week_notes'").get();
+      if (weekCheck && weekCheck.type === 'table') {
+        const existingWeekNotes = db.prepare('SELECT * FROM week_notes').all();
+        for (const r of existingWeekNotes) {
+          let targets = [];
+          try {
+            targets = JSON.parse(r.targets || r.parent_weeks || '[]');
+          } catch {
+            targets = [];
+          }
+          if (!Array.isArray(targets) || targets.length === 0) {
+            targets = [getIsoWeek(new Date(r.created_at || Date.now()))];
+          }
+          const bounds = calculateBounds('week', targets);
+          insertUnifiedStmt.run(
+            r.id,
+            r.user_id || null,
+            r.content,
+            r.original_content || null,
+            'week',
+            JSON.stringify(targets),
+            bounds.startAt,
+            bounds.endAt,
+            r.is_struck ? 1 : 0,
+            r.strike_style || null,
+            r.color_tag || null,
+            r.created_at,
+            r.updated_at || null,
+            r.revision || 1
+          );
+        }
+        db.exec('DROP TABLE week_notes;');
+      }
+
+      // 3. Migrate existing month_notes table if present
+      const monthCheck = db.prepare("SELECT type FROM sqlite_master WHERE name = 'month_notes'").get();
+      if (monthCheck && monthCheck.type === 'table') {
+        const existingMonthNotes = db.prepare('SELECT * FROM month_notes').all();
+        for (const r of existingMonthNotes) {
+          let targets = [];
+          try {
+            targets = JSON.parse(r.targets || r.parent_months || '[]');
+          } catch {
+            targets = [];
+          }
+          if (!Array.isArray(targets) || targets.length === 0) {
+            targets = [(r.created_at || new Date().toISOString()).slice(0, 7)];
+          }
+          const bounds = calculateBounds('month', targets);
+          insertUnifiedStmt.run(
+            r.id,
+            r.user_id || null,
+            r.content,
+            r.original_content || null,
+            'month',
+            JSON.stringify(targets),
+            bounds.startAt,
+            bounds.endAt,
+            r.is_struck ? 1 : 0,
+            r.strike_style || null,
+            r.color_tag || null,
+            r.created_at,
+            r.updated_at || null,
+            r.revision || 1
+          );
+        }
+        db.exec('DROP TABLE month_notes;');
+      }
+
+      // 4. Replace notes table with notes_v2
+      db.exec(`
+        DROP TABLE notes;
+        ALTER TABLE notes_v2 RENAME TO notes;
+
+        CREATE INDEX IF NOT EXISTS idx_notes_user_scope ON notes(user_id, scope);
+        CREATE INDEX IF NOT EXISTS idx_notes_range ON notes(user_id, start_at, end_at);
+        CREATE INDEX IF NOT EXISTS idx_notes_sync ON notes(user_id, revision);
+
+        -- Backward compatible views
+        CREATE VIEW IF NOT EXISTS week_notes AS
+          SELECT id, user_id, content, original_content, targets AS parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at, revision
+          FROM notes WHERE scope = 'week';
+
+        CREATE VIEW IF NOT EXISTS month_notes AS
+          SELECT id, user_id, content, original_content, targets AS parent_months, is_struck, strike_style, color_tag, created_at, updated_at, revision
+          FROM notes WHERE scope = 'month';
+
+        -- INSTEAD OF triggers for backward compatibility
+        CREATE TRIGGER IF NOT EXISTS trg_week_notes_insert
+        INSTEAD OF INSERT ON week_notes
+        BEGIN
+          INSERT INTO notes (id, user_id, content, original_content, scope, targets, start_at, end_at, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+          VALUES (NEW.id, NEW.user_id, NEW.content, NEW.original_content, 'week', NEW.parent_weeks, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), NEW.is_struck, NEW.strike_style, NEW.color_tag, NEW.created_at, NEW.updated_at, COALESCE(NEW.revision, 1));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_week_notes_delete
+        INSTEAD OF DELETE ON week_notes
+        BEGIN
+          DELETE FROM notes WHERE id = OLD.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_month_notes_insert
+        INSTEAD OF INSERT ON month_notes
+        BEGIN
+          INSERT INTO notes (id, user_id, content, original_content, scope, targets, start_at, end_at, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+          VALUES (NEW.id, NEW.user_id, NEW.content, NEW.original_content, 'month', NEW.parent_months, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), NEW.is_struck, NEW.strike_style, NEW.color_tag, NEW.created_at, NEW.updated_at, COALESCE(NEW.revision, 1));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_month_notes_delete
+        INSTEAD OF DELETE ON month_notes
+        BEGIN
+          DELETE FROM notes WHERE id = OLD.id;
+        END;
+      `);
+
+      db.prepare(`
+        INSERT INTO metadata (key, value) VALUES ('schema_version', '8')
+        ON CONFLICT(key) DO UPDATE SET value = '8'
+      `).run();
+
+      db.exec('COMMIT;');
+      console.log('[DB Migration] Applied schema v8: Unified Notes Architecture with single table, range bounds, and compatibility views.');
+    } catch (err) {
+      db.exec('ROLLBACK;');
+      console.error('[DB Migration Error schema v8]:', err);
+      throw err;
+    }
+  }
 }
 
 /**
@@ -519,25 +788,53 @@ export function getNextLedgerRevision(db = getDatabase(), userId = null) {
 }
 
 /**
+ * Normalizes any note row into a UnifiedNote object with range bounds and compatibility fields.
+ */
+export function formatUnifiedNote(row) {
+  let targets = [];
+  try {
+    targets = JSON.parse(row.targets || row.parent_dates || row.parent_weeks || row.parent_months || '[]');
+  } catch {
+    targets = [];
+  }
+  const scope = row.scope || 'day';
+
+  return {
+    id: row.id,
+    scope,
+    content: row.content,
+    originalContent: row.original_content || undefined,
+    targets,
+    startAt: row.start_at || undefined,
+    endAt: row.end_at || undefined,
+    parentDates: scope === 'day' || scope === 'time' ? targets : undefined,
+    parentWeeks: scope === 'week' ? targets : undefined,
+    parentMonths: scope === 'month' ? targets : undefined,
+    isStruck: Boolean(row.is_struck),
+    strikeStyle: row.strike_style || undefined,
+    colorTag: row.color_tag || undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || undefined,
+    revision: row.revision || 1,
+  };
+}
+
+/**
  * Reads calendar data from SQLite, optionally filtered by user_id.
  * If userId is null, returns legacy unassigned data.
  */
 export function getCalendarData(db = getDatabase(), userId = null) {
-  let noteRows, weekNoteRows, monthNoteRows, drawingRows, circledRows, settingsRow, deletedRows;
+  let noteRows, drawingRows, circledRows, settingsRow, deletedRows;
   const currentRevision = getCurrentLedgerRevision(db, userId);
 
   if (userId) {
     noteRows = db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
-    weekNoteRows = db.prepare('SELECT * FROM week_notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
-    monthNoteRows = db.prepare('SELECT * FROM month_notes WHERE user_id = ? ORDER BY rowid ASC').all(userId);
     drawingRows = db.prepare("SELECT * FROM drawings WHERE user_id = ? AND type != 'circle' ORDER BY created_at ASC").all(userId);
     circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id = ? ORDER BY created_at ASC').all(userId);
     settingsRow = db.prepare('SELECT * FROM settings WHERE user_id = ? OR id = ?').get(userId, userId);
     deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id = ? ORDER BY revision ASC').all(userId);
   } else {
     noteRows = db.prepare('SELECT * FROM notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
-    weekNoteRows = db.prepare('SELECT * FROM week_notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
-    monthNoteRows = db.prepare('SELECT * FROM month_notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
     drawingRows = db.prepare("SELECT * FROM drawings WHERE user_id IS NULL AND type != 'circle' ORDER BY created_at ASC").all();
     circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id IS NULL ORDER BY created_at ASC').all();
     settingsRow = db.prepare("SELECT * FROM settings WHERE user_id IS NULL OR id = 'default'").get();
@@ -546,41 +843,10 @@ export function getCalendarData(db = getDatabase(), userId = null) {
 
   const metaRows = db.prepare('SELECT * FROM metadata').all();
 
-  const notes = noteRows.map((r) => ({
-    id: r.id,
-    content: r.content,
-    originalContent: r.original_content || undefined,
-    parentDates: JSON.parse(r.parent_dates || '[]'),
-    isStruck: Boolean(r.is_struck),
-    strikeStyle: r.strike_style || undefined,
-    colorTag: r.color_tag || undefined,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at || undefined,
-  }));
-
-  const weekNotes = weekNoteRows.map((r) => ({
-    id: r.id,
-    content: r.content,
-    originalContent: r.original_content || undefined,
-    parentWeeks: JSON.parse(r.parent_weeks || '[]'),
-    isStruck: Boolean(r.is_struck),
-    strikeStyle: r.strike_style || undefined,
-    colorTag: r.color_tag || undefined,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at || undefined,
-  }));
-
-  const monthNotes = monthNoteRows.map((r) => ({
-    id: r.id,
-    content: r.content,
-    originalContent: r.original_content || undefined,
-    parentMonths: JSON.parse(r.parent_months || '[]'),
-    isStruck: Boolean(r.is_struck),
-    strikeStyle: r.strike_style || undefined,
-    colorTag: r.color_tag || undefined,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at || undefined,
-  }));
+  const allNotes = noteRows.map(formatUnifiedNote);
+  const notes = allNotes.filter((n) => n.scope === 'day' || n.scope === 'time');
+  const weekNotes = allNotes.filter((n) => n.scope === 'week');
+  const monthNotes = allNotes.filter((n) => n.scope === 'month');
 
   const drawings = drawingRows.map((r) => ({
     id: r.id,
@@ -619,9 +885,7 @@ export function getCalendarData(db = getDatabase(), userId = null) {
   }
 
   const hasData =
-    notes.length > 0 ||
-    weekNotes.length > 0 ||
-    monthNotes.length > 0 ||
+    allNotes.length > 0 ||
     drawings.length > 0 ||
     Object.keys(circledDates).length > 0;
 
@@ -629,6 +893,7 @@ export function getCalendarData(db = getDatabase(), userId = null) {
     notes,
     weekNotes,
     monthNotes,
+    allNotes,
     drawings,
     circledDates,
     settings,
@@ -640,7 +905,7 @@ export function getCalendarData(db = getDatabase(), userId = null) {
       revision: r.revision,
     })),
     syncedAt: metaMap['last_synced_at'] || new Date().toISOString(),
-    schemaVersion: Number(metaMap['schema_version']) || 7,
+    schemaVersion: Number(metaMap['schema_version']) || 8,
     hasData,
   };
 }
@@ -656,8 +921,75 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
     const revision = getNextLedgerRevision(db, userId);
     const now = new Date().toISOString();
 
-    // 1. Day Notes
-    if (Array.isArray(data.notes)) {
+    // 1. Unified Notes (allNotes, notes, weekNotes, monthNotes)
+    const incomingNotes = [];
+    if (Array.isArray(data.allNotes)) {
+      for (const n of data.allNotes) {
+        incomingNotes.push({
+          id: n.id,
+          content: n.content || '',
+          originalContent: n.originalContent || null,
+          scope: n.scope || 'day',
+          targets: Array.isArray(n.targets) ? n.targets : (n.parentDates || n.parentWeeks || n.parentMonths || []),
+          isStruck: n.isStruck ? 1 : 0,
+          strikeStyle: n.strikeStyle || null,
+          colorTag: n.colorTag || null,
+          createdAt: n.createdAt || now,
+          updatedAt: n.updatedAt || null,
+        });
+      }
+    } else {
+      if (Array.isArray(data.notes)) {
+        for (const n of data.notes) {
+          incomingNotes.push({
+            id: n.id,
+            content: n.content || '',
+            originalContent: n.originalContent || null,
+            scope: n.scope || 'day',
+            targets: Array.isArray(n.targets) ? n.targets : (n.parentDates || []),
+            isStruck: n.isStruck ? 1 : 0,
+            strikeStyle: n.strikeStyle || null,
+            colorTag: n.colorTag || null,
+            createdAt: n.createdAt || now,
+            updatedAt: n.updatedAt || null,
+          });
+        }
+      }
+      if (Array.isArray(data.weekNotes)) {
+        for (const wn of data.weekNotes) {
+          incomingNotes.push({
+            id: wn.id,
+            content: wn.content || '',
+            originalContent: wn.originalContent || null,
+            scope: wn.scope || 'week',
+            targets: Array.isArray(wn.targets) ? wn.targets : (wn.parentWeeks || []),
+            isStruck: wn.isStruck ? 1 : 0,
+            strikeStyle: wn.strikeStyle || null,
+            colorTag: wn.colorTag || null,
+            createdAt: wn.createdAt || now,
+            updatedAt: wn.updatedAt || null,
+          });
+        }
+      }
+      if (Array.isArray(data.monthNotes)) {
+        for (const mn of data.monthNotes) {
+          incomingNotes.push({
+            id: mn.id,
+            content: mn.content || '',
+            originalContent: mn.originalContent || null,
+            scope: mn.scope || 'month',
+            targets: Array.isArray(mn.targets) ? mn.targets : (mn.parentMonths || []),
+            isStruck: mn.isStruck ? 1 : 0,
+            strikeStyle: mn.strikeStyle || null,
+            colorTag: mn.colorTag || null,
+            createdAt: mn.createdAt || now,
+            updatedAt: mn.updatedAt || null,
+          });
+        }
+      }
+    }
+
+    if (data.allNotes !== undefined || data.notes !== undefined || data.weekNotes !== undefined || data.monthNotes !== undefined) {
       if (userId) {
         db.prepare('DELETE FROM notes WHERE user_id = ?').run(userId);
       } else {
@@ -665,79 +997,26 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
       }
 
       const insertNote = db.prepare(`
-        INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at, revision)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO notes (id, user_id, content, original_content, scope, targets, start_at, end_at, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      for (const n of data.notes) {
+
+      for (const n of incomingNotes) {
+        const bounds = calculateBounds(n.scope, n.targets);
         insertNote.run(
           n.id,
           userId || null,
-          n.content || '',
-          n.originalContent || null,
-          JSON.stringify(n.parentDates || []),
-          n.isStruck ? 1 : 0,
-          n.strikeStyle || null,
-          n.colorTag || null,
-          n.createdAt || now,
-          n.updatedAt || null,
-          revision
-        );
-      }
-    }
-
-    // 2. Week Notes
-    if (Array.isArray(data.weekNotes)) {
-      if (userId) {
-        db.prepare('DELETE FROM week_notes WHERE user_id = ?').run(userId);
-      } else {
-        db.exec('DELETE FROM week_notes WHERE user_id IS NULL;');
-      }
-
-      const insertWeekNote = db.prepare(`
-        INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at, revision)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      for (const wn of data.weekNotes) {
-        insertWeekNote.run(
-          wn.id,
-          userId || null,
-          wn.content || '',
-          wn.originalContent || null,
-          JSON.stringify(wn.parentWeeks || []),
-          wn.isStruck ? 1 : 0,
-          wn.strikeStyle || null,
-          wn.colorTag || null,
-          wn.createdAt || now,
-          wn.updatedAt || null,
-          revision
-        );
-      }
-    }
-
-    // 3. Month Notes
-    if (Array.isArray(data.monthNotes)) {
-      if (userId) {
-        db.prepare('DELETE FROM month_notes WHERE user_id = ?').run(userId);
-      } else {
-        db.exec('DELETE FROM month_notes WHERE user_id IS NULL;');
-      }
-
-      const insertMonthNote = db.prepare(`
-        INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at, revision)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      for (const mn of data.monthNotes) {
-        insertMonthNote.run(
-          mn.id,
-          userId || null,
-          mn.content || '',
-          mn.originalContent || null,
-          JSON.stringify(mn.parentMonths || []),
-          mn.isStruck ? 1 : 0,
-          mn.strikeStyle || null,
-          mn.colorTag || null,
-          mn.createdAt || now,
-          mn.updatedAt || null,
+          n.content,
+          n.originalContent,
+          n.scope,
+          JSON.stringify(n.targets),
+          bounds.startAt,
+          bounds.endAt,
+          n.isStruck,
+          n.strikeStyle,
+          n.colorTag,
+          n.createdAt,
+          n.updatedAt,
           revision
         );
       }
@@ -873,143 +1152,80 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
       }
     };
 
-    // 1. Day Notes
-    if (delta.notes) {
-      if (Array.isArray(delta.notes.delete) && delta.notes.delete.length > 0) {
-        const deleteStmt = userId
-          ? db.prepare('DELETE FROM notes WHERE id = ? AND user_id = ?')
-          : db.prepare('DELETE FROM notes WHERE id = ? AND user_id IS NULL');
-        for (const id of delta.notes.delete) {
-          if (userId) deleteStmt.run(id, userId);
-          else deleteStmt.run(id);
-          insertTombstone.run(id, userId || null, 'note', now, revision);
-        }
-      }
+    // 1. Unified Notes (allNotes, notes, weekNotes, monthNotes)
+    const deleteNoteStmt = userId
+      ? db.prepare('DELETE FROM notes WHERE id = ? AND user_id = ?')
+      : db.prepare('DELETE FROM notes WHERE id = ? AND user_id IS NULL');
 
-      if (Array.isArray(delta.notes.upsert)) {
-        const upsertNote = db.prepare(`
-          INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at, revision)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            content = excluded.content,
-            original_content = excluded.original_content,
-            parent_dates = excluded.parent_dates,
-            is_struck = excluded.is_struck,
-            strike_style = excluded.strike_style,
-            color_tag = excluded.color_tag,
-            updated_at = excluded.updated_at,
-            revision = excluded.revision
-        `);
-        for (const n of delta.notes.upsert) {
-          upsertNote.run(
-            n.id,
-            userId || null,
-            n.content || '',
-            n.originalContent || null,
-            JSON.stringify(n.parentDates || []),
-            n.isStruck ? 1 : 0,
-            n.strikeStyle || null,
-            n.colorTag || null,
-            n.createdAt || now,
-            n.updatedAt || now,
-            revision
-          );
-          executeRemoveTombstone(n.id);
-        }
+    const handleNoteDeletes = (ids, entityType) => {
+      if (!Array.isArray(ids)) return;
+      for (const id of ids) {
+        if (userId) deleteNoteStmt.run(id, userId);
+        else deleteNoteStmt.run(id);
+        insertTombstone.run(id, userId || null, entityType, now, revision);
       }
-    }
+    };
 
-    // 2. Week Notes
-    if (delta.weekNotes) {
-      if (Array.isArray(delta.weekNotes.delete) && delta.weekNotes.delete.length > 0) {
-        const deleteStmt = userId
-          ? db.prepare('DELETE FROM week_notes WHERE id = ? AND user_id = ?')
-          : db.prepare('DELETE FROM week_notes WHERE id = ? AND user_id IS NULL');
-        for (const id of delta.weekNotes.delete) {
-          if (userId) deleteStmt.run(id, userId);
-          else deleteStmt.run(id);
-          insertTombstone.run(id, userId || null, 'week_note', now, revision);
-        }
-      }
+    if (delta.allNotes?.delete) handleNoteDeletes(delta.allNotes.delete, 'note');
+    if (delta.notes?.delete) handleNoteDeletes(delta.notes.delete, 'note');
+    if (delta.weekNotes?.delete) handleNoteDeletes(delta.weekNotes.delete, 'week_note');
+    if (delta.monthNotes?.delete) handleNoteDeletes(delta.monthNotes.delete, 'month_note');
 
-      if (Array.isArray(delta.weekNotes.upsert)) {
-        const upsertWeekNote = db.prepare(`
-          INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at, revision)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            content = excluded.content,
-            original_content = excluded.original_content,
-            parent_weeks = excluded.parent_weeks,
-            is_struck = excluded.is_struck,
-            strike_style = excluded.strike_style,
-            color_tag = excluded.color_tag,
-            updated_at = excluded.updated_at,
-            revision = excluded.revision
-        `);
-        for (const wn of delta.weekNotes.upsert) {
-          upsertWeekNote.run(
-            wn.id,
-            userId || null,
-            wn.content || '',
-            wn.originalContent || null,
-            JSON.stringify(wn.parentWeeks || []),
-            wn.isStruck ? 1 : 0,
-            wn.strikeStyle || null,
-            wn.colorTag || null,
-            wn.createdAt || now,
-            wn.updatedAt || now,
-            revision
-          );
-          executeRemoveTombstone(wn.id);
-        }
-      }
-    }
+    const upsertUnifiedNote = db.prepare(`
+      INSERT INTO notes (id, user_id, content, original_content, scope, targets, start_at, end_at, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        content = excluded.content,
+        original_content = excluded.original_content,
+        scope = excluded.scope,
+        targets = excluded.targets,
+        start_at = excluded.start_at,
+        end_at = excluded.end_at,
+        is_struck = excluded.is_struck,
+        strike_style = excluded.strike_style,
+        color_tag = excluded.color_tag,
+        updated_at = excluded.updated_at,
+        revision = excluded.revision
+    `);
 
-    // 3. Month Notes
-    if (delta.monthNotes) {
-      if (Array.isArray(delta.monthNotes.delete) && delta.monthNotes.delete.length > 0) {
-        const deleteStmt = userId
-          ? db.prepare('DELETE FROM month_notes WHERE id = ? AND user_id = ?')
-          : db.prepare('DELETE FROM month_notes WHERE id = ? AND user_id IS NULL');
-        for (const id of delta.monthNotes.delete) {
-          if (userId) deleteStmt.run(id, userId);
-          else deleteStmt.run(id);
-          insertTombstone.run(id, userId || null, 'month_note', now, revision);
+    const handleNoteUpserts = (noteItems, defaultScope) => {
+      if (!Array.isArray(noteItems)) return;
+      for (const n of noteItems) {
+        const scope = n.scope || defaultScope;
+        let targets = Array.isArray(n.targets)
+          ? n.targets
+          : (n.parentDates || n.parentWeeks || n.parentMonths || []);
+        if (targets.length === 0) {
+          if (scope === 'day' || scope === 'time') targets = [n.createdAt ? n.createdAt.slice(0, 10) : now.slice(0, 10)];
+          else if (scope === 'week') targets = [getIsoWeek(new Date(n.createdAt || Date.now()))];
+          else if (scope === 'month') targets = [(n.createdAt || now).slice(0, 7)];
+          else if (scope === 'year') targets = [String(new Date(n.createdAt || Date.now()).getFullYear())];
         }
+        const bounds = calculateBounds(scope, targets);
+        upsertUnifiedNote.run(
+          n.id,
+          userId || null,
+          n.content || '',
+          n.originalContent || null,
+          scope,
+          JSON.stringify(targets),
+          bounds.startAt,
+          bounds.endAt,
+          n.isStruck ? 1 : 0,
+          n.strikeStyle || null,
+          n.colorTag || null,
+          n.createdAt || now,
+          n.updatedAt || now,
+          revision
+        );
+        executeRemoveTombstone(n.id);
       }
+    };
 
-      if (Array.isArray(delta.monthNotes.upsert)) {
-        const upsertMonthNote = db.prepare(`
-          INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at, revision)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            content = excluded.content,
-            original_content = excluded.original_content,
-            parent_months = excluded.parent_months,
-            is_struck = excluded.is_struck,
-            strike_style = excluded.strike_style,
-            color_tag = excluded.color_tag,
-            updated_at = excluded.updated_at,
-            revision = excluded.revision
-        `);
-        for (const mn of delta.monthNotes.upsert) {
-          upsertMonthNote.run(
-            mn.id,
-            userId || null,
-            mn.content || '',
-            mn.originalContent || null,
-            JSON.stringify(mn.parentMonths || []),
-            mn.isStruck ? 1 : 0,
-            mn.strikeStyle || null,
-            mn.colorTag || null,
-            mn.createdAt || now,
-            mn.updatedAt || now,
-            revision
-          );
-          executeRemoveTombstone(mn.id);
-        }
-      }
-    }
+    if (delta.allNotes?.upsert) handleNoteUpserts(delta.allNotes.upsert, 'day');
+    if (delta.notes?.upsert) handleNoteUpserts(delta.notes.upsert, 'day');
+    if (delta.weekNotes?.upsert) handleNoteUpserts(delta.weekNotes.upsert, 'week');
+    if (delta.monthNotes?.upsert) handleNoteUpserts(delta.monthNotes.upsert, 'month');
 
     // 4. Drawings
     if (delta.drawings) {
@@ -1170,59 +1386,24 @@ export function getCalendarDelta(db = getDatabase(), sinceRevision = 0, userId =
     }
   }
 
-  let noteUpserts, weekNoteUpserts, monthNoteUpserts, drawingUpserts, circledUpserts, deletedRows;
+  let noteUpserts, drawingUpserts, circledUpserts, deletedRows;
 
   if (userId) {
     noteUpserts = db.prepare('SELECT * FROM notes WHERE user_id = ? AND revision > ? ORDER BY rowid ASC').all(userId, since);
-    weekNoteUpserts = db.prepare('SELECT * FROM week_notes WHERE user_id = ? AND revision > ? ORDER BY rowid ASC').all(userId, since);
-    monthNoteUpserts = db.prepare('SELECT * FROM month_notes WHERE user_id = ? AND revision > ? ORDER BY rowid ASC').all(userId, since);
     drawingUpserts = db.prepare("SELECT * FROM drawings WHERE user_id = ? AND type != 'circle' AND revision > ? ORDER BY created_at ASC").all(userId, since);
     circledUpserts = db.prepare('SELECT * FROM circled_dates WHERE user_id = ? AND revision > ? ORDER BY created_at ASC').all(userId, since);
     deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id = ? AND revision > ? ORDER BY revision ASC').all(userId, since);
   } else {
     noteUpserts = db.prepare('SELECT * FROM notes WHERE user_id IS NULL AND revision > ? ORDER BY rowid ASC').all(since);
-    weekNoteUpserts = db.prepare('SELECT * FROM week_notes WHERE user_id IS NULL AND revision > ? ORDER BY rowid ASC').all(since);
-    monthNoteUpserts = db.prepare('SELECT * FROM month_notes WHERE user_id IS NULL AND revision > ? ORDER BY rowid ASC').all(since);
     drawingUpserts = db.prepare("SELECT * FROM drawings WHERE user_id IS NULL AND type != 'circle' AND revision > ? ORDER BY created_at ASC").all(since);
     circledUpserts = db.prepare('SELECT * FROM circled_dates WHERE user_id IS NULL AND revision > ? ORDER BY created_at ASC').all(since);
     deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id IS NULL AND revision > ? ORDER BY revision ASC').all(since);
   }
 
-  const formatNote = (n) => ({
-    id: n.id,
-    content: n.content,
-    originalContent: n.original_content || undefined,
-    parentDates: JSON.parse(n.parent_dates || '[]'),
-    isStruck: Boolean(n.is_struck),
-    strikeStyle: n.strike_style || undefined,
-    colorTag: n.color_tag || undefined,
-    createdAt: n.created_at,
-    updatedAt: n.updated_at || undefined,
-  });
-
-  const formatWeekNote = (wn) => ({
-    id: wn.id,
-    content: wn.content,
-    originalContent: wn.original_content || undefined,
-    parentWeeks: JSON.parse(wn.parent_weeks || '[]'),
-    isStruck: Boolean(wn.is_struck),
-    strikeStyle: wn.strike_style || undefined,
-    colorTag: wn.color_tag || undefined,
-    createdAt: wn.created_at,
-    updatedAt: wn.updated_at || undefined,
-  });
-
-  const formatMonthNote = (mn) => ({
-    id: mn.id,
-    content: mn.content,
-    originalContent: mn.original_content || undefined,
-    parentMonths: JSON.parse(mn.parent_months || '[]'),
-    isStruck: Boolean(mn.is_struck),
-    strikeStyle: mn.strike_style || undefined,
-    colorTag: mn.color_tag || undefined,
-    createdAt: mn.created_at,
-    updatedAt: mn.updated_at || undefined,
-  });
+  const allFormatted = noteUpserts.map(formatUnifiedNote);
+  const dayUpserts = allFormatted.filter((n) => n.scope === 'day' || n.scope === 'time');
+  const weekUpserts = allFormatted.filter((n) => n.scope === 'week');
+  const monthUpserts = allFormatted.filter((n) => n.scope === 'month');
 
   const formatDrawing = (d) => ({
     id: d.id,
@@ -1249,17 +1430,21 @@ export function getCalendarDelta(db = getDatabase(), sinceRevision = 0, userId =
   const monthNoteDeletes = [];
   const drawingDeletes = [];
   const circleDeletes = [];
+  const allNoteDeletes = [];
 
   for (const del of deletedRows) {
     switch (del.entity_type) {
       case 'note':
         noteDeletes.push(del.id);
+        allNoteDeletes.push(del.id);
         break;
       case 'week_note':
         weekNoteDeletes.push(del.id);
+        allNoteDeletes.push(del.id);
         break;
       case 'month_note':
         monthNoteDeletes.push(del.id);
+        allNoteDeletes.push(del.id);
         break;
       case 'drawing':
         drawingDeletes.push(del.id);
@@ -1273,9 +1458,10 @@ export function getCalendarDelta(db = getDatabase(), sinceRevision = 0, userId =
   return {
     ok: true,
     currentRevision,
-    notes: { upsert: noteUpserts.map(formatNote), delete: noteDeletes },
-    weekNotes: { upsert: weekNoteUpserts.map(formatWeekNote), delete: weekNoteDeletes },
-    monthNotes: { upsert: monthNoteUpserts.map(formatMonthNote), delete: monthNoteDeletes },
+    notes: { upsert: dayUpserts, delete: noteDeletes },
+    weekNotes: { upsert: weekUpserts, delete: weekNoteDeletes },
+    monthNotes: { upsert: monthUpserts, delete: monthNoteDeletes },
+    allNotes: { upsert: allFormatted, delete: allNoteDeletes },
     drawings: { upsert: drawingUpserts.map(formatDrawing), delete: drawingDeletes },
     circledDates: { upsert: circledMap, delete: circleDeletes },
     syncedAt: new Date().toISOString(),
@@ -1357,58 +1543,16 @@ function checkStatusMatch(content, isStruck, status) {
 }
 
 export function findNoteById(db, noteId, userId) {
-  let day, week, month;
-  if (userId) {
-    day = db.prepare('SELECT * FROM notes WHERE id = ? AND user_id = ?').get(noteId, userId);
-    if (day) return { row: day, table: 'notes', targetCol: 'parent_dates', scope: 'day' };
-
-    week = db.prepare('SELECT * FROM week_notes WHERE id = ? AND user_id = ?').get(noteId, userId);
-    if (week) return { row: week, table: 'week_notes', targetCol: 'parent_weeks', scope: 'week' };
-
-    month = db.prepare('SELECT * FROM month_notes WHERE id = ? AND user_id = ?').get(noteId, userId);
-    if (month) return { row: month, table: 'month_notes', targetCol: 'parent_months', scope: 'month' };
-  } else {
-    day = db.prepare('SELECT * FROM notes WHERE id = ? AND user_id IS NULL').get(noteId);
-    if (day) return { row: day, table: 'notes', targetCol: 'parent_dates', scope: 'day' };
-
-    week = db.prepare('SELECT * FROM week_notes WHERE id = ? AND user_id IS NULL').get(noteId);
-    if (week) return { row: week, table: 'week_notes', targetCol: 'parent_weeks', scope: 'week' };
-
-    month = db.prepare('SELECT * FROM month_notes WHERE id = ? AND user_id IS NULL').get(noteId);
-    if (month) return { row: month, table: 'month_notes', targetCol: 'parent_months', scope: 'month' };
-  }
-  return null;
-}
-
-function formatUnifiedNote(row, scope, targetCol) {
-  let targets = [];
-  try {
-    targets = JSON.parse(row[targetCol] || '[]');
-  } catch {
-    targets = [];
-  }
-
+  const row = userId
+    ? db.prepare('SELECT * FROM notes WHERE id = ? AND user_id = ?').get(noteId, userId)
+    : db.prepare('SELECT * FROM notes WHERE id = ? AND user_id IS NULL').get(noteId);
+  if (!row) return null;
   return {
-    id: row.id,
-    scope,
-    content: row.content,
-    originalContent: row.original_content || null,
-    targets,
-    isStruck: Boolean(row.is_struck),
-    strikeStyle: row.strike_style || null,
-    colorTag: row.color_tag || null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at || null,
+    row,
+    table: 'notes',
+    targetCol: 'targets',
+    scope: row.scope || 'day',
   };
-}
-
-function getIsoWeek(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
 /**
@@ -1794,40 +1938,31 @@ export function handleApiRequest(req, res, db = getDatabase()) {
       const endDateParam = parsedUrl.searchParams.get('end_date');
       const weekParam = parsedUrl.searchParams.get('week');
       const monthParam = parsedUrl.searchParams.get('month');
+      const yearParam = parsedUrl.searchParams.get('year');
       const tagParam = parsedUrl.searchParams.get('tag');
       const statusParam = parsedUrl.searchParams.get('status') || 'all';
       const qParam = parsedUrl.searchParams.get('q');
       const limit = Math.max(1, Math.min(500, parseInt(parsedUrl.searchParams.get('limit') || '50', 10)));
       const offset = Math.max(0, parseInt(parsedUrl.searchParams.get('offset') || '0', 10));
 
-      let results = [];
+      let query = 'SELECT * FROM notes WHERE 1=1';
+      const params = [];
 
-      if (scopeParam === 'day' || scopeParam === 'all') {
-        const rows = userId
-          ? db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY created_at DESC').all(userId)
-          : db.prepare('SELECT * FROM notes WHERE user_id IS NULL ORDER BY created_at DESC').all();
-        for (const r of rows) {
-          results.push(formatUnifiedNote(r, 'day', 'parent_dates'));
-        }
+      if (userId) {
+        query += ' AND user_id = ?';
+        params.push(userId);
+      } else {
+        query += ' AND user_id IS NULL';
       }
 
-      if (scopeParam === 'week' || scopeParam === 'all') {
-        const rows = userId
-          ? db.prepare('SELECT * FROM week_notes WHERE user_id = ? ORDER BY created_at DESC').all(userId)
-          : db.prepare('SELECT * FROM week_notes WHERE user_id IS NULL ORDER BY created_at DESC').all();
-        for (const r of rows) {
-          results.push(formatUnifiedNote(r, 'week', 'parent_weeks'));
-        }
+      if (scopeParam && scopeParam !== 'all') {
+        query += ' AND scope = ?';
+        params.push(scopeParam);
       }
 
-      if (scopeParam === 'month' || scopeParam === 'all') {
-        const rows = userId
-          ? db.prepare('SELECT * FROM month_notes WHERE user_id = ? ORDER BY created_at DESC').all(userId)
-          : db.prepare('SELECT * FROM month_notes WHERE user_id IS NULL ORDER BY created_at DESC').all();
-        for (const r of rows) {
-          results.push(formatUnifiedNote(r, 'month', 'parent_months'));
-        }
-      }
+      query += ' ORDER BY created_at DESC';
+      const rows = db.prepare(query).all(...params);
+      let results = rows.map(formatUnifiedNote);
 
       let filtered = results.filter((note) => {
         // 1. Date filter (for day notes)
@@ -1857,6 +1992,11 @@ export function handleApiRequest(req, res, db = getDatabase()) {
         if (monthParam) {
           if (note.scope === 'month' && !note.targets.includes(monthParam)) return false;
           if (note.scope !== 'month' && scopeParam !== 'all') return false;
+        }
+
+        if (yearParam) {
+          if (note.scope === 'year' && !note.targets.includes(yearParam)) return false;
+          if (note.scope !== 'year' && scopeParam !== 'all') return false;
         }
 
         if (qParam && !note.content.toLowerCase().includes(qParam.toLowerCase())) {
@@ -1895,8 +2035,8 @@ export function handleApiRequest(req, res, db = getDatabase()) {
       readRequestBody(req)
         .then((body) => {
           const scope = body.scope || 'day';
-          if (!['day', 'week', 'month'].includes(scope)) {
-            sendJsonResponse(req, res, 400, { error: 'scope must be day, week, or month' });
+          if (!['time', 'day', 'week', 'month', 'year', 'span'].includes(scope)) {
+            sendJsonResponse(req, res, 400, { error: 'scope must be time, day, week, month, year, or span' });
             return;
           }
           if (!body.content || typeof body.content !== 'string' || !body.content.trim()) {
@@ -1909,7 +2049,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
           let targets = Array.isArray(body.targets) ? body.targets : [];
 
           if (targets.length === 0) {
-            if (scope === 'day') {
+            if (scope === 'day' || scope === 'time') {
               const y = now.getFullYear();
               const m = String(now.getMonth() + 1).padStart(2, '0');
               const d = String(now.getDate()).padStart(2, '0');
@@ -1920,46 +2060,48 @@ export function handleApiRequest(req, res, db = getDatabase()) {
               const y = now.getFullYear();
               const m = String(now.getMonth() + 1).padStart(2, '0');
               targets = [`${y}-${m}`];
+            } else if (scope === 'year') {
+              targets = [String(now.getFullYear())];
             }
           }
 
           const prefix = scope === 'week' ? 'week-note' : scope === 'month' ? 'month-note' : 'note';
-          const id = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-          const createdAt = now.toISOString();
+          const id = body.id || `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          const createdAt = body.createdAt || now.toISOString();
           const isStruck = body.isStruck ? 1 : 0;
           const strikeStyle = body.strikeStyle || null;
           const colorTag = body.colorTag || null;
           const originalContent = body.originalContent || null;
+          const bounds = calculateBounds(scope, targets);
+          const revision = getNextLedgerRevision(db, userId);
 
-          if (scope === 'day') {
-            db.prepare(`
-              INSERT INTO notes (id, user_id, content, original_content, parent_dates, is_struck, strike_style, color_tag, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(id, userId, content, originalContent, JSON.stringify(targets), isStruck, strikeStyle, colorTag, createdAt, null);
-          } else if (scope === 'week') {
-            db.prepare(`
-              INSERT INTO week_notes (id, user_id, content, original_content, parent_weeks, is_struck, strike_style, color_tag, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(id, userId, content, originalContent, JSON.stringify(targets), isStruck, strikeStyle, colorTag, createdAt, null);
+          db.prepare(`
+            INSERT INTO notes (id, user_id, content, original_content, scope, targets, start_at, end_at, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(id, userId, content, originalContent, scope, JSON.stringify(targets), bounds.startAt, bounds.endAt, isStruck, strikeStyle, colorTag, createdAt, null, revision);
+
+          if (userId) {
+            db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(id, userId);
           } else {
-            db.prepare(`
-              INSERT INTO month_notes (id, user_id, content, original_content, parent_months, is_struck, strike_style, color_tag, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(id, userId, content, originalContent, JSON.stringify(targets), isStruck, strikeStyle, colorTag, createdAt, null);
+            db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL').run(id);
           }
 
-          sendJsonResponse(req, res, 201, {
+          sendJsonResponse(req, res, 201, formatUnifiedNote({
             id,
-            scope,
+            user_id: userId,
             content,
-            originalContent,
-            targets,
-            isStruck: Boolean(isStruck),
-            strikeStyle,
-            colorTag,
-            createdAt,
-            updatedAt: null,
-          });
+            original_content: originalContent,
+            scope,
+            targets: JSON.stringify(targets),
+            start_at: bounds.startAt,
+            end_at: bounds.endAt,
+            is_struck: isStruck,
+            strike_style: strikeStyle,
+            color_tag: colorTag,
+            created_at: createdAt,
+            updated_at: null,
+            revision,
+          }));
         })
         .catch((err) => {
           sendJsonResponse(req, res, 400, { error: err.message });
@@ -1979,14 +2121,16 @@ export function handleApiRequest(req, res, db = getDatabase()) {
 
       const nextStruck = found.row.is_struck ? 0 : 1;
       const now = new Date().toISOString();
+      const revision = getNextLedgerRevision(db, userId);
 
-      db.prepare(`UPDATE ${found.table} SET is_struck = ?, updated_at = ? WHERE id = ?`).run(nextStruck, now, noteId);
+      db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ?`).run(nextStruck, now, revision, noteId);
 
       sendJsonResponse(req, res, 200, {
         id: noteId,
         scope: found.scope,
         isStruck: Boolean(nextStruck),
         updatedAt: now,
+        revision,
       });
       return true;
     }
@@ -2002,7 +2146,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
           sendJsonResponse(req, res, 404, { error: `Note not found with id: ${noteId}` });
           return true;
         }
-        sendJsonResponse(req, res, 200, formatUnifiedNote(found.row, found.scope, found.targetCol));
+        sendJsonResponse(req, res, 200, formatUnifiedNote(found.row));
         return true;
       }
 
@@ -2017,7 +2161,13 @@ export function handleApiRequest(req, res, db = getDatabase()) {
             const current = found.row;
             let newContent = current.content;
             let newOriginalContent = current.original_content;
-            let newTargets = current[found.targetCol];
+            let newScope = current.scope || 'day';
+            let newTargets = [];
+            try {
+              newTargets = JSON.parse(current.targets || current.parent_dates || current.parent_weeks || current.parent_months || '[]');
+            } catch {
+              newTargets = [];
+            }
             let newIsStruck = current.is_struck;
             let newStrikeStyle = current.strike_style;
             let newColorTag = current.color_tag;
@@ -2034,8 +2184,14 @@ export function handleApiRequest(req, res, db = getDatabase()) {
               newContent = trimmed;
             }
 
+            if (typeof body.scope === 'string') {
+              if (['time', 'day', 'week', 'month', 'year', 'span'].includes(body.scope)) {
+                newScope = body.scope;
+              }
+            }
+
             if (Array.isArray(body.targets)) {
-              newTargets = JSON.stringify(body.targets);
+              newTargets = body.targets;
             }
             if (typeof body.isStruck === 'boolean') {
               newIsStruck = body.isStruck ? 1 : 0;
@@ -2047,26 +2203,51 @@ export function handleApiRequest(req, res, db = getDatabase()) {
               newColorTag = body.colorTag || null;
             }
 
+            const bounds = calculateBounds(newScope, newTargets);
             const now = new Date().toISOString();
+            const revision = getNextLedgerRevision(db, userId);
 
             db.prepare(`
-              UPDATE ${found.table}
-              SET content = ?, original_content = ?, ${found.targetCol} = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?
+              UPDATE notes
+              SET content = ?, original_content = ?, scope = ?, targets = ?, start_at = ?, end_at = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?, revision = ?
               WHERE id = ?
-            `).run(newContent, newOriginalContent, newTargets, newIsStruck, newStrikeStyle, newColorTag, now, noteId);
+            `).run(
+              newContent,
+              newOriginalContent,
+              newScope,
+              JSON.stringify(newTargets),
+              bounds.startAt,
+              bounds.endAt,
+              newIsStruck,
+              newStrikeStyle,
+              newColorTag,
+              now,
+              revision,
+              noteId
+            );
+
+            if (userId) {
+              db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(noteId, userId);
+            } else {
+              db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL').run(noteId);
+            }
 
             const updatedRow = {
               ...current,
               content: newContent,
               original_content: newOriginalContent,
-              [found.targetCol]: newTargets,
+              scope: newScope,
+              targets: JSON.stringify(newTargets),
+              start_at: bounds.startAt,
+              end_at: bounds.endAt,
               is_struck: newIsStruck,
               strike_style: newStrikeStyle,
               color_tag: newColorTag,
               updated_at: now,
+              revision,
             };
 
-            sendJsonResponse(req, res, 200, formatUnifiedNote(updatedRow, found.scope, found.targetCol));
+            sendJsonResponse(req, res, 200, formatUnifiedNote(updatedRow));
           })
           .catch((err) => {
             sendJsonResponse(req, res, 400, { error: err.message });
@@ -2080,11 +2261,19 @@ export function handleApiRequest(req, res, db = getDatabase()) {
           return true;
         }
 
+        const now = new Date().toISOString();
+        const revision = getNextLedgerRevision(db, userId);
+
         if (userId) {
-          db.prepare(`DELETE FROM ${found.table} WHERE id = ? AND user_id = ?`).run(noteId, userId);
+          db.prepare('DELETE FROM notes WHERE id = ? AND user_id = ?').run(noteId, userId);
         } else {
-          db.prepare(`DELETE FROM ${found.table} WHERE id = ? AND user_id IS NULL`).run(noteId);
+          db.prepare('DELETE FROM notes WHERE id = ? AND user_id IS NULL').run(noteId);
         }
+
+        db.prepare(`
+          INSERT OR REPLACE INTO deleted_records (id, user_id, entity_type, deleted_at, revision)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(noteId, userId || null, 'note', now, revision);
 
         sendJsonResponse(req, res, 200, { ok: true, deletedId: noteId });
         return true;

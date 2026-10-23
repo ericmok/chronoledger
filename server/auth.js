@@ -33,8 +33,20 @@ export async function registerUser(db, { email, password, clientName, clientType
 
     // Auto-claim all existing legacy unassigned rows
     const claimNotes = db.prepare('UPDATE notes SET user_id = ? WHERE user_id IS NULL').run(userId);
-    const claimWeekNotes = db.prepare('UPDATE week_notes SET user_id = ? WHERE user_id IS NULL').run(userId);
-    const claimMonthNotes = db.prepare('UPDATE month_notes SET user_id = ? WHERE user_id IS NULL').run(userId);
+    let claimWeekNotes = { changes: 0 };
+    let claimMonthNotes = { changes: 0 };
+    try {
+      const weekTableCheck = db.prepare("SELECT type FROM sqlite_master WHERE name = 'week_notes'").get();
+      if (weekTableCheck?.type === 'table') {
+        claimWeekNotes = db.prepare('UPDATE week_notes SET user_id = ? WHERE user_id IS NULL').run(userId);
+      }
+      const monthTableCheck = db.prepare("SELECT type FROM sqlite_master WHERE name = 'month_notes'").get();
+      if (monthTableCheck?.type === 'table') {
+        claimMonthNotes = db.prepare('UPDATE month_notes SET user_id = ? WHERE user_id IS NULL').run(userId);
+      }
+    } catch {
+      // week_notes / month_notes may be views in Schema v8
+    }
     const claimDrawings = db.prepare('UPDATE drawings SET user_id = ? WHERE user_id IS NULL').run(userId);
     const claimCircled = db.prepare('UPDATE circled_dates SET user_id = ? WHERE user_id IS NULL').run(userId);
     const claimSettings = db.prepare("UPDATE settings SET user_id = ?, id = ? WHERE user_id IS NULL OR id = 'default'").run(userId, userId);
@@ -210,8 +222,18 @@ export function getUserCount(db) {
 export function getUnclaimedCount(db) {
   try {
     const notes = db.prepare('SELECT count(*) as count FROM notes WHERE user_id IS NULL').get()?.count || 0;
-    const weekNotes = db.prepare('SELECT count(*) as count FROM week_notes WHERE user_id IS NULL').get()?.count || 0;
-    const monthNotes = db.prepare('SELECT count(*) as count FROM month_notes WHERE user_id IS NULL').get()?.count || 0;
+    let weekNotes = 0;
+    let monthNotes = 0;
+    try {
+      const weekCheck = db.prepare("SELECT type FROM sqlite_master WHERE name = 'week_notes'").get();
+      if (weekCheck?.type === 'table') {
+        weekNotes = db.prepare('SELECT count(*) as count FROM week_notes WHERE user_id IS NULL').get()?.count || 0;
+      }
+      const monthCheck = db.prepare("SELECT type FROM sqlite_master WHERE name = 'month_notes'").get();
+      if (monthCheck?.type === 'table') {
+        monthNotes = db.prepare('SELECT count(*) as count FROM month_notes WHERE user_id IS NULL').get()?.count || 0;
+      }
+    } catch {}
     const drawings = db.prepare('SELECT count(*) as count FROM drawings WHERE user_id IS NULL').get()?.count || 0;
     const circledDates = db.prepare('SELECT count(*) as count FROM circled_dates WHERE user_id IS NULL').get()?.count || 0;
     return Number(notes) + Number(weekNotes) + Number(monthNotes) + Number(drawings) + Number(circledDates);
