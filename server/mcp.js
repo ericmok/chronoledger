@@ -111,12 +111,13 @@ server.tool(
 server.tool(
   'list_notes',
   {
-    scope: z.enum(['day', 'week', 'month', 'all']).optional().describe('Scope filter: day, week, month, or all (default all)'),
+    scope: z.enum(['time', 'day', 'week', 'month', 'year', 'span', 'all']).optional().describe('Scope filter: time, day, week, month, year, span, or all (default all)'),
     date: z.string().optional().describe('Exact date in YYYY-MM-DD format (for day notes). If provided, takes precedence over startDate and endDate.'),
     startDate: z.string().optional().describe('Range start date in YYYY-MM-DD format (inclusive). Used when date is omitted.'),
     endDate: z.string().optional().describe('Range end date in YYYY-MM-DD format (inclusive). Used when date is omitted.'),
     week: z.string().optional().describe('Week key in YYYY-Www format (e.g. 2026-W42)'),
     month: z.string().optional().describe('Month key in YYYY-MM format (e.g. 2026-10)'),
+    year: z.string().optional().describe('Year key in YYYY format (e.g. 2026)'),
     tag: z.string().optional().describe('Semantic tag name without @ (e.g. "todo", "wait", "important", "celebrate")'),
     status: z.enum(['all', 'open', 'completed']).optional().describe('Filter by open vs completed status'),
     query: z.string().optional().describe('Free-text search substring in note content'),
@@ -132,6 +133,7 @@ server.tool(
       if (params.endDate) query.set('end_date', params.endDate);
       if (params.week) query.set('week', params.week);
       if (params.month) query.set('month', params.month);
+      if (params.year) query.set('year', params.year);
       if (params.tag) query.set('tag', params.tag);
       if (params.status) query.set('status', params.status);
       if (params.query) query.set('q', params.query);
@@ -195,8 +197,8 @@ server.tool(
   'create_note',
   {
     content: z.string().describe('Markdown note text (e.g. "@todo Prepare client slides @urgent")'),
-    scope: z.enum(['day', 'week', 'month']).optional().describe('Scope: "day" (default), "week", or "month"'),
-    date: z.string().optional().describe('Target date YYYY-MM-DD, week YYYY-Www, or month YYYY-MM. Defaults to current.'),
+    scope: z.enum(['time', 'day', 'week', 'month', 'year', 'span']).optional().describe('Scope: "day" (default), "week", "month", "year", "time", or "span"'),
+    date: z.string().optional().describe('Target date YYYY-MM-DD, week YYYY-Www, month YYYY-MM, or year YYYY. Defaults to current.'),
     colorTag: z.string().optional().describe('Optional hex color tint (e.g. #F47290)'),
   },
   async ({ content, scope = 'day', date, colorTag }) => {
@@ -233,15 +235,17 @@ server.tool(
   {
     id: z.string().describe('ID of note to update'),
     content: z.string().optional().describe('Updated markdown content for the note'),
+    scope: z.enum(['time', 'day', 'week', 'month', 'year', 'span']).optional().describe('Temporal scope/horizon (day, week, month, year, span)'),
     targets: z.array(z.string()).optional().describe('Updated target dates/weeks/months'),
     colorTag: z.string().optional().describe('Updated hex accent color'),
     isStruck: z.boolean().optional().describe('Mark note struck through (true) or active (false)'),
     preserveDiff: z.boolean().optional().describe('If true, records prior content for paper revision diffing'),
   },
-  async ({ id, content, targets, colorTag, isStruck, preserveDiff }) => {
+  async ({ id, content, scope, targets, colorTag, isStruck, preserveDiff }) => {
     try {
       const body = {};
       if (content !== undefined) body.content = content;
+      if (scope !== undefined) body.scope = scope;
       if (targets !== undefined) body.targets = targets;
       if (colorTag !== undefined) body.colorTag = colorTag;
       if (isStruck !== undefined) body.isStruck = isStruck;
@@ -256,12 +260,44 @@ server.tool(
         content: [
           {
             type: 'text',
-            text: `✅ Note ${id} updated successfully!\nContent: ${updated.content}\nTargets: ${updated.targets?.join(', ')}\nStruck: ${updated.isStruck}`,
+            text: `✅ Note ${id} updated successfully!\nContent: ${updated.content}\nScope: ${updated.scope}\nTargets: ${updated.targets?.join(', ')}\nStruck: ${updated.isStruck}`,
           },
         ],
       };
     } catch (err) {
       return { content: [{ type: 'text', text: `Error updating note ${id}: ${err.message}` }], isError: true };
+    }
+  }
+);
+
+// --- TOOL: move_note ---
+server.tool(
+  'move_note',
+  {
+    id: z.string().describe('ID of note to move across temporal horizons'),
+    targetScope: z.enum(['time', 'day', 'week', 'month', 'year', 'span']).describe('Target temporal scope (e.g. "day", "week", "month")'),
+    targetKey: z.string().describe('Target calendar key (e.g. "2026-10-23" for day, "2026-W43" for week, "2026-10" for month)'),
+  },
+  async ({ id, targetScope, targetKey }) => {
+    try {
+      const updated = await apiRequest(`/api/notes/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          scope: targetScope,
+          targets: [targetKey],
+        }),
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `✅ Note ${id} successfully moved to ${targetScope} (${targetKey})!\nContent: ${updated.content}\nScope: ${updated.scope}\nTargets: ${updated.targets?.join(', ')}`,
+          },
+        ],
+      };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error moving note ${id}: ${err.message}` }], isError: true };
     }
   }
 );
