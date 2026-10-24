@@ -98,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-[#E5DFD5] px-4 py-2.5 flex items-center justify-between shadow-xs">
       {/* Left: Branding & Today Button */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-1.5 font-serif text-lg font-semibold tracking-tight text-[#2B2C30]">
           <span className="text-xl">🕮</span>
           <span className="hidden sm:inline">ChronoLedger</span>
@@ -124,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Mobile Compact Tool Switcher */}
-      <div className="flex md:hidden items-center gap-1">
+      <div className="flex md:hidden items-center gap-1 shrink-0">
         <button
           type="button"
           onClick={() => {
@@ -151,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Desktop Center: Analog Drawing Tools */}
-      <div className="hidden md:flex items-center gap-1 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8]">
+      <div className="hidden md:flex items-center gap-1 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8] shrink-0">
         {tools.map((t) => (
           <button
             key={t.id}
@@ -165,7 +165,7 @@ export const Header: React.FC<HeaderProps> = ({
             title={`${t.label} (${t.shortcut}) — ${t.hint}`}
           >
             {t.icon}
-            <span className="hidden md:inline">{t.label}</span>
+            <span className="hidden xl:inline">{t.label}</span>
           </button>
         ))}
 
@@ -190,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Undo & Redo History Controls */}
       {(onUndo || onRedo) && (
-        <div className="hidden sm:flex items-center gap-0.5 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8]">
+        <div className="hidden sm:flex items-center gap-0.5 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8] shrink-0">
           {onUndo && (
             <button
               type="button"
@@ -228,7 +228,7 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* Right: Backup/Restore & View Preferences */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         {/* Mobile: More Menu Trigger */}
         <div className="flex md:hidden items-center">
           <button
