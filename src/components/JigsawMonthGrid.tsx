@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, useLayoutEffect, memo } from 'react';
 import type React from 'react';
 import { ChevronLeft, ChevronRight, Compass, Plus } from 'lucide-react';
 import type { NoteItem, MonthNote, NoteScope, DrawingElement, WeekStartDay, CalendarSettings } from '../types/calendar';
@@ -70,7 +70,7 @@ const CELL_HEIGHT = 48; // 48px tall (+41% vertical space for monthly notes)
  *    - Therefore, horizontal SVG boundary lines are offset by -1.25px (Y - 1.25) so that the SVG stroke
  *      and CSS borders share the exact same pixel band [Y - 2.5, Y], eliminating vertical misalignments.
  */
-export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
+export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
   onSelectDate,
   notes,
   monthNotes,
@@ -1096,4 +1096,4 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = ({
       )}
     </aside>
   );
-};
+});

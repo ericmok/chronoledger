@@ -278,13 +278,31 @@ export function App() {
     [handlePanelChange]
   );
 
-  const handleJumpToToday = () => {
+  const handleJumpToToday = useCallback(() => {
     const todayStr = formatDateKey(new Date());
     scrollToDate(todayStr);
     if (isMobile) {
       handlePanelChange('day');
     }
-  };
+  }, [scrollToDate, isMobile, handlePanelChange]);
+
+  const handleAddQuickNote = useCallback(
+    (date: string, text: string, parentDates?: string[], colorTag?: string) => {
+      addNote(text, parentDates || [date], colorTag);
+    },
+    [addNote]
+  );
+
+  const handleCloseTool = useCallback(() => {
+    updateSettings({ activeTool: 'select' });
+  }, [updateSettings]);
+
+  const handleJumpToDateRequested = useCallback(
+    (d: string) => {
+      scrollToDate(d);
+    },
+    [scrollToDate]
+  );
 
   // Global hotkeys (Undo/Redo, Tool switching, navigation)
   useEffect(() => {
@@ -526,7 +544,7 @@ export function App() {
               onReorderNotes={reorderNotes}
               onMoveNoteToDate={moveNoteToDate}
               onMoveNoteScope={moveNoteScope}
-              onAddQuickNote={(date, text, parentDates, colorTag) => addNote(text, parentDates || [date], colorTag)}
+              onAddQuickNote={handleAddQuickNote}
               onAddWeekNote={addWeekNote}
               onToggleStrikeWeekNote={toggleStrikeWeekNote}
               onRemoveWeekNote={removeWeekNote}
@@ -538,8 +556,8 @@ export function App() {
               onRemoveDrawings={removeDrawings}
               onToggleCircleDate={toggleCircleDate}
               onCycleCircleColor={cycleCircleColor}
-              onCloseTool={() => updateSettings({ activeTool: 'select' })}
-              onJumpToDateRequested={(d) => scrollToDate(d)}
+              onCloseTool={handleCloseTool}
+              onJumpToDateRequested={handleJumpToDateRequested}
               scrollTargetDate={scrollTargetDate}
               scrollRef={scrollRef}
               hideWeekPanel={false}

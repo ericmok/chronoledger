@@ -168,12 +168,17 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
     const el = scrollRef.current;
     if (!el) return;
 
-    const handleScroll = () => {
-      update();
+    let rAFId: number | null = null;
+    const throttledUpdate = () => {
+      if (rAFId !== null) return;
+      rAFId = requestAnimationFrame(() => {
+        rAFId = null;
+        update();
+      });
     };
 
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', handleScroll);
+    el.addEventListener('scroll', throttledUpdate, { passive: true });
+    window.addEventListener('resize', throttledUpdate, { passive: true });
 
     // Initial update
     update();
@@ -181,8 +186,11 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
     const t2 = setTimeout(update, 200);
 
     return () => {
-      el.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
+      if (rAFId !== null) {
+        cancelAnimationFrame(rAFId);
+      }
+      el.removeEventListener('scroll', throttledUpdate);
+      window.removeEventListener('resize', throttledUpdate);
       clearTimeout(t1);
       clearTimeout(t2);
     };

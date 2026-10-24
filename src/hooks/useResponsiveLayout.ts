@@ -2,10 +2,19 @@ import { useState, useEffect, useCallback } from 'react';
 
 export type HorizonPanel = 'day' | 'week' | 'months' | 'reflections';
 
+/**
+ * Semantic layout tiers defining the multi-horizon presentation architecture.
+ * - mobile: < 768px (Phone / Single Horizon Swipe Deck)
+ * - compact: 768px - 1279px (Foldables / Tablets / Laptops / Split Grid)
+ * - desktop: >= 1280px (Full Desktop / Continuous 3-Column Horizon Roll)
+ */
+export type LayoutTier = 'mobile' | 'compact' | 'desktop';
+
 export interface ResponsiveLayoutState {
   isMobile: boolean; // < 768px (Phone)
-  isCompact: boolean; // 768px - 1279px (Tablet / Laptop)
+  isCompact: boolean; // 768px - 1279px (Tablet / Laptop / Foldable)
   isDesktop: boolean; // >= 1280px (Full Desktop)
+  layoutTier: LayoutTier;
   width: number;
   height: number;
   isKeyboardOpen: boolean;
@@ -17,28 +26,54 @@ export interface ResponsiveLayoutState {
   setRadarCompactView: (view: 'stacked' | 'grid' | 'reflections') => void;
 }
 
-export function useResponsiveLayout(): ResponsiveLayoutState {
-  const [dimensions, setDimensions] = useState(() => {
-    if (typeof window === 'undefined') {
-      return { width: 1440, height: 900 };
-    }
-    return { width: window.innerWidth, height: window.innerHeight };
-  });
+/**
+ * Evaluates the current semantic layout tier based on viewport width.
+ */
+export function getLayoutTier(): LayoutTier {
+  if (typeof window === 'undefined') return 'desktop';
+  const width = window.innerWidth;
+  if (width < 768) return 'mobile';
+  if (width < 1280) return 'compact';
+  return 'desktop';
+}
 
+/**
+ * Responsive layout hook built for high-performance fluid resizing.
+ *
+ * ARCHITECTURAL PRINCIPLE:
+ * We decouple discrete layout tier transitions from continuous pixel-by-pixel resizing.
+ * While dragging the window or folding a dual-screen device, CSS flexbox and grid handle
+ * fluid scaling at 120 FPS on the compositor thread. React only re-renders when the
+ * macro semantic tier ('mobile' | 'compact' | 'desktop') actually changes, avoiding
+ * hundreds of unnecessary root App re-renders.
+ */
+export function useResponsiveLayout(): ResponsiveLayoutState {
+  const [layoutTier, setLayoutTier] = useState<LayoutTier>(getLayoutTier);
   const [activePanel, setActivePanel] = useState<HorizonPanel>('day');
   const [radarCompactView, setRadarCompactView] = useState<'stacked' | 'grid' | 'reflections'>('stacked');
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
-  // Resize listener with requestAnimationFrame for performance
+  // Discrete Layout Tier Listener with requestAnimationFrame dampening
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     let rAFId: number;
 
     const handleResize = () => {
       cancelAnimationFrame(rAFId);
       rAFId = requestAnimationFrame(() => {
-        setDimensions({
-          width: window.innerWidth,
-          height: window.innerHeight,
+        const nextTier = getLayoutTier();
+        setLayoutTier((prevTier) => {
+          if (prevTier !== nextTier) {
+            // When expanding to desktop, reset compact radar view to 'stacked'
+            // so any subsequent resize down starts cleanly in Split mode
+            if (nextTier === 'desktop') {
+              setRadarCompactView('stacked');
+            }
+            return nextTier;
+          }
+          // Returning existing reference skips React re-render
+          return prevTier;
         });
       });
     };
@@ -93,16 +128,9 @@ export function useResponsiveLayout(): ResponsiveLayoutState {
     };
   }, []);
 
-  const isMobile = dimensions.width < 768;
-  const isCompact = dimensions.width >= 768 && dimensions.width < 1280;
-  const isDesktop = dimensions.width >= 1280;
-
-  // Reset compact view to 'stacked' when expanding to desktop so resizing down starts in Split mode
-  useEffect(() => {
-    if (isDesktop && radarCompactView !== 'stacked') {
-      setRadarCompactView('stacked');
-    }
-  }, [isDesktop, radarCompactView]);
+  const isMobile = layoutTier === 'mobile';
+  const isCompact = layoutTier === 'compact';
+  const isDesktop = layoutTier === 'desktop';
 
   const handleSetActivePanel = useCallback((panel: HorizonPanel) => {
     setActivePanel(panel);
@@ -116,8 +144,9 @@ export function useResponsiveLayout(): ResponsiveLayoutState {
     isMobile,
     isCompact,
     isDesktop,
-    width: dimensions.width,
-    height: dimensions.height,
+    layoutTier,
+    width: typeof window !== 'undefined' ? window.innerWidth : 1440,
+    height: typeof window !== 'undefined' ? window.innerHeight : 900,
     isKeyboardOpen,
     activePanel,
     setActivePanel: handleSetActivePanel,

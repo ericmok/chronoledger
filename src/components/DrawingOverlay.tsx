@@ -206,23 +206,36 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
 
   const isInteractive = tool !== 'select';
 
-  // Listen to window resize, container resize, and scroll to re-render responsive arrows
+  // Listen to window resize, container resize, and scroll to re-render responsive arrows.
+  // Coalesced via requestAnimationFrame to prevent forced synchronous reflows & layout thrashing.
   useEffect(() => {
-    const handleUpdate = () => setRenderTrigger((n) => n + 1);
-    window.addEventListener('resize', handleUpdate);
+    let rAFId: number | null = null;
+
+    const requestUpdate = () => {
+      if (rAFId !== null) return; // Coalesce multiple events into next display refresh frame
+      rAFId = requestAnimationFrame(() => {
+        rAFId = null;
+        setRenderTrigger((n) => n + 1);
+      });
+    };
+
+    window.addEventListener('resize', requestUpdate, { passive: true });
 
     const scrollParent = svgRef.current?.closest('.overflow-y-auto') || window;
-    scrollParent.addEventListener('scroll', handleUpdate, { passive: true });
+    scrollParent.addEventListener('scroll', requestUpdate, { passive: true });
 
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined' && svgRef.current?.parentElement) {
-      observer = new ResizeObserver(handleUpdate);
+      observer = new ResizeObserver(requestUpdate);
       observer.observe(svgRef.current.parentElement);
     }
 
     return () => {
-      window.removeEventListener('resize', handleUpdate);
-      scrollParent.removeEventListener('scroll', handleUpdate);
+      if (rAFId !== null) {
+        cancelAnimationFrame(rAFId);
+      }
+      window.removeEventListener('resize', requestUpdate);
+      scrollParent.removeEventListener('scroll', requestUpdate);
       observer?.disconnect();
     };
   }, []);

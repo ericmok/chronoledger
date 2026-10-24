@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
+import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback, memo } from 'react';
 import type React from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { DateItem, NoteItem, WeekNote, NoteScope, DrawingElement, CalendarSettings } from '../types/calendar';
@@ -45,7 +45,7 @@ interface VerticalCalendarProps {
   onOpenFolio?: (noteId: string) => void;
 }
 
-export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
+export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
   dates = [],
   notes = [],
   weekNotes = [],
@@ -511,4 +511,4 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = ({
       </div>
     </div>
   );
-};
+});
