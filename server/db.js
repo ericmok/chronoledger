@@ -12,6 +12,12 @@ import {
   createSessionCookie,
   clearSessionCookie,
 } from './auth.js';
+import {
+  triggerBackupCheck,
+  performBackup,
+  getBackupStatus,
+  cleanOrphanedTempFiles,
+} from './backup.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,6 +38,7 @@ export function getDatabase(dbPath = DEFAULT_DB_PATH) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+  cleanOrphanedTempFiles(path.join(dir, 'backups'));
 
   const db = new DatabaseSync(dbPath);
 
@@ -1116,6 +1123,7 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
     setMeta.run('schema_version', '7');
 
     db.exec('COMMIT;');
+    triggerBackupCheck(db, DEFAULT_DATA_DIR);
     return { ok: true, revision, syncedAt: now };
   } catch (err) {
     db.exec('ROLLBACK;');
@@ -1359,6 +1367,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
     setMeta.run('last_synced_at', now);
 
     db.exec('COMMIT;');
+    triggerBackupCheck(db, DEFAULT_DATA_DIR);
     return { ok: true, revision, syncedAt: now };
   } catch (err) {
     db.exec('ROLLBACK;');
@@ -1555,12 +1564,23 @@ export function findNoteById(db, noteId, userId) {
   };
 }
 
+export function getDataDirFromDb(db) {
+  try {
+    const mainDb = db?.prepare('PRAGMA database_list').all()?.find((d) => d.name === 'main');
+    if (mainDb && mainDb.file) {
+      return path.dirname(mainDb.file);
+    }
+  } catch {}
+  return DEFAULT_DATA_DIR;
+}
+
 /**
  * Handles incoming HTTP requests for `/api/*`.
  * Dispatches auth, session, calendar, and granular note requests with full multi-user support.
  */
 export function handleApiRequest(req, res, db = getDatabase()) {
   const origin = req.headers['origin'] || '*';
+  const dataDir = getDataDirFromDb(db);
 
   // 1. CORS Preflight
   if (req.method === 'OPTIONS') {
@@ -1595,8 +1615,39 @@ export function handleApiRequest(req, res, db = getDatabase()) {
         circledDates: Object.keys(data.circledDates || {}).length,
       },
       lastSyncedAt: data.syncedAt,
+      backup: getBackupStatus(dataDir),
       uptime: process.uptime(),
     });
+    return true;
+  }
+
+  // 2b. Backup status & on-demand execution: /api/backups
+  if (pathname === '/api/backups') {
+    const session = authenticateRequest(req, db);
+    const totalUsers = getUserCount(db);
+    if (!session && totalUsers > 0) {
+      sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+      return true;
+    }
+
+    if (req.method === 'GET') {
+      const status = getBackupStatus(dataDir);
+      sendJsonResponse(req, res, 200, status);
+      return true;
+    }
+
+    if (req.method === 'POST') {
+      performBackup(db, dataDir, { force: true })
+        .then((result) => {
+          sendJsonResponse(req, res, 200, { ok: true, ...result });
+        })
+        .catch((err) => {
+          sendJsonResponse(req, res, 500, { ok: false, error: err.message });
+        });
+      return true;
+    }
+
+    sendJsonResponse(req, res, 405, { error: 'Method Not Allowed' });
     return true;
   }
 
@@ -2086,6 +2137,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
             db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL').run(id);
           }
 
+          triggerBackupCheck(db, DEFAULT_DATA_DIR);
           sendJsonResponse(req, res, 201, formatUnifiedNote({
             id,
             user_id: userId,
@@ -2125,6 +2177,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
 
       db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ?`).run(nextStruck, now, revision, noteId);
 
+      triggerBackupCheck(db, DEFAULT_DATA_DIR);
       sendJsonResponse(req, res, 200, {
         id: noteId,
         scope: found.scope,
@@ -2247,6 +2300,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
               revision,
             };
 
+            triggerBackupCheck(db, DEFAULT_DATA_DIR);
             sendJsonResponse(req, res, 200, formatUnifiedNote(updatedRow));
           })
           .catch((err) => {
@@ -2275,6 +2329,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
           VALUES (?, ?, ?, ?, ?)
         `).run(noteId, userId || null, 'note', now, revision);
 
+        triggerBackupCheck(db, DEFAULT_DATA_DIR);
         sendJsonResponse(req, res, 200, { ok: true, deletedId: noteId });
         return true;
       }

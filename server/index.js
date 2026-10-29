@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleApiRequest, getDatabase } from './db.js';
+import { cleanOrphanedTempFiles } from './backup.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,7 @@ const DIST_DIR = path.join(__dirname, '..', 'dist');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
+cleanOrphanedTempFiles(path.join(DATA_DIR, 'backups'));
 const db = getDatabase(DB_PATH);
 
 const MIME_TYPES = {
