@@ -259,7 +259,7 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
   celebrate: {
     type: 'celebrate',
     primaryTag: 'celebrate',
-    aliases: ['happy', 'birthday', 'party', 'fun', 'joy', 'milestone', 'cheers'],
+    aliases: ['success', 'happy', 'birthday', 'party', 'fun', 'joy', 'milestone', 'cheers'],
     label: 'Happy Event',
     description: 'Celebration, birthday, milestone, or happy event (adds yellow dot)',
     colorName: 'yellow',
