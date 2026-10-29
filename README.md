@@ -102,7 +102,9 @@ The application is written with React 19 and TypeScript, using Tailwind CSS and 
 *A detailed specification and state flowchart of the session lifecycle can be found in [docs/AUTH_AND_SESSIONS.md](docs/AUTH_AND_SESSIONS.md).*
 
 ### Backup and Portability
-The header includes simple **Export** and **Import** options for saving and restoring your calendar as a plain JSON file.
+- **Client-Side JSON Export & Restore**: The header includes quick **Export** and **Import** options for saving and restoring your personal calendar state as a plain JSON file.
+- **Automated Server-Side GFS Database Backups**: A lightweight, multi-user **Grandfather-Father-Son (GFS)** backup engine automatically maintains exactly 3 gzipped snapshots (`recent`, `weekly`, `monthly`) in `data/backups/`. Backups run non-blockingly on user writes if $\ge 48$ hours have elapsed, bounding disk usage to $< 5\text{ MB}$.
+- *For complete architectural specifications, disaster recovery runbooks, and PostgreSQL migration instructions, see [docs/BACKUP_AND_DISASTER_RECOVERY.md](docs/BACKUP_AND_DISASTER_RECOVERY.md).*
 
 ---
 
