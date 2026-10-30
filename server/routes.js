@@ -725,7 +725,11 @@ export function handleApiRequest(req, res, db = getDatabase()) {
       const now = new Date().toISOString();
       const revision = getNextLedgerRevision(db, userId);
 
-      db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ?`).run(nextStruck, now, revision, noteId);
+      if (userId) {
+        db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ? AND user_id = ?`).run(nextStruck, now, revision, noteId, userId);
+      } else {
+        db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ? AND user_id IS NULL`).run(nextStruck, now, revision, noteId);
+      }
 
       triggerBackupCheck(db, DEFAULT_DATA_DIR);
       sendJsonResponse(req, res, 200, {
@@ -810,24 +814,46 @@ export function handleApiRequest(req, res, db = getDatabase()) {
             const now = new Date().toISOString();
             const revision = getNextLedgerRevision(db, userId);
 
-            db.prepare(`
-              UPDATE notes
-              SET content = ?, original_content = ?, scope = ?, targets = ?, start_at = ?, end_at = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?, revision = ?
-              WHERE id = ?
-            `).run(
-              newContent,
-              newOriginalContent,
-              newScope,
-              JSON.stringify(newTargets),
-              bounds.startAt,
-              bounds.endAt,
-              newIsStruck,
-              newStrikeStyle,
-              newColorTag,
-              now,
-              revision,
-              noteId
-            );
+            if (userId) {
+              db.prepare(`
+                UPDATE notes
+                SET content = ?, original_content = ?, scope = ?, targets = ?, start_at = ?, end_at = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?, revision = ?
+                WHERE id = ? AND user_id = ?
+              `).run(
+                newContent,
+                newOriginalContent,
+                newScope,
+                JSON.stringify(newTargets),
+                bounds.startAt,
+                bounds.endAt,
+                newIsStruck,
+                newStrikeStyle,
+                newColorTag,
+                now,
+                revision,
+                noteId,
+                userId
+              );
+            } else {
+              db.prepare(`
+                UPDATE notes
+                SET content = ?, original_content = ?, scope = ?, targets = ?, start_at = ?, end_at = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?, revision = ?
+                WHERE id = ? AND user_id IS NULL
+              `).run(
+                newContent,
+                newOriginalContent,
+                newScope,
+                JSON.stringify(newTargets),
+                bounds.startAt,
+                bounds.endAt,
+                newIsStruck,
+                newStrikeStyle,
+                newColorTag,
+                now,
+                revision,
+                noteId
+              );
+            }
 
             if (userId) {
               db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(noteId, userId);
