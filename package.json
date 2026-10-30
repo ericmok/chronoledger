@@ -12,7 +12,10 @@
     "preview": "vite preview",
     "server": "node server/index.js",
     "start": "node server/index.js",
-    "mcp": "node server/mcp.js"
+    "mcp": "node server/mcp.js",
+    "migrate": "node bin/migrate.js",
+    "migrate:rollback": "node bin/migrate.js --rollback",
+    "migrate:status": "node bin/migrate.js --status"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
