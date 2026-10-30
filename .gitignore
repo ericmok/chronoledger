@@ -23,6 +23,26 @@ dist-ssr
 *.sln
 *.sw?
 
-# Persistent user calendar data
+# Persistent user calendar data & databases
 data/
+*.sqlite*
+*.db
+*.db-*
+backups/
+*.gz
+*.tar.gz
 *.tmp.*
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Local Automation & Deployment Scripts (Kept locally on developer machine)
+deploy.sh
+sync-db.sh
+*.local.*
+*.local.sh
+
+# Local Prototypes & Scratch
+public/demo.html
