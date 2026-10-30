@@ -260,7 +260,13 @@ export function migrateDatabase(db) {
     db.exec('BEGIN TRANSACTION;');
     try {
       // 1. Fetch notes to correlate dates with existing note IDs
-      const noteRows = db.prepare('SELECT id, parent_dates FROM notes').all();
+      // Defensive guard: check whether legacy 'parent_dates' or unified 'targets' exists
+      const noteCols = new Set(db.prepare('PRAGMA table_info(notes)').all().map((c) => c.name));
+      const noteRows = noteCols.has('parent_dates')
+        ? db.prepare('SELECT id, parent_dates FROM notes').all()
+        : noteCols.has('targets')
+        ? db.prepare('SELECT id, targets AS parent_dates FROM notes').all()
+        : [];
       const notesByDate = new Map();
       for (const n of noteRows) {
         const parentDates = JSON.parse(n.parent_dates || '[]');
@@ -389,7 +395,14 @@ export function migrateDatabase(db) {
       `);
 
       // 2. Helper to add user_id column to existing data tables
+      // Guard against non-existent legacy tables (e.g. week_notes/month_notes consolidated in v8)
+      const tableExists = (tableName) => {
+        const row = db.prepare("SELECT type FROM sqlite_master WHERE (type='table' OR type='view') AND name = ?").get(tableName);
+        return !!row;
+      };
+
       const addColumnIfNotExists = (tableName, colName, colDef) => {
+        if (!tableExists(tableName)) return;
         const tableCols = db.prepare(`PRAGMA table_info(${tableName})`).all();
         const existingNames = new Set(tableCols.map((c) => c.name));
         if (!existingNames.has(colName)) {
@@ -408,11 +421,15 @@ export function migrateDatabase(db) {
       // 3. Create indices on user_id for high-speed scoped queries
       db.exec(`
         CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
-        CREATE INDEX IF NOT EXISTS idx_week_notes_user_id ON week_notes(user_id);
-        CREATE INDEX IF NOT EXISTS idx_month_notes_user_id ON month_notes(user_id);
         CREATE INDEX IF NOT EXISTS idx_drawings_user_id ON drawings(user_id);
         CREATE INDEX IF NOT EXISTS idx_circled_dates_user_id ON circled_dates(user_id);
       `);
+      if (tableExists('week_notes')) {
+        db.exec('CREATE INDEX IF NOT EXISTS idx_week_notes_user_id ON week_notes(user_id);');
+      }
+      if (tableExists('month_notes')) {
+        db.exec('CREATE INDEX IF NOT EXISTS idx_month_notes_user_id ON month_notes(user_id);');
+      }
 
       db.prepare(`
         INSERT INTO metadata (key, value) VALUES ('schema_version', '4')
@@ -435,9 +452,15 @@ export function migrateDatabase(db) {
         CREATE INDEX IF NOT EXISTS idx_drawings_anchor_date ON drawings(user_id, anchor_start_date);
         CREATE INDEX IF NOT EXISTS idx_circled_dates_user_key ON circled_dates(user_id, date_key);
         CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(user_id, created_at);
-        CREATE INDEX IF NOT EXISTS idx_week_notes_created_at ON week_notes(user_id, created_at);
-        CREATE INDEX IF NOT EXISTS idx_month_notes_created_at ON month_notes(user_id, created_at);
       `);
+      const hasWeekNotes = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='week_notes'").get();
+      if (hasWeekNotes) {
+        db.exec('CREATE INDEX IF NOT EXISTS idx_week_notes_created_at ON week_notes(user_id, created_at);');
+      }
+      const hasMonthNotes = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='month_notes'").get();
+      if (hasMonthNotes) {
+        db.exec('CREATE INDEX IF NOT EXISTS idx_month_notes_created_at ON month_notes(user_id, created_at);');
+      }
 
       db.prepare(`
         INSERT INTO metadata (key, value) VALUES ('schema_version', '5')
@@ -517,6 +540,8 @@ export function migrateDatabase(db) {
       // 3. Add revision column to notes, week_notes, month_notes, drawings, circled_dates if missing
       const tablesWithRevision = ['notes', 'week_notes', 'month_notes', 'drawings', 'circled_dates'];
       for (const table of tablesWithRevision) {
+        const tableCheck = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?").get(table);
+        if (!tableCheck) continue;
         const cols = db.prepare(`PRAGMA table_info(${table})`).all();
         const hasRevision = cols.some((c) => c.name === 'revision');
         if (!hasRevision) {
@@ -669,10 +694,23 @@ export function migrateDatabase(db) {
       }
 
       // 4. Replace notes table with notes_v2
-      db.exec(`
-        DROP TABLE notes;
-        ALTER TABLE notes_v2 RENAME TO notes;
+      // SQLite enforces view dependencies: dependent views and triggers must be dropped
+      // before dropping the underlying table to avoid "error in view: no such table" errors
+      const hasNotesV2 = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='notes_v2'").get();
+      if (hasNotesV2) {
+        db.exec(`
+          DROP TRIGGER IF EXISTS trg_week_notes_insert;
+          DROP TRIGGER IF EXISTS trg_week_notes_delete;
+          DROP TRIGGER IF EXISTS trg_month_notes_insert;
+          DROP TRIGGER IF EXISTS trg_month_notes_delete;
+          DROP VIEW IF EXISTS week_notes;
+          DROP VIEW IF EXISTS month_notes;
+          DROP TABLE IF EXISTS notes;
+          ALTER TABLE notes_v2 RENAME TO notes;
+        `);
+      }
 
+      db.exec(`
         CREATE INDEX IF NOT EXISTS idx_notes_user_scope ON notes(user_id, scope);
         CREATE INDEX IF NOT EXISTS idx_notes_range ON notes(user_id, start_at, end_at);
         CREATE INDEX IF NOT EXISTS idx_notes_sync ON notes(user_id, revision);
