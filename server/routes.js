@@ -139,12 +139,24 @@ export function handleApiRequest(req, res, db = getDatabase()) {
   if (pathname === '/api/health' && req.method === 'GET') {
     const session = authenticateRequest(req, db);
     const data = getCalendarData(db, session?.userId || null);
+
+    let totalNotes = 0;
+    let totalDrawings = 0;
+    try {
+      totalNotes = db.prepare('SELECT COUNT(*) as c FROM notes').get()?.c || 0;
+      totalDrawings = db.prepare('SELECT COUNT(*) as c FROM drawings').get()?.c || 0;
+    } catch {}
+
     sendJsonResponse(req, res, 200, {
       status: 'ok',
       engine: 'sqlite',
       databasePath: DEFAULT_DB_PATH,
       authenticated: Boolean(session),
       user: session ? { id: session.userId, email: session.email } : null,
+      totals: {
+        notes: totalNotes,
+        drawings: totalDrawings,
+      },
       counts: {
         notes: data.notes.length,
         weekNotes: data.weekNotes.length,
