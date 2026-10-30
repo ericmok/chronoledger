@@ -37,6 +37,21 @@ Enable users to search, filter, and aggregate all notes with semantic annotation
 
 ---
 
+## 🧪 Test Suite & Backend Hardening
+
+### Auth Cookie Round-Trip & Session Lifecycle Tests
+- **End-to-End Session Flow**:
+  1. `POST /api/auth/register` with test email and password.
+  2. Extract `Set-Cookie` header, verify security attributes (`HttpOnly`, `SameSite=Lax`, `Path=/`).
+  3. Send request to `GET /api/auth/me` passing the session cookie; assert user identity and device details match.
+  4. Send request to `GET /api/calendar` passing the session cookie; assert user-scoped data returns.
+  5. Assert unauthenticated requests receive `401 Authentication required` once users exist in the database.
+  6. `POST /api/auth/logout`; verify session is revoked in `sessions` table and response clears the cookie.
+- **Real Network Socket Testing**:
+  - Use ephemeral port `0` (`server.listen(0)`) and native `fetch` to test requests across actual TCP sockets without external libraries.
+
+---
+
 ### Implementation Scope
 
 1. **Spotlight / Command Palette (`Cmd+K` or `/`)**
