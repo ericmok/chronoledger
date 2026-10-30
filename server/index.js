@@ -2,7 +2,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleApiRequest, getDatabase } from './db.js';
+import { getDatabase } from './db.js';
+import { handleApiRequest } from './routes.js';
 import { cleanOrphanedTempFiles } from './backup.js';
 
 const __filename = fileURLToPath(import.meta.url);
