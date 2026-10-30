@@ -79,12 +79,6 @@ export function App() {
     });
   }, []);
 
-  const handleAuthSuccess = async (user: UserProfile) => {
-    setCurrentUser(user);
-    setIsAuthModalOpen(false);
-    await rehydrateRemoteCalendar();
-  };
-
   const handleLogout = async () => {
     await logoutUser();
     setCurrentUser(null);
@@ -278,6 +272,7 @@ export function App() {
     [handlePanelChange]
   );
 
+  // Jumps timeline and mobile deck directly to current date (Today)
   const handleJumpToToday = useCallback(() => {
     const todayStr = formatDateKey(new Date());
     scrollToDate(todayStr);
@@ -285,6 +280,31 @@ export function App() {
       handlePanelChange('day');
     }
   }, [scrollToDate, isMobile, handlePanelChange]);
+
+  // Auth Lifecycle: When user authenticates, rehydrate remote calendar and re-center Today.
+  // Using requestAnimationFrame ensures the DOM commits the newly populated note heights
+  // before calculating the final scroll position, avoiding the "empty-timeline scroll shift".
+  const handleAuthSuccess = useCallback(async (user: UserProfile) => {
+    setCurrentUser(user);
+    setIsAuthModalOpen(false);
+    await rehydrateRemoteCalendar();
+    requestAnimationFrame(() => {
+      handleJumpToToday();
+    });
+  }, [rehydrateRemoteCalendar, handleJumpToToday]);
+
+  // Fresh-boot Re-centering: If the browser booted with an empty cache (0 notes) and
+  // initial remote hydration subsequently populates notes into state, previous weeks expand
+  // vertically. We trigger a one-time re-centering so the viewport lands precisely on Today.
+  const initialNotesLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!initialNotesLoadedRef.current && notes.length > 0) {
+      initialNotesLoadedRef.current = true;
+      requestAnimationFrame(() => {
+        handleJumpToToday();
+      });
+    }
+  }, [notes.length, handleJumpToToday]);
 
   const handleAddQuickNote = useCallback(
     (date: string, text: string, parentDates?: string[], colorTag?: string) => {

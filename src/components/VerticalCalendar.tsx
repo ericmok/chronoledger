@@ -152,7 +152,12 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
       if (todayWeekIndex === -1) return 0;
       const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
       const itemHeight = hideWeekPanel ? 360 : 420;
-      return Math.max(0, todayWeekIndex * itemHeight - (vh / 2) + (itemHeight / 2));
+      // Proportional intra-week day offset: aligns with today's specific day of the week
+      // (e.g. Friday = day 5 of 7) rather than arbitrarily centering the midpoint (Wednesday).
+      const todayBlock = weekBlocks[todayWeekIndex];
+      const dayIdx = todayBlock?.days.findIndex((d) => d.isToday) ?? 3;
+      const dayFraction = dayIdx >= 0 ? (dayIdx + 0.5) / 7 : 0.5;
+      return Math.max(0, todayWeekIndex * itemHeight - (vh / 2) + (itemHeight * dayFraction));
     },
   });
 
@@ -241,29 +246,70 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
     return () => el.removeEventListener('scroll', onScroll);
   }, [handleLoadEarlier, handleLoadLater, scrollRef]);
 
-  // Instant initial centering on Today before first paint
+  // Instant initial centering on Today before first paint.
+  // Uses proportional day-of-week positioning to avoid landing high on the week block.
   useLayoutEffect(() => {
     if (todayWeekIndex !== -1 && scrollRef.current && !hasInitiallyScrolledRef.current) {
       hasInitiallyScrolledRef.current = true;
       const vh = scrollRef.current.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 768);
       const itemHeight = hideWeekPanel ? 360 : 420;
-      const targetOffset = Math.max(0, todayWeekIndex * itemHeight - (vh / 2) + (itemHeight / 2));
+      const todayBlock = weekBlocks[todayWeekIndex];
+      const dayIdx = todayBlock?.days.findIndex((d) => d.isToday) ?? 3;
+      const dayFraction = dayIdx >= 0 ? (dayIdx + 0.5) / 7 : 0.5;
+      const targetOffset = Math.max(0, todayWeekIndex * itemHeight - (vh / 2) + (itemHeight * dayFraction));
 
       scrollRef.current.scrollTop = targetOffset;
       virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'auto' });
     }
-  }, [todayWeekIndex, hideWeekPanel, virtualizer, scrollRef]);
+  }, [todayWeekIndex, hideWeekPanel, virtualizer, scrollRef, weekBlocks]);
 
-  // Smooth scroll to targeted date: only trigger on fresh user-requested target keys
+  // Precise day-aware scroll handler:
+  // Unlike naive virtualizer.scrollToIndex (which only aligns the 7-day week container),
+  // this dynamically measures the exact DayRow element and centers the requested day.
+  //
+  // Architectural Decisions:
+  // 1. Single Source of Truth: Uses virtualizer.scrollToOffset(...) rather than element.scrollIntoView().
+  //    This eliminates competing browser smooth-scroll animations and keeps virtualizer state 100% in sync.
+  // 2. Two-Phase Virtualization Fallback:
+  //    - Phase 1 (Already in DOM): Directly calculates deltaY between DayRow center and viewport center.
+  //    - Phase 2 (Off-Screen Week): Mounts the target week first (auto/instant), then centers the mounted
+  //      DayRow element on the subsequent animation frame once TanStack commits DOM nodes.
   useEffect(() => {
     if (!scrollTargetDate || scrollTargetDate.key === lastTargetKeyRef.current || !scrollRef.current) return;
     lastTargetKeyRef.current = scrollTargetDate.key;
 
-    const wIdx = dateToWeekIndexMap.get(scrollTargetDate.dateString);
-    if (wIdx !== undefined) {
+    const targetDate = scrollTargetDate.dateString;
+    const wIdx = dateToWeekIndexMap.get(targetDate);
+    if (wIdx === undefined) return;
+
+    const container = scrollRef.current;
+    const dayEl = container.querySelector<HTMLElement>(`[data-date-string="${targetDate}"]`);
+
+    if (dayEl) {
+      // Phase 1: Day row is already rendered in DOM.
+      // Measure true rendered geometry (accounts for variable note heights on earlier days).
+      const containerRect = container.getBoundingClientRect();
+      const dayRect = dayEl.getBoundingClientRect();
+      const deltaY = (dayRect.top + dayRect.height / 2) - (containerRect.top + containerRect.height / 2);
+      const targetOffset = Math.max(0, container.scrollTop + deltaY);
+      virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'smooth' });
+    } else {
+      // Phase 2: Target date is unmounted in virtualizer buffer (e.g. jumping across distant months).
+      // Instantly bring week into DOM without animation, then smoothly center the day row on next frame.
       virtualizer.scrollToIndex(wIdx, {
         align: 'center',
-        behavior: 'smooth',
+        behavior: 'auto',
+      });
+      requestAnimationFrame(() => {
+        if (!scrollRef.current) return;
+        const mountedDayEl = scrollRef.current.querySelector<HTMLElement>(`[data-date-string="${targetDate}"]`);
+        if (mountedDayEl) {
+          const containerRect = scrollRef.current.getBoundingClientRect();
+          const dayRect = mountedDayEl.getBoundingClientRect();
+          const deltaY = (dayRect.top + dayRect.height / 2) - (containerRect.top + containerRect.height / 2);
+          const targetOffset = Math.max(0, scrollRef.current.scrollTop + deltaY);
+          virtualizer.scrollToOffset(targetOffset, { align: 'start', behavior: 'smooth' });
+        }
       });
     }
   }, [scrollTargetDate, dateToWeekIndexMap, virtualizer, scrollRef]);
