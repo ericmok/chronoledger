@@ -41,6 +41,7 @@ backups/
 # Local Automation & Deployment Scripts (Kept locally on developer machine)
 deploy.sh
 sync-db.sh
+push-db.sh
 *.local.*
 *.local.sh
 
