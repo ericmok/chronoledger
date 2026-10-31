@@ -40,6 +40,7 @@ interface HeaderProps {
   onForceSync?: () => void;
   currentUser?: UserProfile | null;
   onOpenAuthModal?: () => void;
+  onOpenAccountSettings?: () => void;
   onLogout?: () => void;
   isMobile?: boolean;
 }
@@ -62,6 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
   onForceSync,
   currentUser,
   onOpenAuthModal,
+  onOpenAccountSettings,
   onLogout,
   isMobile: _isMobile = false,
 }) => {
@@ -283,10 +285,17 @@ export const Header: React.FC<HeaderProps> = ({
           {/* User Account / Auth Pill */}
           {currentUser ? (
             <div className="flex items-center gap-1.5 pl-2 pr-1.5 py-1 text-[11px] font-mono rounded-md bg-[#F2EDE4] text-[#2B2C30] border border-[#DDD6C8] shadow-2xs">
-              <User className="w-3.5 h-3.5 text-[#2B2C30] shrink-0" />
-              <span className="max-w-[120px] truncate font-medium" title={currentUser.email}>
-                {currentUser.email.split('@')[0]}
-              </span>
+              <button
+                type="button"
+                onClick={onOpenAccountSettings}
+                className="flex items-center gap-1.5 hover:text-[#000] transition-colors cursor-pointer"
+                title={`Account & Security Settings (${currentUser.email})`}
+              >
+                <User className="w-3.5 h-3.5 text-[#2B2C30] shrink-0" />
+                <span className="max-w-[120px] truncate font-medium">
+                  {currentUser.email.split('@')[0]}
+                </span>
+              </button>
               {onLogout && (
                 <button
                   type="button"
@@ -408,9 +417,23 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#F2EDE4]/60 border border-[#E5DFD5]">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-[#2B2C30]" />
-                <span className="text-xs font-mono font-medium text-[#2B2C30] truncate max-w-[200px]">
-                  {currentUser ? currentUser.email : 'Guest Mode (Local Only)'}
-                </span>
+                {currentUser ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenAccountSettings?.();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="text-xs font-mono font-medium text-[#2B2C30] hover:underline truncate max-w-[180px] text-left cursor-pointer"
+                    title="Open Account Settings"
+                  >
+                    {currentUser.email}
+                  </button>
+                ) : (
+                  <span className="text-xs font-mono font-medium text-[#2B2C30] truncate max-w-[200px]">
+                    Guest Mode (Local Only)
+                  </span>
+                )}
               </div>
               {currentUser ? (
                 onLogout && (

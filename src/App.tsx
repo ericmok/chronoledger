@@ -7,6 +7,7 @@ import { VerticalCalendar } from './components/VerticalCalendar';
 import { AddNoteModal } from './components/AddNoteModal';
 import { JigsawMonthGrid } from './components/JigsawMonthGrid';
 import { AuthModal } from './components/auth/AuthModal';
+import { AccountSettingsModal } from './components/auth/AccountSettingsModal';
 import { checkAuthSession, logoutUser, type UserProfile } from './services/auth';
 import { HorizonSlider } from './components/layout/HorizonSlider';
 import { StandaloneWeekRoll } from './components/calendar/StandaloneWeekRoll';
@@ -62,6 +63,7 @@ export function App() {
 
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
   const [unclaimedCount, setUnclaimedCount] = useState(0);
   const [isFirstSetup, setIsFirstSetup] = useState(false);
 
@@ -397,6 +399,7 @@ export function App() {
         onForceSync={forceSync}
         currentUser={currentUser}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
         onLogout={handleLogout}
         isMobile={isMobile}
       />
@@ -646,6 +649,13 @@ export function App() {
         onAuthSuccess={handleAuthSuccess}
         unclaimedCount={unclaimedCount}
         isFirstSetup={isFirstSetup}
+      />
+
+      {/* Account & Security Settings Modal */}
+      <AccountSettingsModal
+        isOpen={isAccountSettingsOpen}
+        onClose={() => setIsAccountSettingsOpen(false)}
+        currentUser={currentUser}
       />
     </div>
   );

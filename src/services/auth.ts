@@ -94,3 +94,101 @@ export async function logoutUser(): Promise<{ ok: boolean }> {
     return { ok: false };
   }
 }
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || 'Failed to update password' };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
+
+export interface ApiTokenItem {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: string;
+}
+
+export interface CreatedApiToken {
+  id: string;
+  name: string;
+  scopes: string[];
+  token: string;
+  createdAt: string;
+}
+
+export async function getApiTokens(): Promise<{ ok: boolean; tokens: ApiTokenItem[]; error?: string }> {
+  try {
+    const res = await fetch('/api/auth/tokens', {
+      method: 'GET',
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return { ok: false, tokens: [], error: data.error || 'Failed to fetch tokens' };
+    }
+    return { ok: true, tokens: data.tokens || [] };
+  } catch (err) {
+    return { ok: false, tokens: [], error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
+
+export async function createApiToken(
+  name: string,
+  scopes: string = 'calendar:read,calendar:write'
+): Promise<{ ok: boolean; token?: CreatedApiToken; error?: string }> {
+  try {
+    const res = await fetch('/api/auth/tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name, scopes }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || 'Failed to generate token' };
+    }
+    return {
+      ok: true,
+      token: {
+        id: data.id,
+        name: data.name,
+        scopes: data.scopes || [],
+        token: data.token,
+        createdAt: data.createdAt,
+      },
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
+
+export async function revokeApiToken(tokenId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`/api/auth/tokens/${encodeURIComponent(tokenId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || 'Failed to revoke token' };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Network error' };
+  }
+}
