@@ -100,10 +100,10 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 ? 'bg-[#FAF3EA]/90 border-[#D23B38]/60 shadow-xs'
                 : 'bg-[#F7F4EC]/60 hover:bg-[#F2EDE4]/50'
             }`
-          : `w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 border-l border-[#E5DFD5] p-2 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer ${
+          : `sticky top-2 self-start w-full max-h-[calc(100vh-80px)] p-2.5 flex flex-col justify-between group/weekpanel transition-all cursor-pointer rounded-lg border border-[#E5DFD5]/90 shadow-xs ${
               weekBlock.containsToday
-                ? 'bg-[#FAF3EA]/80 hover:bg-[#F5ECE0]/90'
-                : 'bg-[#F7F4EC]/40 hover:bg-[#F2EDE4]/30'
+                ? 'bg-[#FAF3EA] border-[#D23B38]/50 shadow-xs hover:bg-[#F5ECE0]'
+                : 'bg-[#FAF8F5] hover:bg-[#F7F4EC] hover:border-[#D5CDC0]'
             }`
       }
     >

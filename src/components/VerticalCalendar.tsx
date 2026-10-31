@@ -442,9 +442,9 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
               key={weekBlock.weekKey}
               ref={virtualizer.measureElement}
               data-index={virtualRow.index}
-              className="absolute left-0 top-0 w-full flex flex-col"
+              className="absolute left-0 w-full flex flex-col"
               style={{
-                transform: `translateY(${virtualRow.start}px)`,
+                top: `${virtualRow.start}px`,
               }}
             >
               {/* Top Week Divider for First Row (if not current week) */}
@@ -518,32 +518,40 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                   )}
                 </div>
 
-                {/* TIER 2: Week Notes (Spans the vertical height of the week) */}
+                {/* TIER 2: Week Notes Rail & Sticky Sled */}
                 {!hideWeekPanel && (
-                  <WeekFocusPanel
-                    weekBlock={weekBlock}
-                    currentWeekNotes={currentWeekNotes}
-                    isAddingWeekNote={isAddingWeekNote}
-                    availableWeeks={availableWeeks}
-                    onStartAddWeekNote={(wKey) => setQuickInputWeek(wKey)}
-                    onCancelAddWeekNote={() => setQuickInputWeek(null)}
-                    onAddWeekNote={onAddWeekNote}
-                    onToggleStrikeWeekNote={onToggleStrikeWeekNote}
-                    onRemoveWeekNote={onRemoveWeekNote}
-                    onUpdateWeekNote={onUpdateWeekNote}
-                    onAcceptNoteRevision={onAcceptNoteRevision}
-                    onReorderWeekNotes={onReorderWeekNotes}
-                    onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
-                    onMoveNoteScope={onMoveNoteScope}
-                    onJumpToWeek={(wKey) => {
-                      const targetBlock = weekBlocks.find((b) => b.weekKey === wKey);
-                      if (targetBlock && onJumpToDateRequested) {
-                        onJumpToDateRequested(targetBlock.startDate.dateString);
-                      }
-                    }}
-                    onSizeChange={() => virtualizer.measure()}
-                    onOpenFolio={onOpenFolio}
-                  />
+                  <div
+                    className={`w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 border-l border-[#E5DFD5] p-1.5 relative flex flex-col transition-colors ${
+                      weekBlock.containsToday
+                        ? 'bg-[#FAF3EA]/40'
+                        : 'bg-[#F7F4EC]/20'
+                    }`}
+                  >
+                    <WeekFocusPanel
+                      weekBlock={weekBlock}
+                      currentWeekNotes={currentWeekNotes}
+                      isAddingWeekNote={isAddingWeekNote}
+                      availableWeeks={availableWeeks}
+                      onStartAddWeekNote={(wKey) => setQuickInputWeek(wKey)}
+                      onCancelAddWeekNote={() => setQuickInputWeek(null)}
+                      onAddWeekNote={onAddWeekNote}
+                      onToggleStrikeWeekNote={onToggleStrikeWeekNote}
+                      onRemoveWeekNote={onRemoveWeekNote}
+                      onUpdateWeekNote={onUpdateWeekNote}
+                      onAcceptNoteRevision={onAcceptNoteRevision}
+                      onReorderWeekNotes={onReorderWeekNotes}
+                      onMoveWeekNoteToWeek={onMoveWeekNoteToWeek}
+                      onMoveNoteScope={onMoveNoteScope}
+                      onJumpToWeek={(wKey) => {
+                        const targetBlock = weekBlocks.find((b) => b.weekKey === wKey);
+                        if (targetBlock && onJumpToDateRequested) {
+                          onJumpToDateRequested(targetBlock.startDate.dateString);
+                        }
+                      }}
+                      onSizeChange={() => virtualizer.measure()}
+                      onOpenFolio={onOpenFolio}
+                    />
+                  </div>
                 )}
               </div>
 
