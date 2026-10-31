@@ -6,6 +6,10 @@ import {
   registerUser,
   loginUser,
   logoutUser,
+  changeUserPassword,
+  createApiToken,
+  listApiTokens,
+  revokeApiToken,
   createSessionCookie,
   clearSessionCookie,
 } from './auth.js';
@@ -73,6 +77,27 @@ export function sendJsonResponse(req, res, statusCode, data, extraHeaders = {}) 
   };
   res.writeHead(statusCode, headers);
   res.end(payload);
+}
+
+const rateLimitMap = new Map();
+
+/**
+ * Basic in-memory sliding-window rate limiter for sensitive authentication endpoints.
+ */
+export function checkRateLimit(ip, endpoint, limit = 10, windowMs = 60000) {
+  const key = `${ip || 'unknown'}:${endpoint}`;
+  const now = Date.now();
+  const timestamps = (rateLimitMap.get(key) || []).filter((t) => now - t < windowMs);
+  if (timestamps.length >= limit) {
+    return false;
+  }
+  timestamps.push(now);
+  rateLimitMap.set(key, timestamps);
+  return true;
+}
+
+export function clearRateLimits() {
+  rateLimitMap.clear();
 }
 
 function escapeRegex(str) {
@@ -236,9 +261,14 @@ export function handleApiRequest(req, res, db = getDatabase()) {
 
   // 4. Auth: POST /api/auth/register
   if (pathname === '/api/auth/register' && req.method === 'POST') {
+    const ip = req.socket?.remoteAddress;
+    if (!checkRateLimit(ip, 'register')) {
+      sendJsonResponse(req, res, 429, { ok: false, error: 'Too many registration attempts. Please try again later.' });
+      return true;
+    }
+
     readRequestBody(req)
       .then(async (body) => {
-        const ip = req.socket?.remoteAddress;
         const result = await registerUser(db, {
           email: body.email,
           password: body.password,
@@ -271,9 +301,14 @@ export function handleApiRequest(req, res, db = getDatabase()) {
 
   // 5. Auth: POST /api/auth/login
   if (pathname === '/api/auth/login' && req.method === 'POST') {
+    const ip = req.socket?.remoteAddress;
+    if (!checkRateLimit(ip, 'login')) {
+      sendJsonResponse(req, res, 429, { ok: false, error: 'Too many login attempts. Please try again later.' });
+      return true;
+    }
+
     readRequestBody(req)
       .then(async (body) => {
-        const ip = req.socket?.remoteAddress;
         const result = await loginUser(db, {
           email: body.email,
           password: body.password,
@@ -306,6 +341,79 @@ export function handleApiRequest(req, res, db = getDatabase()) {
         sendJsonResponse(req, res, 400, { ok: false, error: err.message });
       });
     return true;
+  }
+
+  // 5b. Auth: POST /api/auth/change-password
+  if (pathname === '/api/auth/change-password' && req.method === 'POST') {
+    const session = authenticateRequest(req, db);
+    if (!session) {
+      sendJsonResponse(req, res, 401, { ok: false, error: 'Authentication required' });
+      return true;
+    }
+
+    const ip = req.socket?.remoteAddress;
+    if (!checkRateLimit(ip, 'change-password')) {
+      sendJsonResponse(req, res, 429, { ok: false, error: 'Too many password change attempts. Please try again later.' });
+      return true;
+    }
+
+    readRequestBody(req)
+      .then(async (body) => {
+        await changeUserPassword(db, {
+          userId: session.userId,
+          currentPassword: body.currentPassword,
+          newPassword: body.newPassword,
+          currentToken: session.token,
+        });
+        sendJsonResponse(req, res, 200, { ok: true, message: 'Password updated successfully' });
+      })
+      .catch((err) => {
+        sendJsonResponse(req, res, 400, { ok: false, error: err.message });
+      });
+    return true;
+  }
+
+  // 5c. Auth: Personal Access Tokens API (GET /api/auth/tokens, POST /api/auth/tokens, DELETE /api/auth/tokens/:id)
+  if (pathname === '/api/auth/tokens' || pathname.startsWith('/api/auth/tokens/')) {
+    const session = authenticateRequest(req, db);
+    if (!session) {
+      sendJsonResponse(req, res, 401, { ok: false, error: 'Authentication required' });
+      return true;
+    }
+
+    if (pathname === '/api/auth/tokens' && req.method === 'GET') {
+      const tokens = listApiTokens(db, session.userId);
+      sendJsonResponse(req, res, 200, { ok: true, tokens });
+      return true;
+    }
+
+    if (pathname === '/api/auth/tokens' && req.method === 'POST') {
+      readRequestBody(req)
+        .then((body) => {
+          const tokenData = createApiToken(db, {
+            userId: session.userId,
+            name: body.name || 'API Token',
+            scopes: body.scopes || 'calendar:read,calendar:write',
+          });
+          sendJsonResponse(req, res, 201, { ok: true, ...tokenData });
+        })
+        .catch((err) => {
+          sendJsonResponse(req, res, 400, { ok: false, error: err.message });
+        });
+      return true;
+    }
+
+    const patMatch = pathname.match(/^\/api\/auth\/tokens\/([^/]+)$/);
+    if (patMatch && req.method === 'DELETE') {
+      const tokenId = decodeURIComponent(patMatch[1]);
+      const revoked = revokeApiToken(db, { userId: session.userId, tokenId });
+      if (!revoked) {
+        sendJsonResponse(req, res, 404, { ok: false, error: 'Token not found or already revoked' });
+        return true;
+      }
+      sendJsonResponse(req, res, 200, { ok: true, revokedId: tokenId });
+      return true;
+    }
   }
 
   // 6. Auth: POST /api/auth/logout

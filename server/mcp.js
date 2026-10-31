@@ -74,35 +74,39 @@ const server = new McpServer({
   version: '1.0.0',
 });
 
-// --- TOOL: login ---
+// --- TOOL: auth_status ---
 server.tool(
-  'login',
-  {
-    email: z.string().describe('User email address'),
-    password: z.string().describe('User password'),
-  },
-  async ({ email, password }) => {
+  'auth_status',
+  {},
+  async () => {
+    if (!activeToken) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: '⚠️ MCP is not authenticated. Please generate a Personal Access Token in ChronoLedger settings and set CHRONOLEDGER_TOKEN in your MCP client environment.',
+          },
+        ],
+      };
+    }
     try {
-      const data = await apiRequest('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password, clientName: 'ChronoLedger MCP Server', clientType: 'mcp' }),
-      });
-      if (data.token) {
-        activeToken = data.token;
+      const data = await apiRequest('/api/auth/me');
+      if (data.authenticated) {
         return {
           content: [
             {
               type: 'text',
-              text: `✅ Successfully authenticated as ${data.user?.email || email}. Session active for MCP tools.`,
+              text: `✅ MCP is authenticated as ${data.user?.email} (${data.user?.id}). Active token is valid.`,
             },
           ],
         };
       }
       return {
-        content: [{ type: 'text', text: '⚠️ Login response did not contain an authentication token.' }],
+        content: [{ type: 'text', text: '⚠️ MCP token was rejected by server or has expired.' }],
+        isError: true,
       };
     } catch (err) {
-      return { content: [{ type: 'text', text: `❌ Authentication failed: ${err.message}` }], isError: true };
+      return { content: [{ type: 'text', text: `❌ Failed to verify authentication: ${err.message}` }], isError: true };
     }
   }
 );
@@ -514,6 +518,9 @@ server.resource('waiting-items', 'chronoledger://waiting', async (uri) => {
 
 // Start Stdio Transport
 async function main() {
+  if (!activeToken) {
+    console.error('[MCP] Notice: CHRONOLEDGER_TOKEN is not set in environment. Set CHRONOLEDGER_TOKEN with a Personal Access Token (PAT) for authenticated access.');
+  }
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
