@@ -209,3 +209,20 @@ INSERT INTO notes (id, user_id, content, ...) VALUES (:id, :userId, :content, ..
   2. Calls `clearCalendarState()`, resetting in-memory notes, week notes, drawings, and circled dates to empty arrays.
   3. Clears `localStorage` and removes `chrono_ledger_recovery_snapshot_v1`.
   4. Returns the UI to a clean Guest state.
+
+### E. Password Change & Device Invalidation
+* **Endpoint**: `POST /api/auth/change-password`
+* **Rule**: When a user changes their password:
+  1. The server verifies their `currentPassword` using Argon2id.
+  2. The new password is validated (minimum 6 characters) and hashed with Argon2id.
+  3. `users.password_hash` is updated atomically.
+  4. **Multi-device Invalidation**: All other sessions in `sessions` table are deleted (`user_id = ? AND token_hash != ?`), forcing lost, stolen, or remote devices to re-authenticate. The active session remains authenticated.
+  5. Endpoints are protected by a sliding-window rate limiter (10 attempts/min).
+
+### F. Personal Access Tokens (PAT) & MCP Tooling
+* **Endpoints**: `GET /api/auth/tokens`, `POST /api/auth/tokens`, `DELETE /api/auth/tokens/:id`
+* **Rule**: AI agents (Claude Desktop, Antigravity, Cursor) and CLI tooling authenticate via Personal Access Tokens (`cal_pat_...`) passed as Bearer tokens or via `CHRONOLEDGER_TOKEN` environment variables.
+* **Security Standards**:
+  - LLMs never prompt users for primary passwords.
+  - Raw tokens are returned only once upon creation; only SHA-256 hashes are persisted at rest in `api_tokens`.
+  - Tokens can be revoked individually from the Account & Security Settings UI without changing master passwords.
