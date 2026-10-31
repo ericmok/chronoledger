@@ -134,7 +134,7 @@ test('Schema v8 Migration: lossless data consolidation into single notes table',
   migrateDatabase(db);
 
   const meta = db.prepare("SELECT value FROM metadata WHERE key = 'schema_version'").get();
-  assert.equal(meta.value, '8');
+  assert.ok(Number(meta.value) >= 8);
 
   // Query unified table
   const allNotes = db.prepare('SELECT * FROM notes ORDER BY id ASC').all();

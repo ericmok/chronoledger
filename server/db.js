@@ -185,7 +185,7 @@ export function getCalendarData(db = getDatabase(), userId = null) {
   } else {
     noteRows = db.prepare('SELECT * FROM notes WHERE user_id IS NULL ORDER BY rowid ASC').all();
     drawingRows = db.prepare("SELECT * FROM drawings WHERE user_id IS NULL AND type != 'circle' ORDER BY created_at ASC").all();
-    circledRows = db.prepare('SELECT * FROM circled_dates WHERE user_id IS NULL ORDER BY created_at ASC').all();
+    circledRows = db.prepare("SELECT * FROM circled_dates WHERE user_id IS NULL OR user_id = '__guest__' ORDER BY created_at ASC").all();
     settingsRow = db.prepare("SELECT * FROM settings WHERE user_id IS NULL OR id = 'default'").get();
     deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id IS NULL ORDER BY revision ASC').all();
   }
@@ -409,11 +409,11 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
       if (userId) {
         db.prepare('DELETE FROM circled_dates WHERE user_id = ?').run(userId);
       } else {
-        db.exec('DELETE FROM circled_dates WHERE user_id IS NULL;');
+        db.exec("DELETE FROM circled_dates WHERE user_id IS NULL OR user_id = '__guest__';");
       }
 
       const insertCircled = db.prepare(`
-        INSERT INTO circled_dates (date_key, user_id, color, created_at, revision)
+        INSERT OR REPLACE INTO circled_dates (date_key, user_id, color, created_at, revision)
         VALUES (?, ?, ?, ?, ?)
       `);
       const entries = Array.isArray(data.circledDates)
@@ -424,7 +424,7 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
             createdAt: (v && v.createdAt) || now,
           }));
       for (const c of entries) {
-        insertCircled.run(c.dateKey, userId || null, c.color || '#D23B38', c.createdAt || now, revision);
+        insertCircled.run(c.dateKey, userId || '__guest__', c.color || '#D23B38', c.createdAt || now, revision);
       }
     }
 
@@ -536,6 +536,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
         color_tag = excluded.color_tag,
         updated_at = excluded.updated_at,
         revision = excluded.revision
+      WHERE notes.user_id = excluded.user_id OR notes.user_id IS NULL OR notes.user_id = '__guest__'
     `);
 
     const handleNoteUpserts = (noteItems, defaultScope) => {
@@ -606,6 +607,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
             end_offset = excluded.end_offset,
             points = excluded.points,
             revision = excluded.revision
+          WHERE drawings.user_id = excluded.user_id OR drawings.user_id IS NULL OR drawings.user_id = '__guest__'
         `);
         for (const d of delta.drawings.upsert) {
           if (d.type === 'circle') continue;
@@ -635,7 +637,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
       if (Array.isArray(delta.circledDates.delete) && delta.circledDates.delete.length > 0) {
         const deleteStmt = userId
           ? db.prepare('DELETE FROM circled_dates WHERE date_key = ? AND user_id = ?')
-          : db.prepare('DELETE FROM circled_dates WHERE date_key = ? AND user_id IS NULL');
+          : db.prepare("DELETE FROM circled_dates WHERE date_key = ? AND (user_id IS NULL OR user_id = '__guest__')");
         for (const dateKey of delta.circledDates.delete) {
           if (userId) deleteStmt.run(dateKey, userId);
           else deleteStmt.run(dateKey);
@@ -647,12 +649,12 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
         const upsertCircle = db.prepare(`
           INSERT INTO circled_dates (date_key, user_id, color, created_at, revision)
           VALUES (?, ?, ?, ?, ?)
-          ON CONFLICT(date_key) DO UPDATE SET
+          ON CONFLICT(date_key, user_id) DO UPDATE SET
             color = excluded.color,
             revision = excluded.revision
         `);
         for (const [dateKey, val] of Object.entries(delta.circledDates.upsert)) {
-          upsertCircle.run(dateKey, userId || null, val.color, now, revision);
+          upsertCircle.run(dateKey, userId || '__guest__', val.color, now, revision);
           executeRemoveTombstone(dateKey);
         }
       }
@@ -747,7 +749,7 @@ export function getCalendarDelta(db = getDatabase(), sinceRevision = 0, userId =
   } else {
     noteUpserts = db.prepare('SELECT * FROM notes WHERE user_id IS NULL AND revision > ? ORDER BY rowid ASC').all(since);
     drawingUpserts = db.prepare("SELECT * FROM drawings WHERE user_id IS NULL AND type != 'circle' AND revision > ? ORDER BY created_at ASC").all(since);
-    circledUpserts = db.prepare('SELECT * FROM circled_dates WHERE user_id IS NULL AND revision > ? ORDER BY created_at ASC').all(since);
+    circledUpserts = db.prepare("SELECT * FROM circled_dates WHERE (user_id IS NULL OR user_id = '__guest__') AND revision > ? ORDER BY created_at ASC").all(since);
     deletedRows = db.prepare('SELECT id, entity_type, deleted_at, revision FROM deleted_records WHERE user_id IS NULL AND revision > ? ORDER BY revision ASC').all(since);
   }
 

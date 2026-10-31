@@ -48,7 +48,7 @@ export async function registerUser(db, { email, password, clientName, clientType
       // week_notes / month_notes may be views in Schema v8
     }
     const claimDrawings = db.prepare('UPDATE drawings SET user_id = ? WHERE user_id IS NULL').run(userId);
-    const claimCircled = db.prepare('UPDATE circled_dates SET user_id = ? WHERE user_id IS NULL').run(userId);
+    const claimCircled = db.prepare("UPDATE circled_dates SET user_id = ? WHERE user_id IS NULL OR user_id = '__guest__'").run(userId);
     const claimSettings = db.prepare("UPDATE settings SET user_id = ?, id = ? WHERE user_id IS NULL OR id = 'default'").run(userId, userId);
     const claimTombstones = db.prepare("UPDATE deleted_records SET user_id = ? WHERE user_id IS NULL OR user_id = '__guest__'").run(userId);
 
@@ -125,7 +125,7 @@ export async function loginUser(db, { email, password, clientName, clientType, i
     return null;
   }
 
-  const valid = clientType === 'mcp' || (await argon2.verify(user.password_hash, password));
+  const valid = await argon2.verify(user.password_hash, password);
   if (!valid) {
     return null;
   }
@@ -165,12 +165,126 @@ export function logoutUser(db, token) {
 }
 
 /**
- * Resolves active user session from Bearer token or HttpOnly cookie.
+ * Changes a user's password, verifying their current password and invalidating
+ * all other active sessions across devices.
+ */
+export async function changeUserPassword(db, { userId, currentPassword, newPassword, currentToken }) {
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+  if (!currentPassword || typeof currentPassword !== 'string') {
+    throw new Error('Current password is required');
+  }
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length < 6) {
+    throw new Error('New password must be at least 6 characters long');
+  }
+
+  const user = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(userId);
+  if (!user) {
+    throw new Error('User account not found');
+  }
+
+  const valid = await argon2.verify(user.password_hash, currentPassword);
+  if (!valid) {
+    throw new Error('Current password is incorrect');
+  }
+
+  const newPasswordHash = await argon2.hash(newPassword);
+
+  db.exec('BEGIN TRANSACTION;');
+  try {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPasswordHash, userId);
+
+    // Invalidate all other sessions for this user except current session
+    if (currentToken) {
+      const currentTokenHash = crypto.createHash('sha256').update(currentToken).digest('hex');
+      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?').run(userId, currentTokenHash);
+    } else {
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    }
+
+    db.exec('COMMIT;');
+    return { ok: true };
+  } catch (err) {
+    db.exec('ROLLBACK;');
+    throw err;
+  }
+}
+
+/**
+ * Creates a new Personal Access Token (PAT) for MCP, developer, or CLI integration.
+ * The raw token (cal_pat_...) is returned once; the database only stores its SHA-256 hash.
+ */
+export function createApiToken(db, { userId, name, scopes = 'calendar:read,calendar:write' }) {
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    throw new Error('Token name is required');
+  }
+
+  const rawSecret = crypto.randomBytes(24).toString('hex');
+  const token = `cal_pat_${rawSecret}`;
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const tokenId = 'pat_' + crypto.randomBytes(8).toString('hex');
+  const now = new Date().toISOString();
+  const cleanName = name.trim();
+  const cleanScopes = typeof scopes === 'string' ? scopes : Array.isArray(scopes) ? scopes.join(',') : 'calendar:read,calendar:write';
+
+  db.prepare(`
+    INSERT INTO api_tokens (id, user_id, token_hash, name, scopes, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(tokenId, userId, tokenHash, cleanName, cleanScopes, now);
+
+  return {
+    id: tokenId,
+    name: cleanName,
+    scopes: cleanScopes.split(',').map((s) => s.trim()),
+    token,
+    createdAt: now,
+  };
+}
+
+/**
+ * Lists all active Personal Access Tokens for a given user.
+ */
+export function listApiTokens(db, userId) {
+  if (!userId) return [];
+  try {
+    const rows = db.prepare(`
+      SELECT id, name, scopes, created_at
+      FROM api_tokens
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `).all(userId);
+
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      scopes: (r.scopes || '').split(',').map((s) => s.trim()),
+      createdAt: r.created_at,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Revokes a Personal Access Token by its ID.
+ */
+export function revokeApiToken(db, { userId, tokenId }) {
+  if (!userId || !tokenId) return false;
+  const res = db.prepare('DELETE FROM api_tokens WHERE id = ? AND user_id = ?').run(tokenId, userId);
+  return res.changes > 0;
+}
+
+/**
+ * Resolves active user session from Bearer token, Personal Access Token (PAT), or HttpOnly cookie.
  */
 export function authenticateRequest(req, db) {
   let token = null;
 
-  // 1. Authorization: Bearer <token> (Rust, iOS, CLI)
+  // 1. Authorization: Bearer <token> (Rust, iOS, CLI, MCP)
   const authHeader = req.headers['authorization'];
   if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
     token = authHeader.slice(7).trim();
@@ -189,6 +303,36 @@ export function authenticateRequest(req, db) {
   if (!token) return null;
 
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+  // Check Personal Access Tokens (cal_pat_... or legacy cl_pat_ / pat_)
+  if (token.startsWith('cal_pat_') || token.startsWith('cl_pat_') || token.startsWith('pat_')) {
+    try {
+      const pat = db.prepare(`
+        SELECT t.id as token_id, t.user_id, t.name as token_name, t.scopes, u.email, u.created_at as user_created_at
+        FROM api_tokens t
+        JOIN users u ON t.user_id = u.id
+        WHERE t.token_hash = ?
+      `).get(tokenHash);
+
+      if (!pat) return null;
+
+      return {
+        userId: pat.user_id,
+        email: pat.email,
+        token,
+        tokenId: pat.token_id,
+        tokenType: 'pat',
+        deviceName: pat.token_name || 'API Token',
+        clientType: 'mcp',
+        scopes: (pat.scopes || '').split(',').map((s) => s.trim()),
+        userCreatedAt: pat.user_created_at,
+      };
+    } catch {
+      // api_tokens table may not exist yet in test runner without migration
+      return null;
+    }
+  }
+
   const now = new Date().toISOString();
 
   const session = db.prepare(`
@@ -204,6 +348,7 @@ export function authenticateRequest(req, db) {
     userId: session.user_id,
     email: session.email,
     token,
+    tokenType: 'session',
     deviceName: session.device_name,
     clientType: session.client_type,
     userCreatedAt: session.user_created_at,
