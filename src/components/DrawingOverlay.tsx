@@ -571,7 +571,7 @@ export const DrawingOverlay: React.FC<DrawingOverlayProps> = ({
   return (
     <svg
       ref={svgRef}
-      className={`absolute inset-0 w-full z-20 ${
+      className={`absolute inset-0 w-full z-25 overflow-visible ${
         isInteractive ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'
       }`}
       style={{ height: `${containerHeight}px` }}

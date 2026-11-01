@@ -375,20 +375,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
         className="relative mx-auto max-w-[1600px] min-w-[340px] px-2 sm:px-4 md:px-8 py-6"
         style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%' }}
       >
-        {/* Drawing Canvas Overlay with Viewport Frustum Culling */}
-        <DrawingOverlay
-          tool={settings.activeTool}
-          inkColor={settings.inkColor}
-          drawings={drawings}
-          onAddDrawing={onAddDrawing}
-          onRemoveDrawing={onRemoveDrawing}
-          onRemoveDrawings={onRemoveDrawings}
-          containerHeight={virtualizer.getTotalSize()}
-          getDateAtY={getDateAtY}
-          getYForDate={getYForDate}
-          visibleDateRange={visibleDateRange}
-        />
-
         {/* Active Drawing Tool Helper Pill */}
         {settings.activeTool !== 'select' && (
           <div className="sticky top-2 z-30 mx-auto max-w-fit mb-3 flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-[#2B2C30] text-[#FAF8F5] text-xs font-mono shadow-md backdrop-blur-xs animate-in fade-in duration-150">
@@ -455,7 +441,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
               <div
                 className={`flex items-stretch transition-colors ${
                   weekBlock.containsToday
-                    ? 'border-2 border-[#D23B38] bg-[#FAF7F2] shadow-xs relative z-20'
+                    ? 'border-2 border-[#D23B38] bg-[#FAF7F2] shadow-xs relative z-10'
                     : 'border-x border-[#E5DFD5] bg-[#FAF8F5]'
                 }`}
               >
@@ -562,6 +548,20 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
             </div>
           );
         })}
+
+        {/* Drawing Canvas Overlay with Viewport Frustum Culling (Rendered on top of weeks & cards) */}
+        <DrawingOverlay
+          tool={settings.activeTool}
+          inkColor={settings.inkColor}
+          drawings={drawings}
+          onAddDrawing={onAddDrawing}
+          onRemoveDrawing={onRemoveDrawing}
+          onRemoveDrawings={onRemoveDrawings}
+          containerHeight={virtualizer.getTotalSize()}
+          getDateAtY={getDateAtY}
+          getYForDate={getYForDate}
+          visibleDateRange={visibleDateRange}
+        />
       </div>
     </div>
   );
