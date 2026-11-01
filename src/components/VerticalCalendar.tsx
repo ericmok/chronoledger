@@ -473,7 +473,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                       onReorderNotes={onReorderNotes}
                       onMoveNoteToDate={onMoveNoteToDate}
                       onMoveNoteScope={onMoveNoteScope}
-                      onSizeChange={() => virtualizer.measure()}
                       onOpenFolio={onOpenFolio}
                     />
                   ))}
@@ -534,7 +533,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                           onJumpToDateRequested(targetBlock.startDate.dateString);
                         }
                       }}
-                      onSizeChange={() => virtualizer.measure()}
                       onOpenFolio={onOpenFolio}
                     />
                   </div>

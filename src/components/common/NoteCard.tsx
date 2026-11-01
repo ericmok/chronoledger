@@ -689,12 +689,12 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       <div className={`flex-1 min-w-0 ${isComfortable ? 'pl-5' : 'pl-4'}`}>
         <div className="relative font-sans leading-relaxed break-words">
           {/* Progressive Disclosure Folding Container:
-              Clips rendered note content to 5 lines when isFoldable && isFolded.
-              Both the leading anchor badge and the prose share the same line box inside this container,
-              guaranteeing Line 1 flows seamlessly across both tagged and untagged notes. */}
+              Clips rendered note content to 5 lines vertically when isFoldable && isFolded.
+              Uses overflow-y-clip and overflow-x-visible so the fused leading anchor badge
+              can overhang into the negative margin at x = 0 without horizontal clipping. */}
           <div
             className={`transition-all duration-200 ${
-              isFoldable && isFolded ? 'max-h-[140px] overflow-hidden' : ''
+              isFoldable && isFolded ? 'max-h-[140px] overflow-y-clip overflow-x-visible' : ''
             }`}
           >
             {isStruck ? (
