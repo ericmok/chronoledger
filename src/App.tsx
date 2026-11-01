@@ -9,6 +9,7 @@ import { JigsawMonthGrid } from './components/JigsawMonthGrid';
 import { AuthModal } from './components/auth/AuthModal';
 import { AccountSettingsModal } from './components/auth/AccountSettingsModal';
 import { checkAuthSession, logoutUser, type UserProfile } from './services/auth';
+import { STORAGE_KEYS } from './services/storage';
 import { HorizonSlider } from './components/layout/HorizonSlider';
 import { StandaloneWeekRoll } from './components/calendar/StandaloneWeekRoll';
 import { StandaloneMonthReflectionsRoll } from './components/radar/StandaloneMonthReflectionsRoll';
@@ -70,8 +71,10 @@ export function App() {
   useEffect(() => {
     checkAuthSession().then((res) => {
       if (res.authenticated && res.user) {
+        localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, 'true');
         setCurrentUser(res.user);
       } else {
+        localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
         setUnclaimedCount(res.unclaimedCount);
         setIsFirstSetup(Boolean(res.isFirstSetup));
         if (res.isFirstSetup || res.unclaimedCount > 0) {
@@ -83,6 +86,7 @@ export function App() {
 
   const handleLogout = async () => {
     await logoutUser();
+    localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
     setCurrentUser(null);
     clearCalendarState();
     const session = await checkAuthSession();
@@ -287,6 +291,7 @@ export function App() {
   // Using requestAnimationFrame ensures the DOM commits the newly populated note heights
   // before calculating the final scroll position, avoiding the "empty-timeline scroll shift".
   const handleAuthSuccess = useCallback(async (user: UserProfile) => {
+    localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, 'true');
     setCurrentUser(user);
     setIsAuthModalOpen(false);
     await rehydrateRemoteCalendar();

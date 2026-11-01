@@ -13,7 +13,13 @@ import {
   type CalendarDeltaPayload,
   type CalendarBackupData 
 } from '../services/storage';
-import { filterAndPromoteGuestNotes } from '../services/demoNotes';
+import { 
+  isDemoId, 
+  generatePromotedNoteId, 
+  createDefaultNotes, 
+  createDefaultWeekNotes, 
+  createDefaultMonthNotes 
+} from '../services/demoNotes';
 
 export interface HistorySnapshot {
   notes: NoteItem[];
@@ -186,6 +192,34 @@ export function useCalendarState() {
     storage.addDeletedId(id);
   }, []);
 
+  // Re-point any existing drawing anchors if a targeted demo note was promoted to a user note
+  const updateDrawingAnchorsOnPromotion = useCallback((oldId: string, newId: string) => {
+    setDrawings((prev) => {
+      let changed = false;
+      const next = prev.map((d) => {
+        let dUpdated = false;
+        let startAnchor = d.startAnchor;
+        let endAnchor = d.endAnchor;
+        if (startAnchor && startAnchor.noteId === oldId) {
+          startAnchor = { ...startAnchor, noteId: newId };
+          dUpdated = true;
+        }
+        if (endAnchor && endAnchor.noteId === oldId) {
+          endAnchor = { ...endAnchor, noteId: newId };
+          dUpdated = true;
+        }
+        if (dUpdated) {
+          changed = true;
+          const updatedDraw = { ...d, startAnchor, endAnchor };
+          stageDrawingUpsert(updatedDraw);
+          return updatedDraw;
+        }
+        return d;
+      });
+      return changed ? next : prev;
+    });
+  }, [stageDrawingUpsert]);
+
   const stageCircleUpsert = useCallback((dateKey: string, color: string) => {
     dirtyQueueRef.current.circledDatesUpsert[dateKey] = { color };
     dirtyQueueRef.current.circledDatesDelete.delete(dateKey);
@@ -313,12 +347,13 @@ export function useCalendarState() {
         }
 
         // Filter local entities against server tombstones so phone deletions NEVER resurrect
-        const activeLocalNotes = filterAndPromoteGuestNotes(currentStateRef.current.notes, 'note')
-          .filter((n) => !serverDeletedIds.has(n.id) && !deletedIdsRef.current.has(n.id));
-        const activeLocalWeekNotes = filterAndPromoteGuestNotes(currentStateRef.current.weekNotes, 'wnote')
-          .filter((wn) => !serverDeletedIds.has(wn.id) && !deletedIdsRef.current.has(wn.id));
-        const activeLocalMonthNotes = filterAndPromoteGuestNotes(currentStateRef.current.monthNotes, 'mnote')
-          .filter((mn) => !serverDeletedIds.has(mn.id) && !deletedIdsRef.current.has(mn.id));
+        // Drop any unpromoted demo notes (!isDemoId) so untouched blueprints never pollute SQLite
+        const activeLocalNotes = currentStateRef.current.notes
+          .filter((n) => !isDemoId(n.id) && !serverDeletedIds.has(n.id) && !deletedIdsRef.current.has(n.id));
+        const activeLocalWeekNotes = currentStateRef.current.weekNotes
+          .filter((wn) => !isDemoId(wn.id) && !serverDeletedIds.has(wn.id) && !deletedIdsRef.current.has(wn.id));
+        const activeLocalMonthNotes = currentStateRef.current.monthNotes
+          .filter((mn) => !isDemoId(mn.id) && !serverDeletedIds.has(mn.id) && !deletedIdsRef.current.has(mn.id));
         const activeLocalDrawings = currentStateRef.current.drawings
           .filter((d) => !serverDeletedIds.has(d.id) && !deletedIdsRef.current.has(d.id));
         const activeLocalCircledDates = Object.fromEntries(
@@ -372,6 +407,12 @@ export function useCalendarState() {
           storage.saveSettings(remote.settings);
         }
 
+        deletedIdsRef.current.clear();
+        deletedCircleKeysRef.current.clear();
+        storage.clearDeletedCircleKeys();
+        storage.clearDeletedIds();
+        dirtyQueueRef.current = createEmptyDirtyQueue();
+
         if (remote.currentRevision) {
           storage.saveLastSyncedRevision(remote.currentRevision);
         }
@@ -381,15 +422,27 @@ export function useCalendarState() {
       } else {
         // Remote is empty, seed it with current genuine notes (discard untouched demo notes)
         const snapshot = currentStateRef.current;
-        const activeNotes = filterAndPromoteGuestNotes(snapshot.notes, 'note');
-        const activeWeekNotes = filterAndPromoteGuestNotes(snapshot.weekNotes, 'wnote');
-        const activeMonthNotes = filterAndPromoteGuestNotes(snapshot.monthNotes, 'mnote');
+        const activeNotes = snapshot.notes.filter((n) => !isDemoId(n.id));
+        const activeWeekNotes = snapshot.weekNotes.filter((wn) => !isDemoId(wn.id));
+        const activeMonthNotes = snapshot.monthNotes.filter((mn) => !isDemoId(mn.id));
+        const activeDrawings = snapshot.drawings.filter((d) => d.type !== 'circle');
         const currentSettings = storage.loadSettings();
+
+        // Commit filtered notes into React state and localStorage immediately
+        setNotes(activeNotes);
+        setWeekNotes(activeWeekNotes);
+        setMonthNotes(activeMonthNotes);
+        setDrawings(activeDrawings);
+        storage.saveNotes(activeNotes);
+        storage.saveWeekNotes(activeWeekNotes);
+        storage.saveMonthNotes(activeMonthNotes);
+        storage.saveDrawings(activeDrawings);
+
         const result = await saveRemoteCalendar({
           notes: activeNotes,
           weekNotes: activeWeekNotes,
           monthNotes: activeMonthNotes,
-          drawings: snapshot.drawings,
+          drawings: activeDrawings,
           circledDates: snapshot.circledDates,
           settings: currentSettings,
         });
@@ -398,6 +451,7 @@ export function useCalendarState() {
           deletedCircleKeysRef.current.clear();
           storage.clearDeletedCircleKeys();
           storage.clearDeletedIds();
+          dirtyQueueRef.current = createEmptyDirtyQueue();
           if (result.revision) {
             storage.saveLastSyncedRevision(result.revision);
           }
@@ -720,9 +774,9 @@ export function useCalendarState() {
     if (currentRevision === 0) {
       const snapshot = currentStateRef.current;
       const payload = {
-        notes: snapshot.notes,
-        weekNotes: snapshot.weekNotes,
-        monthNotes: snapshot.monthNotes,
+        notes: snapshot.notes.filter((n) => !isDemoId(n.id)),
+        weekNotes: snapshot.weekNotes.filter((wn) => !isDemoId(wn.id)),
+        monthNotes: snapshot.monthNotes.filter((mn) => !isDemoId(mn.id)),
         drawings: snapshot.drawings.filter((d) => d.type !== 'circle'),
         circledDates: snapshot.circledDates,
         settings: storage.loadSettings(),
@@ -755,12 +809,13 @@ export function useCalendarState() {
     }
 
     // 2. Incremental Log Sync (ILS): transmit row-level deltas to POST /api/calendar/delta
-    const inFlightUpsertNotes = Array.from(dirty.notesUpsert.values());
-    const inFlightDeleteNotes = Array.from(dirty.notesDelete);
-    const inFlightUpsertWeek = Array.from(dirty.weekNotesUpsert.values());
-    const inFlightDeleteWeek = Array.from(dirty.weekNotesDelete);
-    const inFlightUpsertMonth = Array.from(dirty.monthNotesUpsert.values());
-    const inFlightDeleteMonth = Array.from(dirty.monthNotesDelete);
+    // Filter out any demo IDs defensively so no demo note ever flushes to SQLite
+    const inFlightUpsertNotes = Array.from(dirty.notesUpsert.values()).filter((n) => !isDemoId(n.id));
+    const inFlightDeleteNotes = Array.from(dirty.notesDelete).filter((id) => !isDemoId(id));
+    const inFlightUpsertWeek = Array.from(dirty.weekNotesUpsert.values()).filter((wn) => !isDemoId(wn.id));
+    const inFlightDeleteWeek = Array.from(dirty.weekNotesDelete).filter((id) => !isDemoId(id));
+    const inFlightUpsertMonth = Array.from(dirty.monthNotesUpsert.values()).filter((mn) => !isDemoId(mn.id));
+    const inFlightDeleteMonth = Array.from(dirty.monthNotesDelete).filter((id) => !isDemoId(id));
     const inFlightUpsertDrawings = Array.from(dirty.drawingsUpsert.values());
     const inFlightDeleteDrawings = Array.from(dirty.drawingsDelete);
     const inFlightUpsertCircles = { ...dirty.circledDatesUpsert };
@@ -1078,14 +1133,17 @@ export function useCalendarState() {
     storage.saveLastSyncedRevision(0);
     storage.clearDeletedCircleKeys();
     storage.clearDeletedIds();
-    setNotes([]);
-    setWeekNotes([]);
-    setMonthNotes([]);
+    const freshNotes = createDefaultNotes();
+    const freshWeekNotes = createDefaultWeekNotes();
+    const freshMonthNotes = createDefaultMonthNotes();
+    setNotes(freshNotes);
+    setWeekNotes(freshWeekNotes);
+    setMonthNotes(freshMonthNotes);
     setDrawings([]);
     setCircledDates({});
-    storage.saveNotes([]);
-    storage.saveWeekNotes([]);
-    storage.saveMonthNotes([]);
+    storage.saveNotes(freshNotes);
+    storage.saveWeekNotes(freshWeekNotes);
+    storage.saveMonthNotes(freshMonthNotes);
     storage.saveDrawings([]);
     storage.saveCircledDates({});
     try {
@@ -1124,21 +1182,41 @@ export function useCalendarState() {
 
   const toggleStrikeNote = useCallback((noteId: string) => {
     recordHistory(true);
+    const isDemo = isDemoId(noteId);
+    const targetOldId = noteId;
+    const targetNewId = isDemo ? generatePromotedNoteId('note') : noteId;
+
     setNotes((prev) =>
       prev.map((n) => {
-        if (n.id === noteId) {
-          const updated = { ...n, isStruck: !n.isStruck, updatedAt: new Date().toISOString() };
+        if (n.id === targetOldId) {
+          const updated = {
+            ...n,
+            id: targetNewId,
+            isStruck: !n.isStruck,
+            updatedAt: new Date().toISOString(),
+          };
           stageNoteUpsert(updated);
           return updated;
         }
         return n;
       })
     );
-  }, [recordHistory, stageNoteUpsert]);
+
+    if (isDemo) {
+      dirtyQueueRef.current.notesUpsert.delete(targetOldId);
+      dirtyQueueRef.current.notesDelete.delete(targetOldId);
+      updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+    }
+  }, [recordHistory, stageNoteUpsert, updateDrawingAnchorsOnPromotion]);
 
   const removeNote = useCallback((noteId: string) => {
     recordHistory(true);
-    stageNoteDelete(noteId);
+    if (!isDemoId(noteId)) {
+      stageNoteDelete(noteId);
+    } else {
+      dirtyQueueRef.current.notesUpsert.delete(noteId);
+      dirtyQueueRef.current.notesDelete.delete(noteId);
+    }
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory, stageNoteDelete]);
 
@@ -1153,14 +1231,19 @@ export function useCalendarState() {
     const trimmed = newContent.trim();
     const datesChanged = Boolean(newParentDates && JSON.stringify(newParentDates) !== JSON.stringify(current.parentDates));
     const colorChanged = newColorTag !== undefined && newColorTag !== (current.colorTag || undefined);
-    if (current.content === trimmed && !datesChanged && !colorChanged) return;
+    const isDemo = isDemoId(noteId);
+    if (current.content === trimmed && !datesChanged && !colorChanged && !isDemo) return;
 
     recordHistory(true);
+    const targetOldId = noteId;
+    const targetNewId = isDemo ? generatePromotedNoteId('note') : noteId;
+
     setNotes((prev) =>
       prev.map((n) => {
-        if (n.id === noteId) {
+        if (n.id === targetOldId) {
           const updated = {
             ...n,
+            id: targetNewId,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
             parentDates: newParentDates && newParentDates.length > 0 ? newParentDates : n.parentDates,
@@ -1173,7 +1256,13 @@ export function useCalendarState() {
         return n;
       })
     );
-  }, [recordHistory, stageNoteUpsert]);
+
+    if (isDemo) {
+      dirtyQueueRef.current.notesUpsert.delete(targetOldId);
+      dirtyQueueRef.current.notesDelete.delete(targetOldId);
+      updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+    }
+  }, [recordHistory, stageNoteUpsert, updateDrawingAnchorsOnPromotion]);
 
   const acceptNoteRevision = useCallback((noteId: string) => {
     recordHistory(true);
@@ -1214,22 +1303,32 @@ export function useCalendarState() {
       if (sourceNoteId === targetNoteId && !targetDate) return;
 
       recordHistory(true);
+      const isDemo = isDemoId(sourceNoteId);
+      const targetOldId = sourceNoteId;
+      const targetNewId = isDemo ? generatePromotedNoteId('note') : sourceNoteId;
+
       setNotes((prev) => {
-        const sourceIndex = prev.findIndex((n) => n.id === sourceNoteId);
+        const sourceIndex = prev.findIndex((n) => n.id === targetOldId);
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote = sourceNote;
+        let updatedSourceNote = { ...sourceNote, id: targetNewId };
         if (targetDate && (!sourceNote.parentDates.includes(targetDate) || sourceNote.parentDates.length === 1)) {
           updatedSourceNote = {
-            ...sourceNote,
+            ...updatedSourceNote,
             parentDates: [targetDate],
+            updatedAt: new Date().toISOString(),
+          };
+          stageNoteUpsert(updatedSourceNote);
+        } else if (isDemo) {
+          updatedSourceNote = {
+            ...updatedSourceNote,
             updatedAt: new Date().toISOString(),
           };
           stageNoteUpsert(updatedSourceNote);
         }
 
-        const remaining = prev.filter((n) => n.id !== sourceNoteId);
+        const remaining = prev.filter((n) => n.id !== targetOldId);
         const targetIndex = remaining.findIndex((n) => n.id === targetNoteId);
 
         if (targetIndex === -1) {
@@ -1241,26 +1340,37 @@ export function useCalendarState() {
         next.splice(insertIndex, 0, updatedSourceNote);
         return next;
       });
+
+      if (isDemo) {
+        dirtyQueueRef.current.notesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.notesDelete.delete(targetOldId);
+        updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+      }
     },
-    [recordHistory, stageNoteUpsert]
+    [recordHistory, stageNoteUpsert, updateDrawingAnchorsOnPromotion]
   );
 
   const moveNoteToDate = useCallback(
     (noteId: string, targetDate: string, position: 'start' | 'end' = 'end') => {
       recordHistory(true);
+      const isDemo = isDemoId(noteId);
+      const targetOldId = noteId;
+      const targetNewId = isDemo ? generatePromotedNoteId('note') : noteId;
+
       setNotes((prev) => {
-        const sourceIndex = prev.findIndex((n) => n.id === noteId);
+        const sourceIndex = prev.findIndex((n) => n.id === targetOldId);
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
         const updatedSourceNote = {
           ...sourceNote,
+          id: targetNewId,
           parentDates: [targetDate],
           updatedAt: new Date().toISOString(),
         };
         stageNoteUpsert(updatedSourceNote);
 
-        const remaining = prev.filter((n) => n.id !== noteId);
+        const remaining = prev.filter((n) => n.id !== targetOldId);
         const targetDateNotes = remaining.filter((n) => n.parentDates.includes(targetDate));
 
         if (targetDateNotes.length === 0) {
@@ -1283,8 +1393,14 @@ export function useCalendarState() {
           return next;
         }
       });
+
+      if (isDemo) {
+        dirtyQueueRef.current.notesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.notesDelete.delete(targetOldId);
+        updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+      }
     },
-    [recordHistory, stageNoteUpsert]
+    [recordHistory, stageNoteUpsert, updateDrawingAnchorsOnPromotion]
   );
 
   // Week notes
@@ -1307,21 +1423,41 @@ export function useCalendarState() {
 
   const toggleStrikeWeekNote = useCallback((noteId: string) => {
     recordHistory(true);
+    const isDemo = isDemoId(noteId);
+    const targetOldId = noteId;
+    const targetNewId = isDemo ? generatePromotedNoteId('wnote') : noteId;
+
     setWeekNotes((prev) =>
       prev.map((wn) => {
-        if (wn.id === noteId) {
-          const updated = { ...wn, isStruck: !wn.isStruck, updatedAt: new Date().toISOString() };
+        if (wn.id === targetOldId) {
+          const updated = {
+            ...wn,
+            id: targetNewId,
+            isStruck: !wn.isStruck,
+            updatedAt: new Date().toISOString(),
+          };
           stageWeekNoteUpsert(updated);
           return updated;
         }
         return wn;
       })
     );
-  }, [recordHistory, stageWeekNoteUpsert]);
+
+    if (isDemo) {
+      dirtyQueueRef.current.weekNotesUpsert.delete(targetOldId);
+      dirtyQueueRef.current.weekNotesDelete.delete(targetOldId);
+      updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+    }
+  }, [recordHistory, stageWeekNoteUpsert, updateDrawingAnchorsOnPromotion]);
 
   const removeWeekNote = useCallback((noteId: string) => {
     recordHistory(true);
-    stageWeekNoteDelete(noteId);
+    if (!isDemoId(noteId)) {
+      stageWeekNoteDelete(noteId);
+    } else {
+      dirtyQueueRef.current.weekNotesUpsert.delete(noteId);
+      dirtyQueueRef.current.weekNotesDelete.delete(noteId);
+    }
     setWeekNotes((prev) => prev.filter((n) => n.id !== noteId));
   }, [recordHistory, stageWeekNoteDelete]);
 
@@ -1336,14 +1472,19 @@ export function useCalendarState() {
     const trimmed = newContent.trim();
     const weeksChanged = Boolean(newParentWeeks && JSON.stringify(newParentWeeks) !== JSON.stringify(current.parentWeeks));
     const colorChanged = newColorTag !== undefined && newColorTag !== (current.colorTag || undefined);
-    if (current.content === trimmed && !weeksChanged && !colorChanged) return;
+    const isDemo = isDemoId(noteId);
+    if (current.content === trimmed && !weeksChanged && !colorChanged && !isDemo) return;
 
     recordHistory(true);
+    const targetOldId = noteId;
+    const targetNewId = isDemo ? generatePromotedNoteId('wnote') : noteId;
+
     setWeekNotes((prev) =>
       prev.map((n) => {
-        if (n.id === noteId) {
+        if (n.id === targetOldId) {
           const updated = {
             ...n,
+            id: targetNewId,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
             parentWeeks: newParentWeeks && newParentWeeks.length > 0 ? newParentWeeks : n.parentWeeks,
@@ -1356,29 +1497,45 @@ export function useCalendarState() {
         return n;
       })
     );
-  }, [recordHistory, stageWeekNoteUpsert]);
+
+    if (isDemo) {
+      dirtyQueueRef.current.weekNotesUpsert.delete(targetOldId);
+      dirtyQueueRef.current.weekNotesDelete.delete(targetOldId);
+      updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+    }
+  }, [recordHistory, stageWeekNoteUpsert, updateDrawingAnchorsOnPromotion]);
 
   const reorderWeekNotes = useCallback(
     (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetWeek?: string) => {
       if (sourceNoteId === targetNoteId && !targetWeek) return;
 
       recordHistory(true);
+      const isDemo = isDemoId(sourceNoteId);
+      const targetOldId = sourceNoteId;
+      const targetNewId = isDemo ? generatePromotedNoteId('wnote') : sourceNoteId;
+
       setWeekNotes((prev) => {
-        const sourceIndex = prev.findIndex((n) => n.id === sourceNoteId);
+        const sourceIndex = prev.findIndex((n) => n.id === targetOldId);
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote = sourceNote;
+        let updatedSourceNote = { ...sourceNote, id: targetNewId };
         if (targetWeek && (!sourceNote.parentWeeks.includes(targetWeek) || sourceNote.parentWeeks.length === 1)) {
           updatedSourceNote = {
-            ...sourceNote,
+            ...updatedSourceNote,
             parentWeeks: [targetWeek],
+            updatedAt: new Date().toISOString(),
+          };
+          stageWeekNoteUpsert(updatedSourceNote);
+        } else if (isDemo) {
+          updatedSourceNote = {
+            ...updatedSourceNote,
             updatedAt: new Date().toISOString(),
           };
           stageWeekNoteUpsert(updatedSourceNote);
         }
 
-        const remaining = prev.filter((n) => n.id !== sourceNoteId);
+        const remaining = prev.filter((n) => n.id !== targetOldId);
         const targetIndex = remaining.findIndex((n) => n.id === targetNoteId);
 
         if (targetIndex === -1) {
@@ -1390,26 +1547,37 @@ export function useCalendarState() {
         next.splice(insertIndex, 0, updatedSourceNote);
         return next;
       });
+
+      if (isDemo) {
+        dirtyQueueRef.current.weekNotesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.weekNotesDelete.delete(targetOldId);
+        updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+      }
     },
-    [recordHistory, stageWeekNoteUpsert]
+    [recordHistory, stageWeekNoteUpsert, updateDrawingAnchorsOnPromotion]
   );
 
   const moveWeekNoteToWeek = useCallback(
     (noteId: string, targetWeek: string, position: 'start' | 'end' = 'end') => {
       recordHistory(true);
+      const isDemo = isDemoId(noteId);
+      const targetOldId = noteId;
+      const targetNewId = isDemo ? generatePromotedNoteId('wnote') : noteId;
+
       setWeekNotes((prev) => {
-        const sourceIndex = prev.findIndex((n) => n.id === noteId);
+        const sourceIndex = prev.findIndex((n) => n.id === targetOldId);
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
         const updatedSourceNote = {
           ...sourceNote,
+          id: targetNewId,
           parentWeeks: [targetWeek],
           updatedAt: new Date().toISOString(),
         };
         stageWeekNoteUpsert(updatedSourceNote);
 
-        const remaining = prev.filter((n) => n.id !== noteId);
+        const remaining = prev.filter((n) => n.id !== targetOldId);
         const targetWeekNotes = remaining.filter((n) => n.parentWeeks.includes(targetWeek));
 
         if (targetWeekNotes.length === 0) {
@@ -1432,8 +1600,14 @@ export function useCalendarState() {
           return next;
         }
       });
+
+      if (isDemo) {
+        dirtyQueueRef.current.weekNotesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.weekNotesDelete.delete(targetOldId);
+        updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+      }
     },
-    [recordHistory, stageWeekNoteUpsert]
+    [recordHistory, stageWeekNoteUpsert, updateDrawingAnchorsOnPromotion]
   );
 
   // Month notes
@@ -1456,22 +1630,42 @@ export function useCalendarState() {
 
   const toggleStrikeMonthNote = useCallback((noteId: string) => {
     recordHistory(true);
+    const isDemo = isDemoId(noteId);
+    const targetOldId = noteId;
+    const targetNewId = isDemo ? generatePromotedNoteId('mnote') : noteId;
+
     setMonthNotes((prev) =>
       prev.map((mn) => {
-        if (mn.id === noteId) {
-          const updated = { ...mn, isStruck: !mn.isStruck, updatedAt: new Date().toISOString() };
+        if (mn.id === targetOldId) {
+          const updated = {
+            ...mn,
+            id: targetNewId,
+            isStruck: !mn.isStruck,
+            updatedAt: new Date().toISOString(),
+          };
           stageMonthNoteUpsert(updated);
           return updated;
         }
         return mn;
       })
     );
-  }, [recordHistory, stageMonthNoteUpsert]);
+
+    if (isDemo) {
+      dirtyQueueRef.current.monthNotesUpsert.delete(targetOldId);
+      dirtyQueueRef.current.monthNotesDelete.delete(targetOldId);
+      updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+    }
+  }, [recordHistory, stageMonthNoteUpsert, updateDrawingAnchorsOnPromotion]);
 
   const removeMonthNote = useCallback((noteId: string) => {
     recordHistory(true);
-    stageMonthNoteDelete(noteId);
-    setMonthNotes((prev) => prev.filter((n) => n.id !== noteId));
+    if (!isDemoId(noteId)) {
+      stageMonthNoteDelete(noteId);
+    } else {
+      dirtyQueueRef.current.monthNotesUpsert.delete(noteId);
+      dirtyQueueRef.current.monthNotesDelete.delete(noteId);
+    }
+    setMonthNotes((prev) => prev.filter((mn) => mn.id !== noteId));
   }, [recordHistory, stageMonthNoteDelete]);
 
   const updateMonthNote = useCallback((
@@ -1485,14 +1679,19 @@ export function useCalendarState() {
     const trimmed = newContent.trim();
     const monthsChanged = Boolean(newParentMonths && JSON.stringify(newParentMonths) !== JSON.stringify(current.parentMonths));
     const colorChanged = newColorTag !== undefined && newColorTag !== (current.colorTag || undefined);
-    if (current.content === trimmed && !monthsChanged && !colorChanged) return;
+    const isDemo = isDemoId(noteId);
+    if (current.content === trimmed && !monthsChanged && !colorChanged && !isDemo) return;
 
     recordHistory(true);
+    const targetOldId = noteId;
+    const targetNewId = isDemo ? generatePromotedNoteId('mnote') : noteId;
+
     setMonthNotes((prev) =>
       prev.map((n) => {
-        if (n.id === noteId) {
+        if (n.id === targetOldId) {
           const updated = {
             ...n,
+            id: targetNewId,
             originalContent: n.originalContent ?? n.content,
             content: trimmed,
             parentMonths: newParentMonths && newParentMonths.length > 0 ? newParentMonths : n.parentMonths,
@@ -1505,29 +1704,45 @@ export function useCalendarState() {
         return n;
       })
     );
-  }, [recordHistory, stageMonthNoteUpsert]);
+
+    if (isDemo) {
+      dirtyQueueRef.current.monthNotesUpsert.delete(targetOldId);
+      dirtyQueueRef.current.monthNotesDelete.delete(targetOldId);
+      updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+    }
+  }, [recordHistory, stageMonthNoteUpsert, updateDrawingAnchorsOnPromotion]);
 
   const reorderMonthNotes = useCallback(
     (sourceNoteId: string, targetNoteId: string, position: 'before' | 'after', targetMonth?: string) => {
       if (sourceNoteId === targetNoteId && !targetMonth) return;
 
       recordHistory(true);
+      const isDemo = isDemoId(sourceNoteId);
+      const targetOldId = sourceNoteId;
+      const targetNewId = isDemo ? generatePromotedNoteId('mnote') : sourceNoteId;
+
       setMonthNotes((prev) => {
-        const sourceIndex = prev.findIndex((n) => n.id === sourceNoteId);
+        const sourceIndex = prev.findIndex((n) => n.id === targetOldId);
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
-        let updatedSourceNote = sourceNote;
+        let updatedSourceNote = { ...sourceNote, id: targetNewId };
         if (targetMonth && (!sourceNote.parentMonths.includes(targetMonth) || sourceNote.parentMonths.length === 1)) {
           updatedSourceNote = {
-            ...sourceNote,
+            ...updatedSourceNote,
             parentMonths: [targetMonth],
+            updatedAt: new Date().toISOString(),
+          };
+          stageMonthNoteUpsert(updatedSourceNote);
+        } else if (isDemo) {
+          updatedSourceNote = {
+            ...updatedSourceNote,
             updatedAt: new Date().toISOString(),
           };
           stageMonthNoteUpsert(updatedSourceNote);
         }
 
-        const remaining = prev.filter((n) => n.id !== sourceNoteId);
+        const remaining = prev.filter((n) => n.id !== targetOldId);
         const targetIndex = remaining.findIndex((n) => n.id === targetNoteId);
 
         if (targetIndex === -1) {
@@ -1539,26 +1754,37 @@ export function useCalendarState() {
         next.splice(insertIndex, 0, updatedSourceNote);
         return next;
       });
+
+      if (isDemo) {
+        dirtyQueueRef.current.monthNotesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.monthNotesDelete.delete(targetOldId);
+        updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+      }
     },
-    [recordHistory, stageMonthNoteUpsert]
+    [recordHistory, stageMonthNoteUpsert, updateDrawingAnchorsOnPromotion]
   );
 
   const moveMonthNoteToMonth = useCallback(
     (noteId: string, targetMonth: string, position: 'start' | 'end' = 'end') => {
       recordHistory(true);
+      const isDemo = isDemoId(noteId);
+      const targetOldId = noteId;
+      const targetNewId = isDemo ? generatePromotedNoteId('mnote') : noteId;
+
       setMonthNotes((prev) => {
-        const sourceIndex = prev.findIndex((n) => n.id === noteId);
+        const sourceIndex = prev.findIndex((n) => n.id === targetOldId);
         if (sourceIndex === -1) return prev;
         const sourceNote = prev[sourceIndex];
 
         const updatedSourceNote = {
           ...sourceNote,
+          id: targetNewId,
           parentMonths: [targetMonth],
           updatedAt: new Date().toISOString(),
         };
         stageMonthNoteUpsert(updatedSourceNote);
 
-        const remaining = prev.filter((n) => n.id !== noteId);
+        const remaining = prev.filter((n) => n.id !== targetOldId);
         const targetMonthNotes = remaining.filter((n) => n.parentMonths.includes(targetMonth));
 
         if (targetMonthNotes.length === 0) {
@@ -1581,8 +1807,14 @@ export function useCalendarState() {
           return next;
         }
       });
+
+      if (isDemo) {
+        dirtyQueueRef.current.monthNotesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.monthNotesDelete.delete(targetOldId);
+        updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+      }
     },
-    [recordHistory, stageMonthNoteUpsert]
+    [recordHistory, stageMonthNoteUpsert, updateDrawingAnchorsOnPromotion]
   );
 
   /**
@@ -1624,14 +1856,20 @@ export function useCalendarState() {
       }
 
       // 1. Remove from all collections
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      setWeekNotes((prev) => prev.filter((wn) => wn.id !== noteId));
-      setMonthNotes((prev) => prev.filter((mn) => mn.id !== noteId));
+      const isDemo = isDemoId(noteId);
+      const targetOldId = noteId;
+      const prefix = targetScope === 'day' || targetScope === 'time' ? 'note' : targetScope === 'week' ? 'wnote' : 'mnote';
+      const targetNewId = isDemo ? generatePromotedNoteId(prefix) : noteId;
+
+      setNotes((prev) => prev.filter((n) => n.id !== targetOldId));
+      setWeekNotes((prev) => prev.filter((wn) => wn.id !== targetOldId));
+      setMonthNotes((prev) => prev.filter((mn) => mn.id !== targetOldId));
 
       // 2. Build updated unified note (preserving originalContent, isStruck, strikeStyle, colorTag)
       const now = new Date().toISOString();
       const updatedNote: UnifiedNote = {
         ...sourceNote,
+        id: targetNewId,
         scope: targetScope,
         targets: targetTargets,
         parentDates: targetScope === 'day' || targetScope === 'time' ? targetTargets : undefined,
@@ -1658,23 +1896,80 @@ export function useCalendarState() {
         stageMonthNoteUpsert(item);
       }
 
+      if (isDemo) {
+        dirtyQueueRef.current.notesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.notesDelete.delete(targetOldId);
+        dirtyQueueRef.current.weekNotesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.weekNotesDelete.delete(targetOldId);
+        dirtyQueueRef.current.monthNotesUpsert.delete(targetOldId);
+        dirtyQueueRef.current.monthNotesDelete.delete(targetOldId);
+        updateDrawingAnchorsOnPromotion(targetOldId, targetNewId);
+      }
+
       return true;
     },
-    [recordHistory, stageNoteUpsert, stageWeekNoteUpsert, stageMonthNoteUpsert]
+    [recordHistory, stageNoteUpsert, stageWeekNoteUpsert, stageMonthNoteUpsert, updateDrawingAnchorsOnPromotion]
   );
 
   // Drawings
   const addDrawing = useCallback((drawingData: Omit<DrawingElement, 'id' | 'createdAt'>) => {
     recordHistory(true);
+    let startAnchor = drawingData.startAnchor;
+    let endAnchor = drawingData.endAnchor;
+
+    const promoteIfDemo = (noteId: string): string => {
+      if (!isDemoId(noteId)) return noteId;
+      const current = currentStateRef.current;
+      const dayNote = current.notes.find((n) => n.id === noteId);
+      if (dayNote) {
+        const newId = generatePromotedNoteId('note');
+        const promoted: NoteItem = { ...dayNote, id: newId, updatedAt: new Date().toISOString() };
+        stageNoteUpsert(promoted);
+        dirtyQueueRef.current.notesUpsert.delete(noteId);
+        setNotes((prev) => prev.map((n) => (n.id === noteId ? promoted : n)));
+        return newId;
+      }
+      const weekNote = current.weekNotes.find((wn) => wn.id === noteId);
+      if (weekNote) {
+        const newId = generatePromotedNoteId('wnote');
+        const promoted: WeekNote = { ...weekNote, id: newId, updatedAt: new Date().toISOString() };
+        stageWeekNoteUpsert(promoted);
+        dirtyQueueRef.current.weekNotesUpsert.delete(noteId);
+        setWeekNotes((prev) => prev.map((wn) => (wn.id === noteId ? promoted : wn)));
+        return newId;
+      }
+      const monthNote = current.monthNotes.find((mn) => mn.id === noteId);
+      if (monthNote) {
+        const newId = generatePromotedNoteId('mnote');
+        const promoted: MonthNote = { ...monthNote, id: newId, updatedAt: new Date().toISOString() };
+        stageMonthNoteUpsert(promoted);
+        dirtyQueueRef.current.monthNotesUpsert.delete(noteId);
+        setMonthNotes((prev) => prev.map((mn) => (mn.id === noteId ? promoted : mn)));
+        return newId;
+      }
+      return noteId;
+    };
+
+    if (startAnchor?.noteId && isDemoId(startAnchor.noteId)) {
+      const newId = promoteIfDemo(startAnchor.noteId);
+      startAnchor = { ...startAnchor, noteId: newId };
+    }
+    if (endAnchor?.noteId && isDemoId(endAnchor.noteId)) {
+      const newId = promoteIfDemo(endAnchor.noteId);
+      endAnchor = { ...endAnchor, noteId: newId };
+    }
+
     const newDrawing: DrawingElement = {
       ...drawingData,
+      startAnchor,
+      endAnchor,
       id: `draw-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       createdAt: new Date().toISOString(),
     };
     stageDrawingUpsert(newDrawing);
     setDrawings((prev) => [...prev, newDrawing]);
     return newDrawing;
-  }, [recordHistory, stageDrawingUpsert]);
+  }, [recordHistory, stageDrawingUpsert, stageNoteUpsert, stageWeekNoteUpsert, stageMonthNoteUpsert]);
 
   const removeDrawing = useCallback((drawingId: string) => {
     recordHistory(false);

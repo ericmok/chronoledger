@@ -129,6 +129,28 @@ const ALL_DEMO_BLUEPRINTS: readonly (DayNoteBlueprint | WeekNoteBlueprint | Mont
   ...DEMO_MONTH_NOTE_BLUEPRINTS,
 ];
 
+export const ALL_DEMO_NOTE_IDS = new Set<string>(ALL_DEMO_BLUEPRINTS.map((bp) => bp.id));
+
+/**
+ * Returns true if the ID belongs to a demo note blueprint.
+ */
+export function isDemoId(id?: string): boolean {
+  if (!id) return false;
+  return (
+    ALL_DEMO_NOTE_IDS.has(id) ||
+    id.startsWith('demo-') ||
+    id.startsWith('wnote-demo-') ||
+    id.startsWith('mnote-demo-')
+  );
+}
+
+/**
+ * Generates a collision-resistant permanent user note ID.
+ */
+export function generatePromotedNoteId(idPrefix: 'note' | 'wnote' | 'mnote'): string {
+  return `${idPrefix}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+}
+
 const DEMO_BLUEPRINT_MAP = new Map<string, { content: string; isStruck: boolean }>(
   ALL_DEMO_BLUEPRINTS.map((bp) => [
     bp.id,
@@ -236,7 +258,7 @@ export function isUntouchedDemoNote(item: { id: string; content: string; isStruc
 }
 
 /**
- * Filters out untouched demo notes, and promotes any edited demo notes to a fresh
+ * Filters out untouched demo notes, and promotes any remaining demo notes to a fresh
  * collision-resistant unique ID so they safely merge into SQLite.
  */
 export function filterAndPromoteGuestNotes<T extends { id: string; content: string; isStruck?: boolean }>(
@@ -244,9 +266,9 @@ export function filterAndPromoteGuestNotes<T extends { id: string; content: stri
   idPrefix: string
 ): T[] {
   return items
-    .filter((item) => !isUntouchedDemoNote(item))
+    .filter((item) => !isUntouchedDemoNote(item) && !isDemoId(item.id))
     .map((item) => {
-      if (DEMO_BLUEPRINT_MAP.has(item.id)) {
+      if (isDemoId(item.id)) {
         return {
           ...item,
           id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

@@ -15,6 +15,7 @@ export const STORAGE_KEYS = {
   LAST_SYNCED_REVISION: 'chrono_ledger_last_synced_revision_v1',
   SETTINGS: 'chrono_ledger_settings_v1',
   SCHEMA_VERSION: 'chrono_ledger_schema_version',
+  IS_AUTHENTICATED: 'chrono_ledger_is_authenticated',
 } as const;
 
 export interface CalendarBackupData {
@@ -156,13 +157,20 @@ export function safeLocalStorageSet(key: string, value: string): boolean {
 
 export class LocalStorageAdapter implements CalendarStorage {
   loadNotes(): NoteItem[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.NOTES);
-    if (!raw) return createDefaultNotes();
+    const isAuthenticated = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === 'true';
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.NOTES) : null;
+    if (!raw) return isAuthenticated ? [] : createDefaultNotes();
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : createDefaultNotes();
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0 && !isAuthenticated) {
+          return createDefaultNotes();
+        }
+        return parsed;
+      }
+      return isAuthenticated ? [] : createDefaultNotes();
     } catch {
-      return createDefaultNotes();
+      return isAuthenticated ? [] : createDefaultNotes();
     }
   }
 
@@ -171,13 +179,20 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   loadWeekNotes(): WeekNote[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.WEEK_NOTES);
-    if (!raw) return createDefaultWeekNotes();
+    const isAuthenticated = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === 'true';
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.WEEK_NOTES) : null;
+    if (!raw) return isAuthenticated ? [] : createDefaultWeekNotes();
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : createDefaultWeekNotes();
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0 && !isAuthenticated) {
+          return createDefaultWeekNotes();
+        }
+        return parsed;
+      }
+      return isAuthenticated ? [] : createDefaultWeekNotes();
     } catch {
-      return createDefaultWeekNotes();
+      return isAuthenticated ? [] : createDefaultWeekNotes();
     }
   }
 
@@ -186,13 +201,20 @@ export class LocalStorageAdapter implements CalendarStorage {
   }
 
   loadMonthNotes(): MonthNote[] {
-    const raw = localStorage.getItem(STORAGE_KEYS.MONTH_NOTES);
-    if (!raw) return createDefaultMonthNotes();
+    const isAuthenticated = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === 'true';
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.MONTH_NOTES) : null;
+    if (!raw) return isAuthenticated ? [] : createDefaultMonthNotes();
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : createDefaultMonthNotes();
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0 && !isAuthenticated) {
+          return createDefaultMonthNotes();
+        }
+        return parsed;
+      }
+      return isAuthenticated ? [] : createDefaultMonthNotes();
     } catch {
-      return createDefaultMonthNotes();
+      return isAuthenticated ? [] : createDefaultMonthNotes();
     }
   }
 
