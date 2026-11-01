@@ -164,6 +164,67 @@ sequenceDiagram
 
 ---
 
+### 3.4 The 3-Tier Rehydration & Baseline Reconciliation Protocol (`rehydrateRemoteCalendar`)
+
+Rehydration runs on app boot, session authentication, window focus, and after long offline gaps. It synchronizes the client ledger against SQLite across three deterministic tiers:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant State as useCalendarState
+    participant Storage as LocalStorage & DirtyQueue
+    participant Server as SQLite Server
+
+    Note over State: Rehydration Triggered (Boot / Login / Window Focus)
+    State->>Storage: loadLastSyncedRevision()
+    alt Revision > 0 (Fast Incremental Delta Pull)
+        State->>Server: GET /api/calendar/delta?since=R
+        Server-->>State: 200 OK { notes, weekNotes, monthNotes, drawings, circledDates, currentRevision }
+        State->>State: Apply remote deletes locally
+        State->>State: safeMerge remote upserts (timestamp-based conflict resolution)
+        State->>Storage: saveLastSyncedRevision(currentRevision)
+        State->>State: setSyncStatus('synced')
+    else Revision == 0 (Baseline Full Reconciliation)
+        State->>Server: GET /api/calendar
+        Server-->>State: 200 OK { notes, weekNotes, monthNotes, drawings, circledDates, deletedRecords, hasData, currentRevision }
+        alt remote.hasData == true (Existing Account Reconciliation)
+            State->>State: Filter local entities (!isDemoId) against server deletedRecords
+            State->>State: safeMerge(activeLocal, filteredRemote)
+            State->>Storage: Reset dirtyQueueRef = createEmptyDirtyQueue()
+            State->>Storage: Save merged entities to LocalStorage
+            State->>Storage: saveLastSyncedRevision(currentRevision)
+        else remote.hasData == false (Brand New Account Seeding)
+            State->>State: Filter local entities (!isDemoId)
+            State->>Storage: Commit filtered activeNotes to LocalStorage & React state
+            State->>Server: POST /api/calendar (Seed SQLite with genuine notes)
+            Server-->>State: 200 OK { ok: true, revision: rev }
+            State->>Storage: Reset dirtyQueueRef = createEmptyDirtyQueue()
+            State->>Storage: saveLastSyncedRevision(rev)
+        end
+        State->>State: setSyncStatus('synced')
+    end
+    State->>State: Mark isHydratedRef = true (Unlocks steady-state ILS)
+```
+
+#### Rehydration Guarantees
+1. **Zero-Pollution Guest Migration**:
+   Untouched demo blueprints (`isDemoId`) are strictly excluded prior to merging with remote notes or seeding a fresh account.
+2. **Immediate State Commit for New Accounts**:
+   When `remote.hasData === false`, filtered notes are committed to React state and `localStorage` before the seed POST resolves, preventing demo notes from lingering in memory.
+3. **Dirty Queue Flush Isolation**:
+   `dirtyQueueRef.current = createEmptyDirtyQueue()` runs during both baseline branches, ensuring stale guest operations never leak to `/api/calendar/delta`.
+
+---
+
+### 3.5 Defensive Guardrails in the Sync Engine (`performSync`)
+
+The synchronization loop enforces defense-in-depth against data leakage and corruption:
+1. **Hydration Gate**: `if (!isHydratedRef.current) return false;` ensures unauthenticated guest sessions never fire unauthorized sync requests.
+2. **ILS Payload Sanitization**: In `POST /api/calendar/delta`, all in-flight upserts and deletes are defensively filtered through `!isDemoId(id)`, guaranteeing that demo note identifiers can never be written to SQLite rows.
+3. **Delta Eviction by Timestamp**: Only items whose local `updatedAt` matches the in-flight snapshot are evicted from `dirtyQueueRef`, preserving any keystrokes typed while the network round-trip was in flight.
+
+---
+
 ## 4. Entity Lifecycle & State Transitions
 
 ```mermaid
