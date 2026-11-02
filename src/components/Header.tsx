@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Calendar as CalendarIcon, 
   MoveRight as ArrowIcon, 
@@ -98,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-[#E5DFD5] px-4 py-2.5 flex items-center justify-between shadow-xs">
+    <header className="flex-none shrink-0 w-full z-30 h-12 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-[#E5DFD5] px-3 sm:px-4 flex items-center justify-between shadow-xs">
       {/* Left: Branding & Today Button */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-1.5 font-serif text-lg font-semibold tracking-tight text-[#2B2C30]">
@@ -230,9 +231,31 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* Right: Backup/Restore & View Preferences */}
-      <div className="flex items-center gap-2 shrink-0">
-        {/* Mobile: More Menu Trigger */}
-        <div className="flex md:hidden items-center">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Mobile: Direct User / Auth Action & More Menu Trigger */}
+        <div className="flex md:hidden items-center gap-1.5">
+          {currentUser ? (
+            <button
+              type="button"
+              onClick={onOpenAccountSettings}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium rounded-md bg-[#F2EDE4] text-[#2B2C30] border border-[#DDD6C8] hover:bg-[#EAE3D6] transition-colors cursor-pointer max-w-[120px]"
+              title={`Account & Settings (${currentUser.email})`}
+            >
+              <User className="w-3.5 h-3.5 text-[#2B2C30] shrink-0" />
+              <span className="truncate">{currentUser.email.split('@')[0]}</span>
+            </button>
+          ) : onOpenAuthModal ? (
+            <button
+              type="button"
+              onClick={onOpenAuthModal}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium rounded-md bg-[#2B2C30] text-[#FAF8F5] hover:bg-[#404147] transition-colors cursor-pointer shadow-xs"
+              title="Sign In / Register"
+            >
+              <User className="w-3.5 h-3.5 text-[#FAF8F5] shrink-0" />
+              <span>Sign In</span>
+            </button>
+          ) : null}
+
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
@@ -392,178 +415,181 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Mobile Options Modal / Bottom Sheet */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center animate-in fade-in duration-150"
-          onClick={() => setIsMobileMenuOpen(false)}
-        >
+      {isMobileMenuOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            className="w-full max-w-lg bg-[#FAF8F5] rounded-t-2xl border-t border-[#E5DFD5] shadow-2xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end justify-center animate-in fade-in duration-150"
+            onClick={() => setIsMobileMenuOpen(false)}
           >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-[#E5DFD5] pb-2">
-              <span className="font-serif font-bold text-sm text-[#2B2C30]">Settings & Controls</span>
-              <button
-                type="button"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1 rounded-md text-[#8E8F95] hover:text-[#2B2C30] transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <div
+              className="w-full max-w-lg max-h-[85vh] overflow-y-auto bg-[#FAF8F5] rounded-t-2xl border-t border-[#E5DFD5] shadow-2xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-[#E5DFD5] pb-2">
+                <span className="font-serif font-bold text-sm text-[#2B2C30]">Settings & Controls</span>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1 rounded-md text-[#8E8F95] hover:text-[#2B2C30] transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-            {/* Account / Sync Row */}
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#F2EDE4]/60 border border-[#E5DFD5]">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-[#2B2C30]" />
+              {/* Account / Sync Row */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#F2EDE4]/60 border border-[#E5DFD5]">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-[#2B2C30]" />
+                  {currentUser ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenAccountSettings?.();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="text-xs font-mono font-medium text-[#2B2C30] hover:underline truncate max-w-[180px] text-left cursor-pointer"
+                      title="Open Account Settings"
+                    >
+                      {currentUser.email}
+                    </button>
+                  ) : (
+                    <span className="text-xs font-mono font-medium text-[#2B2C30] truncate max-w-[200px]">
+                      Guest Mode (Local Only)
+                    </span>
+                  )}
+                </div>
                 {currentUser ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenAccountSettings?.();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="text-xs font-mono font-medium text-[#2B2C30] hover:underline truncate max-w-[180px] text-left cursor-pointer"
-                    title="Open Account Settings"
-                  >
-                    {currentUser.email}
-                  </button>
+                  onLogout && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onLogout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="text-xs font-mono text-[#D23B38] hover:underline font-bold cursor-pointer"
+                    >
+                      Sign Out
+                    </button>
+                  )
                 ) : (
-                  <span className="text-xs font-mono font-medium text-[#2B2C30] truncate max-w-[200px]">
-                    Guest Mode (Local Only)
-                  </span>
+                  onOpenAuthModal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenAuthModal();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="text-xs font-mono font-bold text-[#2B2C30] underline cursor-pointer"
+                    >
+                      Sign In
+                    </button>
+                  )
                 )}
               </div>
-              {currentUser ? (
-                onLogout && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onLogout();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="text-xs font-mono text-[#D23B38] hover:underline font-bold cursor-pointer"
-                  >
-                    Sign Out
-                  </button>
-                )
-              ) : (
-                onOpenAuthModal && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onOpenAuthModal();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="text-xs font-mono font-bold text-[#2B2C30] underline cursor-pointer"
-                  >
-                    Sign In
-                  </button>
-                )
-              )}
-            </div>
 
-            {/* Drawing Color Selector */}
-            {settings.activeTool !== 'select' && settings.activeTool !== 'eraser' && (
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#F2EDE4]/60 border border-[#E5DFD5]">
-                <span className="text-xs font-mono text-[#6B6C72]">Ink Color</span>
-                <div className="flex items-center gap-2">
-                  {inkColors.map((c) => (
-                    <button
-                      key={c.hex}
-                      type="button"
-                      onClick={() => onUpdateSettings({ inkColor: c.hex })}
-                      className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
-                        settings.inkColor === c.hex
-                          ? 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]'
-                          : 'opacity-70'
-                      }`}
-                      style={{ backgroundColor: c.hex }}
-                      title={c.name}
-                    />
-                  ))}
+              {/* Drawing Color Selector */}
+              {settings.activeTool !== 'select' && settings.activeTool !== 'eraser' && (
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#F2EDE4]/60 border border-[#E5DFD5]">
+                  <span className="text-xs font-mono text-[#6B6C72]">Ink Color</span>
+                  <div className="flex items-center gap-2">
+                    {inkColors.map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        onClick={() => onUpdateSettings({ inkColor: c.hex })}
+                        className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
+                          settings.inkColor === c.hex
+                            ? 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]'
+                            : 'opacity-70'
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                        title={c.name}
+                      />
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {/* Quick Actions Grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                {/* Show Struck Items */}
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ showStruckItems: !settings.showStruckItems })}
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 hover:bg-[#F2EDE4] transition-colors cursor-pointer"
+                >
+                  <span>Struck Items</span>
+                  {settings.showStruckItems ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 text-[#A19D94]" />}
+                </button>
+
+                {/* Week Starts On */}
+                <button
+                  type="button"
+                  onClick={() => onUpdateSettings({ weekStartsOn: settings.weekStartsOn === 0 ? 1 : 0 })}
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 hover:bg-[#F2EDE4] transition-colors cursor-pointer"
+                >
+                  <span>Start Day</span>
+                  <span className="font-bold">{settings.weekStartsOn === 0 ? 'Sun' : 'Mon'}</span>
+                </button>
+
+                {/* Undo */}
+                <button
+                  type="button"
+                  onClick={() => onUndo?.()}
+                  disabled={!canUndo}
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  <span>Undo</span>
+                  <Undo className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Redo */}
+                <button
+                  type="button"
+                  onClick={() => onRedo?.()}
+                  disabled={!canRedo}
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  <span>Redo</span>
+                  <Redo className="w-3.5 h-3.5" />
+                </button>
               </div>
-            )}
 
-            {/* Quick Actions Grid */}
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-              {/* Show Struck Items */}
-              <button
-                type="button"
-                onClick={() => onUpdateSettings({ showStruckItems: !settings.showStruckItems })}
-                className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 hover:bg-[#F2EDE4] transition-colors cursor-pointer"
-              >
-                <span>Struck Items</span>
-                {settings.showStruckItems ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 text-[#A19D94]" />}
-              </button>
-
-              {/* Week Starts On */}
-              <button
-                type="button"
-                onClick={() => onUpdateSettings({ weekStartsOn: settings.weekStartsOn === 0 ? 1 : 0 })}
-                className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 hover:bg-[#F2EDE4] transition-colors cursor-pointer"
-              >
-                <span>Start Day</span>
-                <span className="font-bold">{settings.weekStartsOn === 0 ? 'Sun' : 'Mon'}</span>
-              </button>
-
-              {/* Undo */}
-              <button
-                type="button"
-                onClick={() => onUndo?.()}
-                disabled={!canUndo}
-                className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 disabled:opacity-40 transition-colors cursor-pointer"
-              >
-                <span>Undo</span>
-                <Undo className="w-3.5 h-3.5" />
-              </button>
-
-              {/* Redo */}
-              <button
-                type="button"
-                onClick={() => onRedo?.()}
-                disabled={!canRedo}
-                className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 disabled:opacity-40 transition-colors cursor-pointer"
-              >
-                <span>Redo</span>
-                <Redo className="w-3.5 h-3.5" />
-              </button>
+              {/* Backup & Restore */}
+              <div className="flex items-center gap-2 pt-1">
+                {onExportBackup && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onExportBackup();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 text-xs font-mono text-[#6B6C72] hover:text-[#2B2C30] cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export Backup</span>
+                  </button>
+                )}
+                {onImportBackup && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fileInputRef.current?.click();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 text-xs font-mono text-[#6B6C72] hover:text-[#2B2C30] cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import Backup</span>
+                  </button>
+                )}
+              </div>
             </div>
-
-            {/* Backup & Restore */}
-            <div className="flex items-center gap-2 pt-1">
-              {onExportBackup && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onExportBackup();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 text-xs font-mono text-[#6B6C72] hover:text-[#2B2C30] cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export Backup</span>
-                </button>
-              )}
-              {onImportBackup && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    fileInputRef.current?.click();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 text-xs font-mono text-[#6B6C72] hover:text-[#2B2C30] cursor-pointer"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Import Backup</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </header>
   );
 };

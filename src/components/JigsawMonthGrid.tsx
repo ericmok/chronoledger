@@ -840,7 +840,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
                 ? 'shrink-0 max-h-[50%] h-[350px] border-b border-[#E5DFD5]'
                 : 'flex-1 h-full'
             }`}
-            style={{ overflowAnchor: 'none' }}
+            style={{ overflowAnchor: 'none', overscrollBehaviorY: 'contain' }}
           >
             {settings && (
               <RadarDrawingOverlay
@@ -985,7 +985,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
           ref={gridContainerRef}
           onScroll={handleNotesRollScroll}
           className="flex-1 overflow-y-auto p-2.5 bg-[#FAF8F5] flex flex-col gap-3 select-none"
-          style={{ overflowAnchor: 'none' }}
+          style={{ overflowAnchor: 'none', overscrollBehaviorY: 'contain' }}
         >
           {notesMonthMetas.map((m) => {
             const notes = monthNotesByMonth.get(m.monthKey) || [];
