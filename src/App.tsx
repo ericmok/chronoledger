@@ -420,7 +420,6 @@ export function App() {
             style={{
               scrollSnapType: 'x mandatory',
               WebkitOverflowScrolling: 'touch',
-              overscrollBehaviorX: 'contain',
             }}
           >
             {/* Panel 0: Day Timeline */}

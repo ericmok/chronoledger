@@ -369,10 +369,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
     <div
       ref={scrollRef}
       className="relative flex-1 min-h-0 overflow-y-auto paper-texture select-none h-full outline-hidden"
-      style={{
-        overflowAnchor: 'none',
-        overscrollBehaviorY: 'contain',
-      }}
+      style={{ overflowAnchor: 'none' }}
     >
       <div
         className="relative mx-auto max-w-[1600px] min-w-[340px] px-2 sm:px-4 md:px-8 py-6"

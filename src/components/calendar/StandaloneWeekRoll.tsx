@@ -194,10 +194,7 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
     <div
       ref={scrollRef}
       className="relative flex-1 min-h-0 overflow-y-auto paper-texture select-none h-full outline-hidden px-3 py-4"
-      style={{
-        overflowAnchor: 'none',
-        overscrollBehaviorY: 'contain',
-      }}
+      style={{ overflowAnchor: 'none' }}
     >
       <div className="max-w-[720px] mx-auto pb-16">
         <div className="sticky top-0 z-20 bg-[#FAF8F5]/95 backdrop-blur-xs flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-[#8E8F95] py-2 border-b border-[#E5DFD5] mb-4">
