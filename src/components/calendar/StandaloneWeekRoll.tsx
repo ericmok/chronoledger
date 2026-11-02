@@ -197,7 +197,6 @@ export const StandaloneWeekRoll: React.FC<StandaloneWeekRollProps> = ({
       style={{
         overflowAnchor: 'none',
         overscrollBehaviorY: 'contain',
-        touchAction: 'pan-y',
       }}
     >
       <div className="max-w-[720px] mx-auto pb-16">

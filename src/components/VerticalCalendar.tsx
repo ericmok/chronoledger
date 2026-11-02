@@ -372,7 +372,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
       style={{
         overflowAnchor: 'none',
         overscrollBehaviorY: 'contain',
-        touchAction: 'pan-y',
       }}
     >
       <div

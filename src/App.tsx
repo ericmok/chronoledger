@@ -421,7 +421,6 @@ export function App() {
               scrollSnapType: 'x mandatory',
               WebkitOverflowScrolling: 'touch',
               overscrollBehaviorX: 'contain',
-              touchAction: 'pan-x pan-y',
             }}
           >
             {/* Panel 0: Day Timeline */}

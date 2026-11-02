@@ -106,7 +106,6 @@ export const StandaloneMonthReflectionsRoll: React.FC<StandaloneMonthReflections
       className="relative flex-1 min-h-0 overflow-y-auto paper-texture select-none h-full outline-hidden px-3 py-4"
       style={{
         overscrollBehaviorY: 'contain',
-        touchAction: 'pan-y',
       }}
     >
       <div className="max-w-[720px] mx-auto pb-16">
