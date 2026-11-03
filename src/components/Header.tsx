@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-[#E5DFD5] px-4 py-2.5 flex items-center justify-between shadow-xs">
+    <header className="flex-none shrink-0 w-full z-30 h-12 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-[#E5DFD5] px-3 sm:px-4 flex items-center justify-between shadow-xs">
       {/* Left: Branding & Today Button */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-1.5 font-serif text-lg font-semibold tracking-tight text-[#2B2C30]">

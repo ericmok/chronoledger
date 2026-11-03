@@ -384,7 +384,7 @@ export function App() {
   }, [updateSettings, undo, redo]);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FAF8F5] text-[#2B2C30]">
+    <div className="flex flex-col h-full w-full overflow-hidden bg-[#FAF8F5] text-[#2B2C30]">
       {/* Top Analog Header Bar */}
       <Header
         settings={settings}
@@ -411,12 +411,12 @@ export function App() {
 
       {/* Main Container: Mobile Horizon Deck OR Desktop/Laptop Roll */}
       {isMobile ? (
-        <div className="flex-1 relative flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 relative flex flex-col overflow-hidden">
           {/* Mobile Horizon Deck: 4 Horizontal Panning Surfaces with CSS Scroll-Snap */}
           <div
             ref={deckRef}
             onScroll={handleScrollDeck}
-            className="flex-1 w-full flex overflow-x-auto overflow-y-hidden select-none scroll-smooth pb-14"
+            className="flex-1 min-h-0 w-full flex overflow-x-auto overflow-y-hidden select-none scroll-smooth pb-14"
             style={{
               scrollSnapType: 'x mandatory',
               WebkitOverflowScrolling: 'touch',
@@ -553,7 +553,7 @@ export function App() {
         </div>
       ) : (
         /* Desktop & Laptop Layout: Infinite Vertical Roll (Left) + Months (Right) */
-        <div className="flex-1 relative flex overflow-hidden">
+        <div className="flex-1 min-h-0 relative flex overflow-hidden">
           {/* Infinite Vertical Calendar View */}
           <main className="flex-1 relative flex flex-col overflow-hidden min-w-0">
             <VerticalCalendar
