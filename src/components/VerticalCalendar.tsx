@@ -397,16 +397,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
           </div>
         )}
 
-        {/* Column Headers for 3-Tier Layout */}
-        <div className="sticky top-0 z-20 bg-[#FAF8F5]/95 backdrop-blur-xs flex items-center text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] py-2 border-b border-[#E5DFD5] mb-2">
-          <div className="w-8 shrink-0 font-semibold text-center">Mo</div>
-          <div className="w-12 shrink-0 font-semibold text-center">Date</div>
-          <div className="flex-1 font-semibold pl-1.5">Daily Notes & Tasks</div>
-          {!hideWeekPanel && (
-            <div className="w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 font-semibold pl-2.5 border-l border-[#E5DFD5]">Weekly Scratch Pad</div>
-          )}
-        </div>
-
         {/* Sticky Month Rail (Fixed vertically at 50% screen height) */}
         <StickyMonthRail
           scrollRef={scrollRef}
