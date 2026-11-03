@@ -384,6 +384,9 @@ export function App() {
   }, [updateSettings, undo, redo]);
 
   return (
+    // Invariant: Root container strictly uses h-full w-full (never h-screen / 100vh) to prevent
+    // mobile browser URL bar expansion from overflowing the viewport and causing window-level scrolling.
+    // The Header is a rigid flex sibling (flex-none) anchored above the flex-1 min-h-0 deck.
     <div className="flex flex-col h-full w-full overflow-hidden bg-[#FAF8F5] text-[#2B2C30]">
       {/* Top Analog Header Bar */}
       <Header

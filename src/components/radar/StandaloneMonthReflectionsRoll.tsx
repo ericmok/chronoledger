@@ -84,7 +84,8 @@ export const StandaloneMonthReflectionsRoll: React.FC<StandaloneMonthReflections
 
   const currentMonthKey = useMemo(() => formatDateKey(new Date()).slice(0, 7), []);
 
-  // Smooth scroll to target month or current month inside container only (avoiding window scrollIntoView)
+  // Invariant: Container-scoped scroll only. Native el.scrollIntoView() causes mobile
+  // browser engines to scroll window/document, which pushes sticky or fixed headers off-screen.
   useEffect(() => {
     const keyToScroll = targetMonthKey || currentMonthKey;
     const el = monthSectionRefs.current.get(keyToScroll);

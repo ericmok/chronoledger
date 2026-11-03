@@ -99,6 +99,8 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
+    // Invariant: Rigid flex sibling header. flex-none ensures it retains exactly 48px height
+    // and is never pushed out of the viewport by scroll events in child lists.
     <header className="flex-none shrink-0 w-full z-30 h-12 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-[#E5DFD5] px-3 sm:px-4 flex items-center justify-between shadow-xs">
       {/* Left: Branding & Today Button */}
       <div className="flex items-center gap-3 shrink-0">
@@ -414,7 +416,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Mobile Options Modal / Bottom Sheet */}
+      {/* Mobile Options Modal / Bottom Sheet: Portaled directly to document.body
+          so the header's backdrop-filter does not create a containing block that traps
+          and clips fixed-position modals inside the 48px header. */}
       {isMobileMenuOpen &&
         typeof document !== 'undefined' &&
         createPortal(
