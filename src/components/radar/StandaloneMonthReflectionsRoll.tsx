@@ -84,19 +84,26 @@ export const StandaloneMonthReflectionsRoll: React.FC<StandaloneMonthReflections
 
   const currentMonthKey = useMemo(() => formatDateKey(new Date()).slice(0, 7), []);
 
-  // Smooth scroll to target month or current month
+  // Smooth scroll to target month or current month inside container only (avoiding window scrollIntoView)
   useEffect(() => {
     const keyToScroll = targetMonthKey || currentMonthKey;
     const el = monthSectionRefs.current.get(keyToScroll);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (el && containerRef.current) {
+      const container = containerRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const diff = elRect.top - containerRect.top;
+      container.scrollTo({
+        top: container.scrollTop + diff,
+        behavior: 'smooth',
+      });
     }
   }, [targetMonthKey, currentMonthKey]);
 
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 overflow-y-auto paper-texture select-none h-full outline-hidden px-3 py-4"
+      className="relative flex-1 min-h-0 overflow-y-auto paper-texture select-none h-full outline-hidden px-3 py-4"
     >
       <div className="max-w-[720px] mx-auto pb-16">
         <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-[#8E8F95] pb-2 border-b border-[#E5DFD5] mb-4">
