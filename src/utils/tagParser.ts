@@ -280,3 +280,110 @@ export function resolveTokenWithPrototype(
     isCore: proto.isCore,
   };
 }
+
+/**
+ * Tactile Click-to-Cycle Status Transition Engine
+ *
+ * Cycles a tag's lifecycle state (open -> wip -> done -> open) in place without
+ * causing word-level text diffs against the note's prose content.
+ *
+ * Backslash-safety: Only targets unescaped matches.
+ */
+export function cycleTagStatus(content: string, rawTag: string): string {
+  if (!content || !rawTag) return content;
+
+  // 1. If wrapped in strikethrough (~~@tag~~ or ~~@tag[...]~~), transition to open
+  if (rawTag.startsWith('~~') && rawTag.endsWith('~~')) {
+    const unwrapped = rawTag.slice(2, -2);
+    return replaceUnescapedTag(content, rawTag, unwrapped);
+  }
+
+  // 2. Parse tag name and bracket contents
+  const match = /^@([a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF-]+)(?:\[(.*)\])?$/.exec(rawTag);
+  if (!match) {
+    // Non-tag fallback: toggle strikethrough
+    return replaceUnescapedTag(content, rawTag, `~~${rawTag}~~`);
+  }
+
+  const tagName = match[1];
+  const bracketBody = match[2];
+
+  if (bracketBody !== undefined) {
+    const { positionalValues, attributes } = parseBracketAttributes(bracketBody);
+    const currentStatus = String(attributes.status || '').toLowerCase();
+
+    let nextStatus: string;
+    if (!currentStatus || currentStatus === 'open') {
+      nextStatus = 'wip';
+    } else if (currentStatus === 'wip') {
+      nextStatus = 'done';
+    } else {
+      nextStatus = 'open';
+    }
+
+    // Reconstruct bracket attributes
+    const parts: string[] = [...positionalValues];
+
+    // Other attributes first
+    for (const [k, v] of Object.entries(attributes)) {
+      if (k === 'status' || k === 'resolved') continue;
+      if (v === true) parts.push(k);
+      else parts.push(`${k}=${typeof v === 'string' && v.includes(' ') ? `"${v}"` : v}`);
+    }
+
+    if (nextStatus !== 'open') {
+      parts.push(`status=${nextStatus}`);
+    }
+
+    const newTag = parts.length > 0 ? `@${tagName}[${parts.join(', ')}]` : `@${tagName}`;
+    return replaceUnescapedTag(content, rawTag, newTag);
+  }
+
+  // 3. Simple scalar tag without brackets: @todo, @important, etc.
+  const lowerTag = tagName.toLowerCase();
+  const isStatusTag = lowerTag === 'todo' || lowerTag === 'task' || lowerTag === 'wait' || lowerTag === 'habit';
+
+  if (isStatusTag) {
+    // open -> wip
+    const newTag = `@${tagName}[status=wip]`;
+    return replaceUnescapedTag(content, rawTag, newTag);
+  }
+
+  // Non-status tags toggle strikethrough
+  return replaceUnescapedTag(content, rawTag, `~~${rawTag}~~`);
+}
+
+/**
+ * Replaces unescaped occurrence of searchTag with replacementTag in note content.
+ */
+function replaceUnescapedTag(content: string, searchTag: string, replacementTag: string): string {
+  let searchIndex = 0;
+  while (true) {
+    const matchIdx = content.indexOf(searchTag, searchIndex);
+    if (matchIdx === -1) break;
+
+    // Count preceding backslashes
+    let backslashCount = 0;
+    let k = matchIdx;
+    while (k > 0 && content[k - 1] === '\\') {
+      backslashCount++;
+      k--;
+    }
+
+    const isAtStart = k === 0;
+    const isPrecededByBoundary = isAtStart || /[\s([{"'`]/.test(content[k - 1]);
+
+    if (isPrecededByBoundary && backslashCount % 2 === 0) {
+      return (
+        content.slice(0, matchIdx) +
+        replacementTag +
+        content.slice(matchIdx + searchTag.length)
+      );
+    }
+
+    searchIndex = matchIdx + searchTag.length;
+  }
+
+  return content;
+}
+

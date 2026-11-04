@@ -14,6 +14,8 @@ import { HorizonSlider } from './components/layout/HorizonSlider';
 import { StandaloneWeekRoll } from './components/calendar/StandaloneWeekRoll';
 import { StandaloneMonthReflectionsRoll } from './components/radar/StandaloneMonthReflectionsRoll';
 import { NoteFolioModal } from './components/common/NoteFolioModal';
+import { TagSettingsModal } from './components/settings/TagSettingsModal';
+import { CommandPaletteModal } from './components/search/CommandPaletteModal';
 
 export function App() {
   const {
@@ -65,6 +67,9 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const [isTagSettingsOpen, setIsTagSettingsOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [activeTagSelector, setActiveTagSelector] = useState<string | null>(null);
   const [unclaimedCount, setUnclaimedCount] = useState(0);
   const [isFirstSetup, setIsFirstSetup] = useState(false);
 
@@ -345,6 +350,13 @@ export function App() {
 
       const isMod = e.metaKey || e.ctrlKey;
 
+      // Search / Command Palette: Cmd+K / Ctrl+K
+      if (isMod && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+        return;
+      }
+
       // Undo: Cmd+Z / Ctrl+Z (without shift)
       if (isMod && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
         e.preventDefault();
@@ -408,6 +420,10 @@ export function App() {
         currentUser={currentUser}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenAccountSettings={() => setIsAccountSettingsOpen(true)}
+        onOpenTagSettings={() => setIsTagSettingsOpen(true)}
+        onOpenSearch={() => setIsSearchOpen(true)}
+        activeFilter={activeTagSelector}
+        onClearFilter={() => setActiveTagSelector(null)}
         onLogout={handleLogout}
         isMobile={isMobile}
       />
@@ -464,6 +480,7 @@ export function App() {
                 scrollRef={scrollRef}
                 hideWeekPanel={true}
                 onOpenWeekScratchPad={handleOpenWeekScratchPad}
+                activeFilter={activeTagSelector}
               />
             </section>
 
@@ -593,6 +610,7 @@ export function App() {
               scrollRef={scrollRef}
               hideWeekPanel={false}
               onOpenFolio={handleOpenFolio}
+              activeFilter={activeTagSelector}
             />
           </main>
 
@@ -664,6 +682,24 @@ export function App() {
         isOpen={isAccountSettingsOpen}
         onClose={() => setIsAccountSettingsOpen(false)}
         currentUser={currentUser}
+        onOpenTagSettings={() => setIsTagSettingsOpen(true)}
+      />
+
+      {/* Tag Prototypes & Stationery Settings Modal */}
+      <TagSettingsModal
+        isOpen={isTagSettingsOpen}
+        onClose={() => setIsTagSettingsOpen(false)}
+      />
+
+      {/* Command Palette & Search / Filter Modal (⌘K) */}
+      <CommandPaletteModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        notes={notes}
+        activeFilter={activeTagSelector}
+        onApplyFilter={setActiveTagSelector}
+        onJumpToDate={scrollToDate}
+        onOpenFolio={handleOpenFolio}
       />
     </div>
   );

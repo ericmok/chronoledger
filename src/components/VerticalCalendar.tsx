@@ -43,6 +43,7 @@ interface VerticalCalendarProps {
   hideWeekPanel?: boolean;
   onOpenWeekScratchPad?: (weekKey: string) => void;
   onOpenFolio?: (noteId: string) => void;
+  activeFilter?: string | null;
 }
 
 export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
@@ -80,6 +81,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
   hideWeekPanel = false,
   onOpenWeekScratchPad,
   onOpenFolio,
+  activeFilter,
 }) => {
   const [quickInputDate, setQuickInputDate] = useState<string | null>(null);
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
@@ -464,6 +466,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                       onMoveNoteToDate={onMoveNoteToDate}
                       onMoveNoteScope={onMoveNoteScope}
                       onOpenFolio={onOpenFolio}
+                      activeFilter={activeFilter}
                     />
                   ))}
                   {/* Mobile In-Stream Week Scratch Pad Bridge */}

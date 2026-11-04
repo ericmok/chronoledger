@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTagTokens, parseBracketAttributes, resolveTokenWithPrototype } from '../src/utils/tagParser.ts';
+import { parseTagTokens, parseBracketAttributes, resolveTokenWithPrototype, cycleTagStatus } from '../src/utils/tagParser.ts';
+import { matchesSelector } from '../src/utils/selectorMatcher.ts';
 import { parseNoteContent, splitNoteAnchorAndBody } from '../src/utils/annotationUtils.ts';
 import { CORE_TAG_PROTOTYPES, getTagPrototype } from '../src/utils/tagPrototypes.ts';
 
@@ -280,4 +281,78 @@ test('AnnotationUtils Integration: parseNoteContent & splitNoteAnchorAndBody', (
   const escaped = parseNoteContent('\\@todo[urgent] plain text');
   assert.equal(escaped.annotations.length, 0);
   assert.equal(escaped.segments[0].text, '@todo[urgent] plain text');
+});
+
+test('Tactile Click-to-Cycle: cycleTagStatus Lifecycle & Zero-Diff Rewrites', () => {
+  // 1. Simple @todo cycle: open -> wip -> done -> open
+  const step1 = cycleTagStatus('@todo Buy fresh sourdough', '@todo');
+  assert.equal(step1, '@todo[status=wip] Buy fresh sourdough');
+
+  const step2 = cycleTagStatus(step1, '@todo[status=wip]');
+  assert.equal(step2, '@todo[status=done] Buy fresh sourdough');
+
+  const step3 = cycleTagStatus(step2, '@todo[status=done]');
+  assert.equal(step3, '@todo Buy fresh sourdough');
+
+  // 2. Strikethrough wrapped: ~~@todo~~ -> @todo
+  const fromStruck = cycleTagStatus('~~@todo~~ Finished sourdough', '~~@todo~~');
+  assert.equal(fromStruck, '@todo Finished sourdough');
+
+  // 3. Tag with existing attributes: preserves other properties
+  const withProps = '@todo[priority=1] Architect rocket engine';
+  const withPropsWip = cycleTagStatus(withProps, '@todo[priority=1]');
+  assert.equal(withPropsWip, '@todo[priority=1, status=wip] Architect rocket engine');
+
+  const withPropsDone = cycleTagStatus(withPropsWip, '@todo[priority=1, status=wip]');
+  assert.equal(withPropsDone, '@todo[priority=1, status=done] Architect rocket engine');
+
+  const withPropsReset = cycleTagStatus(withPropsDone, '@todo[priority=1, status=done]');
+  assert.equal(withPropsReset, '@todo[priority=1] Architect rocket engine');
+
+  // 4. Non-status tags toggle strikethrough
+  const imp = cycleTagStatus('@important Board meeting tomorrow', '@important');
+  assert.equal(imp, '~~@important~~ Board meeting tomorrow');
+
+  const impRestored = cycleTagStatus(imp, '~~@important~~');
+  assert.equal(impRestored, '@important Board meeting tomorrow');
+
+  // 5. Backslash safety: escaped \@todo is never accidentally replaced
+  const escapedText = 'Refer to \\@todo for info, but @todo do this';
+  const escapedCycled = cycleTagStatus(escapedText, '@todo');
+  assert.equal(escapedCycled, 'Refer to \\@todo for info, but @todo[status=wip] do this');
+});
+
+test('Client-Side Selector Matcher: matchesSelector', () => {
+  const note1 = { content: '@project[apollo] @todo[status=wip, priority=1] Build lunar module', isStruck: false };
+  const note2 = { content: '@project[artemis] @todo[status=done, priority=3] Rover test', isStruck: false };
+  const note3 = { content: 'Plain meeting minutes without tags', isStruck: false };
+
+  // 1. Tag matches
+  assert.ok(matchesSelector(note1.content, note1.isStruck, '@todo'));
+  assert.ok(matchesSelector(note1.content, note1.isStruck, '@project'));
+  assert.ok(!matchesSelector(note3.content, note3.isStruck, '@todo'));
+
+  // 2. Wildcard @*
+  assert.ok(matchesSelector(note1.content, note1.isStruck, '@*'));
+  assert.ok(!matchesSelector(note3.content, note3.isStruck, '@*'));
+
+  // 3. Attribute key-value
+  assert.ok(matchesSelector(note1.content, note1.isStruck, '@todo[status=wip]'));
+  assert.ok(!matchesSelector(note2.content, note2.isStruck, '@todo[status=wip]'));
+
+  // 4. Numerical comparisons
+  assert.ok(matchesSelector(note1.content, note1.isStruck, '@todo[priority <= 2]'));
+  assert.ok(!matchesSelector(note2.content, note2.isStruck, '@todo[priority <= 2]'));
+
+  // 5. Positional sets
+  assert.ok(matchesSelector(note1.content, note1.isStruck, '@project[apollo]'));
+  assert.ok(!matchesSelector(note2.content, note2.isStruck, '@project[apollo]'));
+
+  // 6. Negation !@todo
+  assert.ok(!matchesSelector(note1.content, note1.isStruck, '!@todo'));
+  assert.ok(matchesSelector(note3.content, note3.isStruck, '!@todo'));
+
+  // 7. Fulltext plain words
+  assert.ok(matchesSelector(note1.content, note1.isStruck, 'lunar module'));
+  assert.ok(!matchesSelector(note2.content, note2.isStruck, 'lunar module'));
 });

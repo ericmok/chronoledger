@@ -9,6 +9,7 @@ import {
   type BadgeTheme,
   DEFAULT_BADGE_THEME,
 } from '../../utils/annotationUtils';
+import { cycleTagStatus } from '../../utils/tagParser';
 import { useAnnotationInput } from '../../hooks/useAnnotationInput';
 import { AnnotationAutocomplete } from './AnnotationAutocomplete';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -317,7 +318,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           e.stopPropagation();
           if (onUpdate) {
             const current = content || originalContent || '';
-            const newContent = toggleAnnotationResolution(current, anchor.raw);
+            const newContent = cycleTagStatus(current, anchor.raw);
             onUpdate(id, newContent);
           }
         }}

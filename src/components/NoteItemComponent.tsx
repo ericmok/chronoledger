@@ -16,6 +16,7 @@ export interface NoteItemComponentProps {
   onJumpToDate?: (dateKey: string) => void;
   onSizeChange?: () => void;
   onOpenFolio?: (noteId: string) => void;
+  className?: string;
 
   // Drag and drop reordering
   isDraggable?: boolean;
@@ -40,6 +41,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
   onJumpToDate,
   onSizeChange,
   onOpenFolio,
+  className = '',
   isDraggable = true,
   onDragStart,
   onDragOver,
@@ -97,6 +99,7 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
       badge={spanBadge}
       density="comfortable"
       badgeTheme={badgeTheme}
+      className={className}
       onToggleStrike={onToggleStrike}
       onRemove={onRemoveNote}
       onUpdate={onUpdateNote}

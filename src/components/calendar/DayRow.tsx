@@ -4,6 +4,7 @@ import { CIRCLE_DATE_COLOR_NAMES } from '../../types/calendar';
 import { analyzeDateSpan, DAY_NAMES_SHORT, FULL_MONTH_NAMES } from '../../utils/dateUtils';
 import { getSeasonalColor } from '../../utils/seasonalColors';
 import { getGutterDotsForNotes } from '../../utils/annotationUtils';
+import { matchesSelector } from '../../utils/selectorMatcher';
 import { NoteItemComponent } from '../NoteItemComponent';
 import { DayNoteInlineForm } from './DayNoteInlineForm';
 import { RoughCircledRing } from '../common/RoughCircledRing';
@@ -20,6 +21,7 @@ export interface DayRowProps {
   onToggleCircleDate?: (dateKey: string) => void;
   onCycleCircleColor?: (dateKey: string) => void;
   activeTool?: DrawingTool;
+  activeFilter?: string | null;
   onStartQuickAdd: (dateString: string) => void;
   onCancelQuickAdd: () => void;
   onAddNote: (content: string, parentDates: string[], colorTag?: string) => void;
@@ -46,6 +48,7 @@ export const DayRow: React.FC<DayRowProps> = ({
   onToggleCircleDate,
   onCycleCircleColor,
   activeTool,
+  activeFilter,
   onStartQuickAdd,
   onCancelQuickAdd,
   onAddNote,
@@ -99,6 +102,11 @@ export const DayRow: React.FC<DayRowProps> = ({
   const { dots: gutterDots, title: gutterDotsTitle } = useMemo(
     () => getGutterDotsForNotes(dayNotes),
     [dayNotes]
+  );
+
+  const hasFilterMatch = useMemo(
+    () => Boolean(activeFilter && dayNotes.some((n) => matchesSelector(n.content, n.isStruck, activeFilter))),
+    [activeFilter, dayNotes]
   );
 
   const circleColorName = circleColor
@@ -253,6 +261,14 @@ export const DayRow: React.FC<DayRowProps> = ({
               TODAY
             </span>
 
+            {/* Radar Filter Match Indicator */}
+            {hasFilterMatch && (
+              <span
+                className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#D23B38] ring-2 ring-[#FAF8F5] animate-pulse"
+                title="Date contains notes matching active radar filter"
+              />
+            )}
+
             {/* Tactile Hand-Drawn Ring around Today badge */}
             {isCircled && (
               <span
@@ -279,9 +295,18 @@ export const DayRow: React.FC<DayRowProps> = ({
             onClick={handleDateClick}
           >
             <span
-              className="relative inline-flex items-center justify-center min-w-[22px] h-6 px-0.5 rounded text-base sm:text-[17px] font-bold text-[#2B2C30] group-hover/date:bg-black/5 transition-colors leading-none"
+              className={`relative inline-flex items-center justify-center min-w-[22px] h-6 px-0.5 rounded text-base sm:text-[17px] font-bold text-[#2B2C30] group-hover/date:bg-black/5 transition-colors leading-none ${
+                hasFilterMatch ? 'ring-2 ring-[#D23B38] bg-[#D23B38]/10' : ''
+              }`}
             >
               {dateItem.dayOfMonth}
+
+              {hasFilterMatch && (
+                <span
+                  className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#D23B38] animate-pulse"
+                  title="Date contains notes matching active radar filter"
+                />
+              )}
 
               {/* Tactile Hand-Drawn Pen Ring around day number */}
               {isCircled && (
@@ -431,10 +456,13 @@ export const DayRow: React.FC<DayRowProps> = ({
               );
             }
 
+            const isMatch = !activeFilter || matchesSelector(note.content, note.isStruck, activeFilter);
+
             return (
               <NoteItemComponent
                 key={note.id}
                 note={note}
+                className={!isMatch ? 'opacity-25 grayscale-[60%] blur-[0.2px] hover:opacity-100 transition-all' : ''}
                 currentDate={dateItem.dateString}
                 onToggleStrike={onToggleStrike}
                 onRemoveNote={onRemoveNote}

@@ -18,7 +18,9 @@ import {
   User,
   LogOut,
   MoreVertical,
-  X
+  X,
+  Tag as TagIcon,
+  Search,
 } from 'lucide-react';
 import type { CalendarSettings, DrawingTool } from '../types/calendar';
 import type { UserProfile } from '../services/auth';
@@ -42,6 +44,10 @@ interface HeaderProps {
   currentUser?: UserProfile | null;
   onOpenAuthModal?: () => void;
   onOpenAccountSettings?: () => void;
+  onOpenTagSettings?: () => void;
+  onOpenSearch?: () => void;
+  activeFilter?: string | null;
+  onClearFilter?: () => void;
   onLogout?: () => void;
   isMobile?: boolean;
 }
@@ -65,6 +71,10 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onOpenAuthModal,
   onOpenAccountSettings,
+  onOpenTagSettings,
+  onOpenSearch,
+  activeFilter,
+  onClearFilter,
   onLogout,
   isMobile: _isMobile = false,
 }) => {
@@ -130,6 +140,17 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Compact Tool Switcher */}
       <div className="flex md:hidden items-center gap-1 shrink-0">
+        {onOpenSearch && (
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            className="p-1 rounded text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#F2EDE4] border border-[#DDD6C8] transition-colors cursor-pointer"
+            title="Search & Filter (⌘K)"
+          >
+            <Search className="w-3.5 h-3.5" />
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => {
@@ -399,6 +420,50 @@ export const Header: React.FC<HeaderProps> = ({
             {settings.weekStartsOn === 0 ? 'Sun Start' : 'Mon Start'}
           </button>
 
+          {/* Search Trigger */}
+          {onOpenSearch && (
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border border-[#DDD6C8] transition-colors cursor-pointer"
+              title="Search notes or filter tags (⌘K / Ctrl+K)"
+            >
+              <Search className="w-3.5 h-3.5 text-[#6B6C72]" />
+              <span className="hidden xl:inline">Search</span>
+              <span className="hidden xl:inline text-[10px] text-[#8C827A] bg-white/70 px-1 py-0.2 rounded border border-[#E5DFD5]">⌘K</span>
+            </button>
+          )}
+
+          {/* Active Filter Pill */}
+          {activeFilter && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#D23B38]/10 text-[#D23B38] border border-[#D23B38]/30 text-xs font-mono animate-in fade-in">
+              <span className="font-semibold max-w-[120px] truncate">{activeFilter}</span>
+              {onClearFilter && (
+                <button
+                  type="button"
+                  onClick={onClearFilter}
+                  className="p-0.5 hover:bg-[#D23B38]/20 rounded transition-colors cursor-pointer"
+                  title="Clear filter"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Tag Prototypes & Stationery Settings */}
+          {onOpenTagSettings && (
+            <button
+              type="button"
+              onClick={onOpenTagSettings}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+              title="Customize tag prototypes, ink swatches, and gutter dots"
+            >
+              <TagIcon className="w-3.5 h-3.5 text-[#6B6C72]" />
+              <span className="hidden xl:inline">Tags</span>
+            </button>
+          )}
+
           {/* Continuous Month Calendar Toggle */}
           <button
             type="button"
@@ -518,6 +583,36 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Quick Actions Grid */}
               <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                {/* Tag Settings */}
+                {onOpenTagSettings && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenTagSettings();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 hover:bg-[#F2EDE4] transition-colors cursor-pointer"
+                  >
+                    <span>Tag Settings</span>
+                    <TagIcon className="w-3.5 h-3.5 text-[#6B6C72]" />
+                  </button>
+                )}
+
+                {/* Search */}
+                {onOpenSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onOpenSearch();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center justify-between p-2.5 rounded-lg border border-[#E5DFD5] bg-white/70 hover:bg-[#F2EDE4] transition-colors cursor-pointer"
+                  >
+                    <span>Search Notes</span>
+                    <Search className="w-3.5 h-3.5 text-[#6B6C72]" />
+                  </button>
+                )}
+
                 {/* Show Struck Items */}
                 <button
                   type="button"

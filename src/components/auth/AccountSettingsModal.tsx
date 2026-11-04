@@ -11,6 +11,7 @@ import {
   Lock,
   Plus,
   RefreshCw,
+  Tag,
 } from 'lucide-react';
 import {
   changePassword,
@@ -26,9 +27,10 @@ interface AccountSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserProfile | null;
+  onOpenTagSettings?: () => void;
 }
 
-export function AccountSettingsModal({ isOpen, onClose, currentUser }: AccountSettingsModalProps) {
+export function AccountSettingsModal({ isOpen, onClose, currentUser, onOpenTagSettings }: AccountSettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'security' | 'tokens'>('security');
 
   // Password State
@@ -185,6 +187,20 @@ export function AccountSettingsModal({ isOpen, onClose, currentUser }: AccountSe
             <Terminal size={15} />
             MCP & API Tokens
           </button>
+          {onOpenTagSettings && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenTagSettings();
+              }}
+              className="flex-1 py-1.5 px-3 text-xs sm:text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer text-stone-500 hover:text-stone-800"
+              title="Open Tag Prototypes & Stationery Settings"
+            >
+              <Tag size={15} />
+              Tags & Stationery
+            </button>
+          )}
         </div>
 
         {/* Tab Content (Scrollable) */}
