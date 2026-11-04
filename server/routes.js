@@ -1140,9 +1140,31 @@ export function handleApiRequest(req, res, db = getDatabase()) {
 
           db.exec('BEGIN TRANSACTION;');
           try {
-            const hasStyleRulesCol = db.prepare("PRAGMA table_info(user_tag_definitions)").all().some(c => c.name === 'style_rules');
+            const colInfo = db.prepare("PRAGMA table_info(user_tag_definitions)").all();
+            const hasStyleRulesCol = colInfo.some(c => c.name === 'style_rules');
+            const hasBaseStyleCol = colInfo.some(c => c.name === 'base_style');
 
-            if (hasStyleRulesCol && Array.isArray(body.styleRules)) {
+            if (hasStyleRulesCol && hasBaseStyleCol) {
+              const existingRow = db.prepare('SELECT style_rules, base_style FROM user_tag_definitions WHERE user_id = ? AND tag_name = ?').get(userId, tagName);
+              const styleRulesJson = Array.isArray(body.styleRules)
+                ? JSON.stringify(body.styleRules)
+                : existingRow?.style_rules || '[]';
+              const baseStyleJson = body.baseStyle && typeof body.baseStyle === 'object'
+                ? JSON.stringify(body.baseStyle)
+                : existingRow?.base_style || '{}';
+
+              db.prepare(`
+                INSERT INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, style_rules, base_style, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, tag_name) DO UPDATE SET
+                  color = excluded.color,
+                  notable = excluded.notable,
+                  gutter_priority = excluded.gutter_priority,
+                  style_rules = excluded.style_rules,
+                  base_style = excluded.base_style,
+                  updated_at = excluded.updated_at
+              `).run(`${userId}_${tagName}`, userId, tagName, color, notable, gutterPriority, isCore, styleRulesJson, baseStyleJson, now, now);
+            } else if (hasStyleRulesCol && Array.isArray(body.styleRules)) {
               const styleRulesJson = JSON.stringify(body.styleRules);
               db.prepare(`
                 INSERT INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, style_rules, created_at, updated_at)
@@ -1202,6 +1224,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
             gutterPriority,
             isCore,
             styleRules: Array.isArray(body.styleRules) ? body.styleRules : undefined,
+            baseStyle: body.baseStyle && typeof body.baseStyle === 'object' ? body.baseStyle : undefined,
             updatedAt: now,
           });
         })

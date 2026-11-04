@@ -128,6 +128,7 @@ export function resolveTagStyle(
 
   const baseColor = effectiveDef.color || '#6F7880';
   const styleRules = effectiveDef.styleRules || [];
+  const baseStyle = effectiveDef.baseStyle || {};
 
   // Find first matching attribute rule
   let matchedRule: AttributeStyleRule | undefined;
@@ -149,9 +150,10 @@ export function resolveTagStyle(
   }
 
   // Determine active color style:
-  // Default to rule.colorStyle if specified; otherwise inherit global badgeTheme
+  // Rule colorStyle > Base tag colorStyle > Global badgeTheme
   const effectiveColorStyle =
     matchedRule?.colorStyle ||
+    baseStyle.colorStyle ||
     (badgeTheme === 'wash' ? 'dark_on_light' : 'light_on_dark');
 
   let textColor: string;
@@ -174,14 +176,23 @@ export function resolveTagStyle(
     bulletColor = textColor === '#FFFFFF' ? '#FFFFFF' : '#2B2C30';
   }
 
-  const isBold = Boolean(matchedRule?.bold ?? (effectiveDef as TagTypeDefinition).makesBold);
-  const isItalic = Boolean(matchedRule?.italic);
-  const isDim = Boolean(isResolved || matchedRule?.dim || (effectiveDef as TagTypeDefinition).dimsText);
+  const isBold = Boolean(
+    matchedRule?.bold ??
+    baseStyle.bold ??
+    (effectiveDef as TagTypeDefinition).makesBold
+  );
+  const isItalic = Boolean(matchedRule?.italic ?? baseStyle.italic);
+  const isDim = Boolean(
+    isResolved ||
+    matchedRule?.dim ||
+    baseStyle.dim ||
+    (effectiveDef as TagTypeDefinition).dimsText
+  );
   const isStrikethrough = Boolean(isResolved || matchedRule?.strikethrough);
   // Disabled animation if note is resolved (struck notes rest still)
   const animatedStyle: AnimatedStyle = isResolved
     ? 'none'
-    : (matchedRule?.animatedStyle || 'none');
+    : (matchedRule?.animatedStyle || baseStyle.animatedStyle || 'none');
 
   return {
     tag: cleanTag,

@@ -23,6 +23,7 @@ import {
   type AttributeStyleRule,
   type ColorStyle,
   type AnimatedStyle,
+  type TagBaseStyle,
 } from '../../utils/tagPrototypes';
 import {
   getWashBgColor,
@@ -162,6 +163,36 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
       notable: existing.notable,
       gutterPriority,
       isCore: existing.isCore,
+    });
+
+    if (res.ok) {
+      onDefinitionsUpdated?.();
+    } else {
+      loadDefinitions();
+    }
+  };
+
+  const handleUpdateBaseStyle = async (tagName: string, updates: Partial<TagBaseStyle>) => {
+    const existing = definitions[tagName];
+    if (!existing) return;
+
+    const newBaseStyle: TagBaseStyle = {
+      ...(existing.baseStyle || {}),
+      ...updates,
+    };
+
+    setDefinitions((prev) => ({
+      ...prev,
+      [tagName]: { ...prev[tagName], baseStyle: newBaseStyle },
+    }));
+
+    const res = await saveTagDefinition(tagName, {
+      color: existing.color,
+      notable: existing.notable,
+      gutterPriority: existing.gutterPriority,
+      isCore: existing.isCore,
+      styleRules: existing.styleRules,
+      baseStyle: newBaseStyle,
     });
 
     if (res.ok) {
@@ -381,8 +412,18 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
             <div className="divide-y divide-[#E5DFD5] border border-[#E5DFD5] rounded-xl bg-white/70 overflow-hidden">
               {sortedTags.map((def) => {
                 const coreProto = CORE_TAG_PROTOTYPES[def.tag.toLowerCase()];
-                const isModified = coreProto && (coreProto.color !== def.color || (coreProto.notable ? 1 : 0) !== def.notable || coreProto.gutterPriority !== def.gutterPriority);
+                const isModified =
+                  coreProto &&
+                  (coreProto.color !== def.color ||
+                    (coreProto.notable ? 1 : 0) !== def.notable ||
+                    coreProto.gutterPriority !== def.gutterPriority ||
+                    JSON.stringify(coreProto.baseStyle || {}) !== JSON.stringify(def.baseStyle || {}) ||
+                    JSON.stringify(coreProto.styleRules || []) !== JSON.stringify(def.styleRules || []));
                 const isCustom = !def.isCore;
+                const baseStyle = def.baseStyle || {};
+                const isWash = baseStyle.colorStyle === 'dark_on_light';
+                const tagBg = isWash ? getWashBgColor(def.color) : def.color;
+                const tagText = isWash ? '#2B2C30' : getContrastingTextColor(def.color);
 
                 return (
                   <div key={def.tag} className="flex flex-col">
@@ -423,14 +464,18 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                         )}
                       </div>
 
-                      {/* Tag Name Badge */}
+                      {/* Tag Name Badge & Base Style Toolbar */}
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold font-sans leading-none"
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs select-none ${
+                              baseStyle.bold ? 'font-bold' : 'font-semibold'
+                            } ${baseStyle.italic ? 'italic' : ''} ${baseStyle.dim ? 'opacity-60' : ''} ${
+                              baseStyle.animatedStyle === 'bounce' ? 'animate-subtle-bounce' : ''
+                            } leading-none`}
                             style={{
-                              backgroundColor: `${def.color}25`,
-                              color: def.color,
+                              backgroundColor: tagBg,
+                              color: tagText,
                             }}
                           >
                             @{def.tag}
@@ -446,11 +491,78 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                             </span>
                           )}
                         </div>
-                        {def.defaultStatus && (
-                          <p className="text-[11px] text-[#A19D94] font-mono mt-0.5">
-                            default status: {def.defaultStatus}
-                          </p>
-                        )}
+
+                        {/* Base Tag Style Controls */}
+                        <div className="flex items-center gap-1 mt-1 text-[10px] font-mono flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUpdateBaseStyle(def.tag, {
+                                colorStyle: isWash ? 'light_on_dark' : 'dark_on_light',
+                              })
+                            }
+                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer ${
+                              isWash
+                                ? 'bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
+                                : 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                            }`}
+                            title="Toggle base badge style: Solid vs Wash"
+                          >
+                            {isWash ? 'Wash' : 'Solid'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateBaseStyle(def.tag, { bold: !baseStyle.bold })}
+                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer ${
+                              baseStyle.bold
+                                ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30] font-bold'
+                                : 'bg-[#F2EDE4]/60 text-[#7E7F85] border-[#DDD6C8] hover:text-[#2B2C30]'
+                            }`}
+                            title="Toggle Bold"
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateBaseStyle(def.tag, { italic: !baseStyle.italic })}
+                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer italic ${
+                              baseStyle.italic
+                                ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                                : 'bg-[#F2EDE4]/60 text-[#7E7F85] border-[#DDD6C8] hover:text-[#2B2C30]'
+                            }`}
+                            title="Toggle Italic"
+                          >
+                            I
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateBaseStyle(def.tag, { dim: !baseStyle.dim })}
+                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer ${
+                              baseStyle.dim
+                                ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                                : 'bg-[#F2EDE4]/60 text-[#7E7F85] border-[#DDD6C8] hover:text-[#2B2C30]'
+                            }`}
+                            title="Toggle Dim"
+                          >
+                            Dim
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleUpdateBaseStyle(def.tag, {
+                                animatedStyle: baseStyle.animatedStyle === 'bounce' ? 'none' : 'bounce',
+                              })
+                            }
+                            className={`px-1.5 py-0.2 rounded border transition-colors cursor-pointer ${
+                              baseStyle.animatedStyle === 'bounce'
+                                ? 'bg-[#51C391]/25 text-[#1D7446] border-[#51C391] font-semibold'
+                                : 'bg-[#F2EDE4]/60 text-[#7E7F85] border-[#DDD6C8] hover:text-[#2B2C30]'
+                            }`}
+                            title="Toggle subtle harmonic bounce on notes with this tag"
+                          >
+                            ⚡ Bounce
+                          </button>
+                        </div>
                       </div>
                     </div>
 

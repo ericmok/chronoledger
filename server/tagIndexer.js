@@ -25,6 +25,7 @@ export function getUserTagDefinitions(db, userId) {
       isCore: proto.isCore ? 1 : 0,
       defaultStatus: proto.defaultStatus,
       styleRules: proto.styleRules ? [...proto.styleRules] : [],
+      baseStyle: proto.baseStyle ? { ...proto.baseStyle } : {},
     });
   }
 
@@ -46,6 +47,13 @@ export function getUserTagDefinitions(db, userId) {
         } catch {}
       }
 
+      let baseStyle = existing?.baseStyle || {};
+      if (r.base_style !== undefined && r.base_style !== null) {
+        try {
+          baseStyle = JSON.parse(r.base_style);
+        } catch {}
+      }
+
       map.set(r.tag_name.toLowerCase(), {
         tag: r.tag_name,
         color: r.color,
@@ -54,6 +62,7 @@ export function getUserTagDefinitions(db, userId) {
         isCore: r.is_core,
         defaultStatus: existing?.defaultStatus,
         styleRules,
+        baseStyle,
       });
     }
   } catch {

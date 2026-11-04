@@ -5,7 +5,11 @@
  * update, and reset user tag definitions and prototypes.
  */
 
-import { CORE_TAG_PROTOTYPES, type AttributeStyleRule } from '../utils/tagPrototypes';
+import {
+  CORE_TAG_PROTOTYPES,
+  type AttributeStyleRule,
+  type TagBaseStyle,
+} from '../utils/tagPrototypes';
 
 export interface UserTagDefinition {
   tag: string;
@@ -17,6 +21,7 @@ export interface UserTagDefinition {
   makesBold?: boolean;
   dimsText?: boolean;
   styleRules?: AttributeStyleRule[];
+  baseStyle?: TagBaseStyle;
 }
 
 /**
@@ -49,6 +54,7 @@ export async function getTagDefinitions(): Promise<Record<string, UserTagDefinit
       isCore: proto.isCore ? 1 : 0,
       defaultStatus: proto.defaultStatus,
       styleRules: proto.styleRules ? [...proto.styleRules] : [],
+      baseStyle: proto.baseStyle ? { ...proto.baseStyle } : undefined,
     };
   }
   return fallback;
@@ -65,6 +71,7 @@ export async function saveTagDefinition(
     gutterPriority?: number;
     isCore?: boolean | number;
     styleRules?: AttributeStyleRule[];
+    baseStyle?: TagBaseStyle;
   }
 ): Promise<{ ok: boolean; error?: string; definition?: UserTagDefinition }> {
   try {

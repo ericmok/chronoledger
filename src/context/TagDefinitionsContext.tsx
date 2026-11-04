@@ -33,6 +33,7 @@ for (const [key, proto] of Object.entries(CORE_TAG_PROTOTYPES)) {
     isCore: proto.isCore ? 1 : 0,
     defaultStatus: proto.defaultStatus,
     styleRules: proto.styleRules ? [...proto.styleRules] : [],
+    baseStyle: proto.baseStyle ? { ...proto.baseStyle } : undefined,
   };
 }
 

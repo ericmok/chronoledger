@@ -25,10 +25,10 @@ describe('Tag Attribute Styles & Motion (Phase 4 Extension)', () => {
     db.close();
   });
 
-  test('Migration 0004: Adds style_rules column and seeds default rules for @todo and @important', () => {
+  test('Migration 0004 & 0005: Adds style_rules and base_style columns and seeds default rules', () => {
     // Check metadata version
     const meta = db.prepare("SELECT value FROM metadata WHERE key='schema_version'").get();
-    assert.equal(meta.value, '11');
+    assert.equal(meta.value, '12');
 
     // Verify table structure
     const colInfo = db.prepare('PRAGMA table_info(user_tag_definitions)').all();
@@ -121,5 +121,56 @@ describe('Tag Attribute Styles & Motion (Phase 4 Extension)', () => {
     const wipRule = todoDef.styleRules.find((r) => r.attrValue === 'wip');
     assert.ok(wipRule);
     assert.equal(wipRule.colorStyle, 'dark_on_light');
+  });
+
+  test('Migration 0005: Adds base_style column and seeds @important and @skipped', () => {
+    const meta = db.prepare("SELECT value FROM metadata WHERE key='schema_version'").get();
+    assert.equal(meta.value, '12');
+
+    const colInfo = db.prepare('PRAGMA table_info(user_tag_definitions)').all();
+    assert.equal(colInfo.some((c) => c.name === 'base_style'), true);
+
+    const importantRow = db.prepare("SELECT base_style FROM user_tag_definitions WHERE tag_name = 'important' LIMIT 1").get();
+    assert.ok(importantRow);
+    const parsed = JSON.parse(importantRow.base_style);
+    assert.equal(parsed.bold, true);
+  });
+
+  test('Base Tag Styling: Inherited by plain tag and overridden by attribute rules', () => {
+    // 1. Plain tag without attributes uses baseStyle
+    const customDef = {
+      tag: 'urgent',
+      color: '#F47290',
+      notable: 1,
+      gutterPriority: 1,
+      isCore: 0,
+      baseStyle: {
+        bold: true,
+        animatedStyle: 'bounce',
+        colorStyle: 'light_on_dark',
+      },
+      styleRules: [
+        {
+          id: 'rule_quiet',
+          attrKey: 'mode',
+          attrValue: 'quiet',
+          color: '#4FA3F2',
+          animatedStyle: 'none',
+          colorStyle: 'dark_on_light',
+        },
+      ],
+    };
+
+    const tokensPlain = parseTagTokens('@urgent', false);
+    const stylePlain = resolveTagStyle('urgent', tokensPlain[0], customDef, false);
+    assert.equal(stylePlain.isBold, true);
+    assert.equal(stylePlain.animatedStyle, 'bounce');
+    assert.equal(stylePlain.color.toLowerCase(), '#f47290');
+
+    // 2. Attribute rule overrides baseStyle
+    const tokensQuiet = parseTagTokens('@urgent[mode=quiet]', false);
+    const styleQuiet = resolveTagStyle('urgent', tokensQuiet[0], customDef, false);
+    assert.equal(styleQuiet.animatedStyle, 'none');
+    assert.equal(styleQuiet.color.toLowerCase(), '#4fa3f2');
   });
 });

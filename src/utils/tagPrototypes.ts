@@ -24,6 +24,14 @@ export interface AttributeStyleRule {
   animatedStyle?: AnimatedStyle;
 }
 
+export interface TagBaseStyle {
+  colorStyle?: ColorStyle;
+  bold?: boolean;
+  italic?: boolean;
+  dim?: boolean;
+  animatedStyle?: AnimatedStyle;
+}
+
 export interface TagTypeDefinition {
   tag: string;
   color: string;
@@ -35,6 +43,7 @@ export interface TagTypeDefinition {
   isCore: boolean;          // True for built-in stationery types, false for custom user tags
   defaultStatus?: TagStatus;
   styleRules?: AttributeStyleRule[];
+  baseStyle?: TagBaseStyle;
 }
 
 /**
@@ -49,6 +58,11 @@ export const CORE_TAG_PROTOTYPES: Record<string, TagTypeDefinition> = {
     makesBold: true,
     gutterPriority: 1,
     isCore: true,
+    baseStyle: {
+      bold: true,
+      colorStyle: 'light_on_dark',
+      animatedStyle: 'none',
+    },
     styleRules: [
       {
         id: 'important_rule_high',
@@ -166,6 +180,11 @@ export const CORE_TAG_PROTOTYPES: Record<string, TagTypeDefinition> = {
     dimsText: true,
     gutterPriority: 9,
     isCore: true,
+    baseStyle: {
+      dim: true,
+      colorStyle: 'dark_on_light',
+      animatedStyle: 'none',
+    },
   },
   custom: {
     tag: 'custom',
