@@ -45,12 +45,20 @@ import {
   CANONICAL_COLORS,
   type CanonicalColorName,
   type CanonicalColorDefinition,
-} from './canonicalColors';
+} from './canonicalColors.ts';
+import {
+  parseTagTokens,
+  type ParsedTagToken,
+  type TagRelation,
+} from './tagParser.ts';
 
 export {
   CANONICAL_COLORS,
   type CanonicalColorName,
   type CanonicalColorDefinition,
+  parseTagTokens,
+  type ParsedTagToken,
+  type TagRelation,
 };
 
 export type AnnotationCategory =
@@ -379,12 +387,16 @@ export interface ParsedAnnotation {
   timeString?: string;
   isResolved?: boolean;
   isLeading?: boolean;
+  positionalValues?: string[];
+  attributes?: Record<string, string | number | boolean>;
+  relations?: TagRelation[];
 }
 
 export function resolveAnnotation(
   tag: string,
   isResolved = false,
-  theme: BadgeTheme = DEFAULT_BADGE_THEME
+  theme: BadgeTheme = DEFAULT_BADGE_THEME,
+  token?: ParsedTagToken
 ): ParsedAnnotation {
   const lowerTag = tag.toLowerCase().trim();
 
@@ -411,9 +423,17 @@ export function resolveAnnotation(
     };
   }
 
-  const baseColor = config.color;
+  // Token attribute overrides
+  let baseColor = config.color;
+  if (token && typeof token.attributes.color === 'string') {
+    baseColor = token.attributes.color;
+  }
+
   const resolvedColor = getResolvedAccentColor(baseColor);
-  const showInGutter = config.showInGutter !== false;
+  let showInGutter = config.showInGutter !== false;
+  if (token && token.attributes.notable !== undefined) {
+    showInGutter = token.attributes.notable === true || token.attributes.notable === 'true';
+  }
 
   let textColor: string;
   let bgColor: string;
@@ -440,8 +460,12 @@ export function resolveAnnotation(
     resolvedBulletColor = resolvedTextColor === '#FFFFFF' ? '#FAF8F5' : '#4A4B50';
   }
 
+  const effectivePriority = (token && typeof token.attributes.priority === 'number')
+    ? token.attributes.priority
+    : config.priority;
+
   return {
-    raw: `@${tag}`,
+    raw: token ? token.raw : `@${tag}`,
     tag,
     type: config.type,
     label: isTime ? tag : config.label,
@@ -459,10 +483,13 @@ export function resolveAnnotation(
     gutterColor: showInGutter ? baseColor : undefined,
     makesBold: config.makesBold,
     dimsText: config.dimsText,
-    priority: config.priority,
+    priority: effectivePriority,
     isTime,
     timeString: isTime ? tag : undefined,
     isResolved,
+    positionalValues: token?.positionalValues,
+    attributes: token?.attributes,
+    relations: token?.relations,
   };
 }
 
@@ -532,43 +559,26 @@ export function parseNoteContent(
     }
   };
 
-  const regex = /(~~)?@([a-zA-Z0-9]+(?:[:.-][a-zA-Z0-9]+)*(?:[ap]m)?)(~~)?/gi;
+  const tokens = parseTagTokens(content, noteIsStruck);
   let lastIndex = 0;
-  let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(content)) !== null) {
-    const matchStart = match.index;
-    const matchEnd = regex.lastIndex;
-    const rawTag = match[0];
-    const isTagStruck = Boolean(match[1] && match[3]);
-    const tagBody = match[2];
-
-    // Count preceding consecutive backslashes immediately before matchStart
+  for (const token of tokens) {
+    // Count preceding consecutive backslashes immediately before token.startIndex
     let backslashCount = 0;
-    let checkIdx = matchStart;
+    let checkIdx = token.startIndex;
     while (checkIdx > 0 && content[checkIdx - 1] === '\\') {
       backslashCount++;
       checkIdx--;
-    }
-
-    // Boundary check: must be start of text, whitespace, or opening punctuation
-    const isAtStart = checkIdx === 0;
-    const isPrecededByBoundary = isAtStart || /[\s([{"'`]/.test(content[checkIdx - 1]);
-
-    if (!isPrecededByBoundary) {
-      // Ignored: e.g. email@test.com
-      continue;
     }
 
     // Halve preceding backslashes (\\ -> \, \\\\ -> \\)
     const collapsedBackslashes = '\\'.repeat(Math.floor(backslashCount / 2));
     const textBefore = content.slice(lastIndex, checkIdx) + collapsedBackslashes;
 
-    // Odd number of backslashes means the '@' is escaped (e.g. \@todo, \\\@todo) -> not a badge
-    if (backslashCount % 2 === 1) {
+    if (token.isEscaped) {
       // Consume the escaping backslash: render as plain text @tag without a badge
-      pushText(textBefore + rawTag);
-      lastIndex = matchEnd;
+      pushText(textBefore + token.raw);
+      lastIndex = token.endIndex;
       continue;
     }
 
@@ -579,20 +589,19 @@ export function parseNoteContent(
     // (first badge in note and all preceding segments are whitespace-only)
     const isLeading = segments.every((s) => s.type === 'text' && s.text.trim() === '');
 
-    const isResolved = noteIsStruck || isTagStruck;
-    const parsed = resolveAnnotation(tagBody, isResolved, theme);
-    parsed.raw = rawTag;
+    const parsed = resolveAnnotation(token.tagBody, token.isResolved, theme, token);
+    parsed.raw = token.raw;
     parsed.isLeading = isLeading;
     annotations.push(parsed);
 
     segments.push({
       type: 'badge',
-      text: rawTag,
+      text: token.raw,
       annotation: parsed,
       isLeading,
     });
 
-    lastIndex = matchEnd;
+    lastIndex = token.endIndex;
   }
 
   // Push remaining text

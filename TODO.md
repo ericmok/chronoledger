@@ -1,5 +1,39 @@
 # ChronoLedger Roadmap & Feature Backlog
 
+## 🎨 Refactor: Decouple Computed Presentation Styles from Annotation Data Model
+
+### Overview
+Decouple dynamic rendering and color math properties (`textColor`, `bgColor`, `borderColor`, `bulletColor`, `resolvedTextColor`, `resolvedBgColor`, `resolvedBulletColor`) from the core `ParsedAnnotation` data model.
+
+### Motivation & Architecture
+- **Separation of Concerns**: An annotation/tag data model should strictly represent semantic data (`tag`, `attributes`, `positionalValues`, `color`, `notable`, `isResolved`, `isLeading`).
+- **Presentation Layering**: Computed luminance contrast, wash background hexes, and theme adjustments ('solid' vs 'wash') belong in a presentation helper (e.g. `getBadgeStyles(annotation, theme)` or Tailwind utility) rather than polluting the parsed AST data structure.
+- **Benefits**: Cleaner serialization, reduced memory overhead per token, and easier headless testing without color math dependencies.
+
+---
+
+## 🎨 Feature: Custom CSS Styling via Tag Data Attributes
+
+### Overview
+Enable user-defined and theme-level CSS styling for tags, attributes, and values by projecting parsed tag metadata onto native HTML `data-*` attributes on badge DOM nodes.
+
+### Implementation Scope
+1. **DOM Attribute Projection**:
+   - The badge component renders with: `<span class="cl-tag cl-tag-{name}" data-tag="{name}" data-{attr}="{value}">`.
+   - Boolean flags render as valueless boolean attributes: `data-urgent`, `data-blocking`.
+   - Positional multi-values render as space-delimited lists: `data-val="buildings portfolio"`.
+2. **Native CSS Selector Support**:
+   - Allows pure CSS styling with zero runtime JavaScript overhead:
+     ```css
+     .cl-tag-todo[data-status="wip"] { background-color: #FFAA00; }
+     .cl-tag[data-urgent] { border: 1px solid #F47290; }
+     .cl-tag-project[data-val~="buildings"] { border-left: 3px solid #4FA3F2; }
+     ```
+3. **User Stylesheet Support**:
+   - Provide a custom CSS injection mechanism or user theme file (similar to Trilium `#appCss`) so users can style their own tags and workflows.
+
+---
+
 ## 🏹 Feature: Cross-Horizon Semantic Arrows & Unified Connector Overlay
 
 ### Overview
