@@ -14,6 +14,28 @@ interface CommandPaletteModalProps {
   onOpenFolio?: (noteId: string) => void;
 }
 
+/**
+ * Sorts notes descending so the most recent (by target date or creation timestamp)
+ * appear first at the top of the search results.
+ */
+function sortNotesByRecency(notesList: NoteItem[]): NoteItem[] {
+  return [...notesList].sort((a, b) => {
+    const targetA = (a.parentDates && a.parentDates[0]) || (a.targets && a.targets[0]) || '';
+    const targetB = (b.parentDates && b.parentDates[0]) || (b.targets && b.targets[0]) || '';
+
+    const timeA = targetA || a.startAt || a.updatedAt || a.createdAt || '';
+    const timeB = targetB || b.startAt || b.updatedAt || b.createdAt || '';
+
+    if (timeA !== timeB) {
+      return timeB.localeCompare(timeA); // Descending: most recent first
+    }
+
+    const createdA = a.updatedAt || a.createdAt || '';
+    const createdB = b.updatedAt || b.createdAt || '';
+    return createdB.localeCompare(createdA);
+  });
+}
+
 export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   isOpen,
   onClose,
@@ -131,7 +153,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   const matchedNotes = useMemo(() => {
     if (!query.trim()) return [];
     const local = notes.filter((n) => matchesSelector(n.content, n.isStruck, query));
-    if (!serverResults) return local;
+    if (!serverResults) return sortNotesByRecency(local);
 
     const map = new Map<string, NoteItem>();
     for (const n of local) map.set(n.id, n);
@@ -140,7 +162,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         map.set(n.id, n);
       }
     }
-    return Array.from(map.values());
+    return sortNotesByRecency(Array.from(map.values()));
   }, [notes, query, serverResults]);
 
   if (!isOpen) return null;
@@ -303,7 +325,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                 Found {matchedNotes.length} matching note(s):
               </div>
               {matchedNotes.map((note) => {
-                const targetDate = note.parentDates?.[0] || '';
+                const targetDate = note.parentDates?.[0] || note.targets?.[0] || '';
                 return (
                   <div
                     key={note.id}

@@ -470,8 +470,8 @@ export function executeSelectorSearch(db, selectorStr, userId = null, options = 
     queryParams.push(`%${text.trim()}%`);
   }
 
-  // Ordering
-  query += ' ORDER BY created_at DESC';
+  // Ordering: most recent notes first (by calendar start date or creation timestamp)
+  query += ' ORDER BY COALESCE(start_at, created_at) DESC, created_at DESC';
 
   const rows = db.prepare(query).all(...queryParams);
   let results = rows.map(formatUnifiedNote);
