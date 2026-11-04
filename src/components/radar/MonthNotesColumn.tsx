@@ -187,15 +187,16 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
                     e.stopPropagation();
                     onStartQuickAddMonth(meta.monthKey);
                   }}
-                  className="w-full my-auto py-2 px-1 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded flex flex-col items-center justify-center text-center bg-white/40 hover:bg-white/80 transition-all cursor-pointer group/placeholder min-h-[45px]"
+                  className="w-full my-auto py-2 px-1 border border-dashed border-[#CBD5E1] hover:border-[#3264EB] rounded-none flex flex-col items-center justify-center text-center bg-white/60 hover:bg-white transition-all cursor-pointer group/placeholder min-h-[45px]"
                   title={`Add ${meta.name} note or double-click`}
                 >
-                  <div className="flex items-center gap-1 text-[11px] font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
-                    <Plus className="w-3 h-3 text-[#D23B38]" />
-                    <span>Add {meta.name} note</span>
+                  <div className="flex items-center gap-1.5 text-xs font-mono text-[#757575] group-hover/placeholder:text-[#3264EB]">
+                    <span className="text-[#3264EB] font-bold">&gt;</span>
+                    <span>// {meta.name} buffer</span>
+                    <span className="animate-console-cursor text-[#3264EB]">_</span>
                   </div>
-                  <span className="text-[8px] font-mono text-[#A19D94] mt-0.5">
-                    or double-click
+                  <span className="text-[9px] font-mono text-[#9E9E9E] mt-0.5">
+                    :new-month-note or double-click
                   </span>
                 </button>
               )}

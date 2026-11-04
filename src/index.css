@@ -1,29 +1,6 @@
 @import "tailwindcss";
 
-:root, [data-theme="paper"] {
-  --canvas-bg: #FAF8F5;
-  --canvas-card: #FFFFFF;
-  --canvas-subtle: #F2EDE4;
-  --canvas-subtle-hover: #EAE3D6;
-  --canvas-border: #E5DFD5;
-  --canvas-border-strong: #DDD6C8;
-  --focus-border: #D23B38;
-  --ink-primary: #2B2C30;
-  --ink-secondary: #7E7F85;
-  --ink-strike: #A19D94;
-  --ink-accent: #D23B38;
-  --accent-blue: #1D4ED8;
-  --accent-purple: #D097F7;
-  --accent-lavender: #DBB3F6;
-  --today-bg: #2B2C30;
-  --today-text: #FAF8F5;
-  --today-row-bg: #FAF0E4;
-  --today-row-hover-bg: #F5E8D6;
-  --day-row-hover-bg: #F2EDE4;
-  --radar-current-week-bg: #FCE7D2;
-}
-
-[data-theme="lupine"] {
+:root {
   --canvas-bg: #FAFAFA;
   --canvas-card: #FFFFFF;
   --canvas-subtle: #F2F2F4;
@@ -48,10 +25,10 @@
 }
 
 @theme {
-  --font-hand: 'Caveat', cursive, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --font-serif: 'Newsreader', Georgia, serif;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-serif: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-hand: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   
   --color-paper: var(--canvas-bg);
   --color-paper-card: var(--canvas-card);
@@ -73,44 +50,51 @@ html, body, #root {
   padding: 0;
   background-color: var(--canvas-bg);
   color: var(--ink-primary);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   overflow: hidden;
+  letter-spacing: -0.01em;
 }
 
-/* Analog paper subtle grain or texture (disabled in Lupine for pure Scandinavian/Linux clarity) */
+/* Console canvas: crisp flat terminal surface without paper texture */
 .paper-texture {
   background-color: var(--canvas-bg);
-  background-image: radial-gradient(#E8E3D8 0.75px, transparent 0.75px);
-  background-size: 16px 16px;
-}
-
-[data-theme="lupine"] .paper-texture {
-  background-color: #FAFAFA;
   background-image: none;
 }
 
-/* Custom subtle scrollbar */
+/* Console flat scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--canvas-subtle);
 }
 ::-webkit-scrollbar-thumb {
-  background: #D8D2C5;
-  border-radius: 3px;
+  background: #CBD5E1;
+  border-radius: 0px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #B8B09F;
+  background: #3264EB;
 }
 
-[data-theme="lupine"] ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
-  border-radius: 3px;
+/* Terminal cursor blink animation */
+@keyframes console-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
-[data-theme="lupine"] ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+
+.animate-console-cursor {
+  animation: console-cursor 1s step-end infinite;
+}
+
+/* TUI Box-Drawing & Crisp Rectangular Geometry: overwrite paper curves for console aesthetic */
+*, ::before, ::after {
+  border-radius: 0px !important;
+}
+
+::selection {
+  background-color: #3264EB !important;
+  color: #FFFFFF !important;
 }
 
 /* Subtle harmonic bounce animation for active priority notes */
@@ -129,6 +113,9 @@ html, body, #root {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-subtle-bounce {
+    animation: none;
+  }
+  .animate-console-cursor {
     animation: none;
   }
 }

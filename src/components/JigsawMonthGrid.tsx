@@ -764,18 +764,19 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
           </div>
         ) : (
           /* Desktop / Mobile Title */
-          <div className="flex items-center gap-1.5 font-sans font-bold text-xs text-[var(--ink-primary)] tracking-tight">
-            <span>Months</span>
+          <div className="flex items-center gap-1 font-mono font-bold text-xs text-[#212121] tracking-tight">
+            <span className="text-[#3264EB] font-bold">::</span>
+            <span>months</span>
           </div>
         )}
 
         {/* Right: Month Navigation (< >) & Today Button */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 font-mono">
           <div className="flex items-center">
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1 rounded hover:bg-[var(--canvas-subtle-hover)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+              className="p-1 rounded-none hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
               title="Scroll to previous month"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -783,7 +784,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1 rounded hover:bg-[var(--canvas-subtle-hover)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
+              className="p-1 rounded-none hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
               title="Scroll to next month"
             >
               <ChevronRight className="w-4 h-4" />
@@ -793,26 +794,26 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
           <button
             type="button"
             onClick={handleResetToCurrent}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-[#71727A] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/70 rounded transition-colors cursor-pointer border border-[#E5DFD5]"
-            title="Jump calendar to today"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-[#212121] hover:bg-[#E9ECEF] rounded-none transition-colors cursor-pointer border border-[#E2E8F0] bg-[#F2F2F4]"
+            title="Jump calendar to today (:today)"
           >
-            <Compass className="w-3 h-3 text-[#D23B38]" />
-            <span>Today</span>
+            <Compass className="w-3 h-3 text-[#3264EB]" />
+            <span>:today</span>
           </button>
         </div>
       </div>
 
       {/* Column Headers */}
-      <div className="h-7 border-b border-[#E5DFD5] flex items-center bg-[#F7F4EC]/60 shrink-0">
+      <div className="h-7 border-b border-[#E2E8F0] flex items-center bg-[#F2F2F4] shrink-0 font-mono text-[10px]">
         {(!isCompact || compactView !== 'reflections') && (
-          <div className="w-10 shrink-0 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold text-center border-r border-[#E5DFD5]">
-            Mo
+          <div className="w-10 shrink-0 uppercase tracking-wider text-[#757575] font-bold text-center border-r border-[#E2E8F0]">
+            mo
           </div>
         )}
         {(!isCompact || compactView !== 'reflections') && (
           <div
-            className={`shrink-0 grid grid-cols-7 text-center text-[10px] font-mono font-medium text-[#7E7F85] ${
-              !isCompact ? 'border-r border-[#E5DFD5]' : ''
+            className={`shrink-0 grid grid-cols-7 text-center font-bold text-[#757575] ${
+              !isCompact ? 'border-r border-[#E2E8F0]' : ''
             }`}
             style={{ width: `${gridWidth}px` }}
           >
@@ -822,8 +823,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
           </div>
         )}
         {(!isCompact || compactView === 'reflections') && (
-          <div className="flex-1 text-[10px] font-mono uppercase tracking-wider text-[#8E8F95] font-semibold pl-3 truncate">
-            Monthly Reflections
+          <div className="flex-1 uppercase tracking-wider text-[#757575] font-bold pl-3 truncate">
+            // monthly buffers
           </div>
         )}
       </div>

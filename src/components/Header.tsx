@@ -118,69 +118,47 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    // Invariant: Rigid flex sibling header. flex-none ensures it retains exactly 48px height
-    // and is never pushed out of the viewport by scroll events in child lists.
-    <header className={`flex-none shrink-0 w-full z-30 h-12 backdrop-blur-sm border-b px-3 sm:px-4 flex items-center justify-between shadow-xs transition-colors ${
-      isLupine
-        ? 'bg-[#FAFAFA]/95 border-[#E2E8F0] text-[#212121]'
-        : 'bg-[#FAF8F5]/95 border-[#E5DFD5] text-[#2B2C30]'
-    }`}>
-      {/* Left: Branding & Today Button */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className={`flex items-center gap-1.5 font-sans text-base sm:text-lg font-bold tracking-tight ${
-          isLupine ? 'text-[#212121]' : 'font-serif text-[#2B2C30]'
-        }`}>
-          {isLupine ? (
-            <span className="w-2.5 h-2.5 rounded-full bg-[#3264EB] shadow-xs shrink-0" />
-          ) : (
-            <span className="text-xl">🕮</span>
-          )}
-          <span className="hidden sm:inline">ChronoLedger</span>
-          {isLupine && (
-            <span className="text-[10px] font-mono font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-[#EEF2FF] text-[#3264EB] border border-[#C7D2FE] hidden md:inline">
-              Lupine
-            </span>
-          )}
+    // Rigid flex sibling header in Waybar/TUI statusline format. flex-none ensures exactly 48px height.
+    <header className="flex-none shrink-0 w-full z-30 h-12 border-b border-[#E2E8F0] bg-[#FAFAFA] text-[#212121] font-mono px-3 sm:px-4 flex items-center justify-between transition-colors">
+      {/* Left: TUI Command Prompt & Actions */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 font-mono text-xs sm:text-sm font-bold tracking-tight text-[#212121]">
+          <span className="text-[#3264EB] font-bold">~</span>
+          <span className="text-[#757575]">/</span>
+          <span>chrono</span>
+          <span className="text-[#3264EB] font-normal animate-console-cursor">_</span>
+          <span className="text-[10px] font-mono font-bold tracking-wider uppercase px-1 py-0.5 bg-[#EFF6FF] text-[#3264EB] border border-[#BFDBFE] hidden md:inline ml-1">
+            CONSOLE
+          </span>
         </div>
 
         <button
           type="button"
           onClick={onJumpToToday}
-          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md border transition-colors cursor-pointer ${
-            isLupine
-              ? 'bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] border-[#E2E8F0]'
-              : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
-          }`}
-          title="Jump to current date"
+          className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium border border-[#E2E8F0] bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] transition-colors cursor-pointer"
+          title="Jump to current date (:today)"
         >
-          <Compass className={`w-3.5 h-3.5 ${isLupine ? 'text-[#3264EB]' : 'text-[#D23B38]'}`} />
-          <span>Today</span>
+          <Compass className="w-3.5 h-3.5 text-[#3264EB]" />
+          <span>:today</span>
         </button>
 
         <button
           type="button"
           onClick={onOpenAddNote}
-          className={`px-2.5 py-1 text-xs font-sans font-medium rounded-md transition-colors cursor-pointer shadow-xs ${
-            isLupine
-              ? 'bg-[#3264EB] hover:bg-[#2552D0] text-white'
-              : 'bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5]'
-          }`}
+          className="flex items-center gap-1 px-2.5 py-1 text-xs font-mono font-medium bg-[#3264EB] hover:bg-[#2552D0] text-white border border-[#2552D0] transition-colors cursor-pointer"
+          title="Create new note (:new)"
         >
-          + New Note
+          <span>+ :new</span>
         </button>
       </div>
 
       {/* Mobile Compact Tool Switcher */}
-      <div className="flex md:hidden items-center gap-1 shrink-0">
+      <div className="flex md:hidden items-center gap-1 shrink-0 font-mono">
         {onOpenSearch && (
           <button
             type="button"
             onClick={onOpenSearch}
-            className={`p-1 rounded border transition-colors cursor-pointer ${
-              isLupine
-                ? 'text-[#757575] hover:text-[#212121] hover:bg-[#F2F2F4] border-[#E2E8F0]'
-                : 'text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#F2EDE4] border-[#DDD6C8]'
-            }`}
+            className="p-1 border border-[#E2E8F0] bg-[#F2F2F4] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
             title="Search & Filter (⌘K)"
           >
             <Search className="w-3.5 h-3.5" />
@@ -194,14 +172,10 @@ export const Header: React.FC<HeaderProps> = ({
             const nextIdx = (order.indexOf(settings.activeTool) + 1) % order.length;
             onUpdateSettings({ activeTool: order[nextIdx] });
           }}
-          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-mono font-medium transition-all border cursor-pointer ${
+          className={`flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium transition-all border cursor-pointer ${
             settings.activeTool !== 'select'
-              ? isLupine
-                ? 'bg-[#3264EB] text-white border-[#2552D0]'
-                : 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
-              : isLupine
-              ? 'bg-[#F2F2F4] text-[#212121] border-[#E2E8F0]'
-              : 'bg-[#F2EDE4] text-[#2B2C30] border-[#DDD6C8]'
+              ? 'bg-[#3264EB] text-white border-[#2552D0]'
+              : 'bg-[#F2F2F4] text-[#212121] border-[#E2E8F0]'
           }`}
           title={`Active tool: ${settings.activeTool} (Tap to change)`}
         >
@@ -209,54 +183,45 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="capitalize text-[11px] hidden sm:inline">{settings.activeTool}</span>
           {settings.activeTool !== 'select' && settings.activeTool !== 'eraser' && (
             <span
-              className="w-2 h-2 rounded-full border border-white/50 shrink-0 ml-0.5"
+              className="w-2 h-2 border border-white/50 shrink-0 ml-0.5"
               style={{ backgroundColor: settings.inkColor }}
             />
           )}
         </button>
       </div>
 
-      {/* Desktop Center: Drawing Tools (Lupine Vim-style pills) */}
-      <div className={`hidden md:flex items-center gap-1 p-1 rounded-lg border shrink-0 ${
-        isLupine ? 'bg-[#F2F2F4] border-[#E2E8F0]' : 'bg-[#F2EDE4] border-[#DDD6C8]'
-      }`}>
+      {/* Desktop Center: Drawing Tools (TUI square command buttons) */}
+      <div className="hidden md:flex items-center gap-1 p-0.5 border border-[#E2E8F0] bg-[#F2F2F4] shrink-0 font-mono text-xs">
         {tools.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => onUpdateSettings({ activeTool: t.id })}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
+            className={`flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium transition-colors cursor-pointer border ${
               settings.activeTool === t.id
-                ? isLupine
-                  ? 'bg-[#3264EB] text-white shadow-xs border border-[#2552D0]'
-                  : 'bg-[#FAF8F5] text-[#2B2C30] shadow-xs border border-[#D5CDC0]'
-                : isLupine
-                ? 'text-[#757575] hover:text-[#212121] hover:bg-[#E9ECEF]'
-                : 'text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50'
+                ? 'bg-[#3264EB] text-white border-[#2552D0]'
+                : 'text-[#757575] hover:text-[#212121] hover:bg-[#E9ECEF] border-transparent'
             }`}
             title={`${t.label} (${t.shortcut}) — ${t.hint}`}
           >
             {t.icon}
-            <span className="hidden xl:inline">{t.label}</span>
+            <span className="text-[11px] font-bold">:{t.shortcut.toLowerCase()}</span>
+            <span className="hidden xl:inline text-[11px]">{t.id}</span>
           </button>
         ))}
 
         {/* Color Palette (visible when drawing tool active) */}
         {settings.activeTool !== 'select' && settings.activeTool !== 'eraser' && (
-          <div className={`flex items-center gap-1 pl-2 ml-1 border-l ${
-            isLupine ? 'border-[#E2E8F0]' : 'border-[#DDD6C8]'
-          }`}>
+          <div className="flex items-center gap-1 pl-1.5 ml-1 border-l border-[#E2E8F0]">
             {inkColors.map((c) => (
               <button
                 key={c.hex}
                 type="button"
                 onClick={() => onUpdateSettings({ inkColor: c.hex })}
-                className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
+                className={`w-3.5 h-3.5 border transition-transform cursor-pointer ${
                   settings.inkColor === c.hex
-                    ? isLupine
-                      ? 'scale-125 ring-2 ring-offset-1 ring-[#3264EB]'
-                      : 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]'
-                    : 'opacity-70 hover:opacity-100'
+                    ? 'scale-110 border-[#212121] ring-1 ring-[#3264EB]'
+                    : 'border-transparent opacity-70 hover:opacity-100'
                 }`}
                 style={{ backgroundColor: c.hex }}
                 title={c.name}
@@ -268,23 +233,21 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Undo & Redo History Controls */}
       {(onUndo || onRedo) && (
-        <div className={`hidden sm:flex items-center gap-0.5 p-1 rounded-lg border shrink-0 ${
-          isLupine ? 'bg-[#F2F2F4] border-[#E2E8F0]' : 'bg-[#F2EDE4] border-[#DDD6C8]'
-        }`}>
+        <div className="hidden sm:flex items-center gap-0.5 p-0.5 border border-[#E2E8F0] bg-[#F2F2F4] shrink-0 font-mono">
           {onUndo && (
             <button
               type="button"
               onClick={onUndo}
               disabled={!canUndo}
-              className={`flex items-center gap-1 px-1.5 py-1 rounded text-xs font-medium transition-all ${
+              className={`flex items-center gap-1 px-1.5 py-1 text-xs font-mono transition-colors ${
                 canUndo
-                  ? 'text-[#2B2C30] hover:bg-[#FAF8F5] hover:shadow-2xs cursor-pointer'
-                  : 'text-[#A19D94] opacity-35 cursor-not-allowed'
+                  ? 'text-[#212121] hover:bg-[#E9ECEF] cursor-pointer'
+                  : 'text-[#9E9E9E] opacity-35 cursor-not-allowed'
               }`}
-              title="Undo (⌘Z / Ctrl+Z)"
+              title="Undo (⌘Z / :u)"
             >
               <Undo className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline text-[10px] font-mono">Undo</span>
+              <span className="hidden lg:inline text-[10px] font-mono">:u</span>
             </button>
           )}
 
@@ -293,50 +256,50 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={onRedo}
               disabled={!canRedo}
-              className={`flex items-center gap-1 px-1.5 py-1 rounded text-xs font-medium transition-all ${
+              className={`flex items-center gap-1 px-1.5 py-1 text-xs font-mono transition-colors ${
                 canRedo
-                  ? 'text-[#2B2C30] hover:bg-[#FAF8F5] hover:shadow-2xs cursor-pointer'
-                  : 'text-[#A19D94] opacity-35 cursor-not-allowed'
+                  ? 'text-[#212121] hover:bg-[#E9ECEF] cursor-pointer'
+                  : 'text-[#9E9E9E] opacity-35 cursor-not-allowed'
               }`}
-              title="Redo (⌘⇧Z / Ctrl+Y)"
+              title="Redo (⌘⇧Z / :r)"
             >
               <Redo className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline text-[10px] font-mono">Redo</span>
+              <span className="hidden lg:inline text-[10px] font-mono">:r</span>
             </button>
           )}
         </div>
       )}
 
-      {/* Right: Backup/Restore & View Preferences */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      {/* Right: Statusline & View Preferences */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 font-mono">
         {/* Mobile: Direct User / Auth Action & More Menu Trigger */}
-        <div className="flex md:hidden items-center gap-1.5">
+        <div className="flex md:hidden items-center gap-1.5 font-mono">
           {currentUser ? (
             <button
               type="button"
               onClick={onOpenAccountSettings}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium rounded-md bg-[#F2EDE4] text-[#2B2C30] border border-[#DDD6C8] hover:bg-[#EAE3D6] transition-colors cursor-pointer max-w-[120px]"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium bg-[#F2F2F4] text-[#212121] border border-[#E2E8F0] hover:bg-[#E9ECEF] transition-colors cursor-pointer max-w-[120px]"
               title={`Account & Settings (${currentUser.email})`}
             >
-              <User className="w-3.5 h-3.5 text-[#2B2C30] shrink-0" />
+              <User className="w-3.5 h-3.5 text-[#3264EB] shrink-0" />
               <span className="truncate">{currentUser.email.split('@')[0]}</span>
             </button>
           ) : onOpenAuthModal ? (
             <button
               type="button"
               onClick={onOpenAuthModal}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium rounded-md bg-[#2B2C30] text-[#FAF8F5] hover:bg-[#404147] transition-colors cursor-pointer shadow-xs"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-mono font-medium bg-[#3264EB] text-white border border-[#2552D0] hover:bg-[#2552D0] transition-colors cursor-pointer"
               title="Sign In / Register"
             >
-              <User className="w-3.5 h-3.5 text-[#FAF8F5] shrink-0" />
-              <span>Sign In</span>
+              <User className="w-3.5 h-3.5 text-white shrink-0" />
+              <span>:login</span>
             </button>
           ) : null}
 
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
-            className="p-1.5 rounded-md text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#F2EDE4] border border-[#DDD6C8] transition-colors cursor-pointer"
+            className="p-1.5 text-[#757575] hover:text-[#212121] bg-[#F2F2F4] hover:bg-[#E9ECEF] border border-[#E2E8F0] transition-colors cursor-pointer"
             title="Options & Settings"
           >
             <MoreVertical className="w-4 h-4" />
@@ -344,54 +307,54 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Desktop: Full Controls */}
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2 font-mono">
           {/* SQLite Sync Status Indicator */}
           {syncStatus && (
             <button
               type="button"
               onClick={currentUser ? onForceSync : onOpenAuthModal}
-              className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono border border-[#E2E8F0] bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
               title={
                 !currentUser
-                  ? 'Guest Mode: Notes are saved locally in your browser. Click Sign In to sync & protect your ledger.'
+                  ? 'Guest Mode: Local buffer only. Click to sign in.'
                   : syncStatus === 'synced'
                   ? `SQLite Synced ${lastSyncedAt ? `(${new Date(lastSyncedAt).toLocaleTimeString()})` : ''}. Click to re-sync.`
                   : syncStatus === 'syncing'
                   ? 'Syncing changes to SQLite database...'
-                  : 'Offline / Server unreachable (Saved in browser). Click to retry sync.'
+                  : 'Offline (Buffer saved in browser). Click to retry sync.'
               }
             >
               {syncStatus === 'syncing' ? (
-                <RefreshCw className="w-3 h-3 text-[#E29578] animate-spin" />
+                <RefreshCw className="w-3 h-3 text-[#3264EB] animate-spin" />
               ) : syncStatus === 'synced' ? (
-                <Database className="w-3 h-3 text-[#2A9D8F]" />
+                <Database className="w-3 h-3 text-[#0C67DE]" />
               ) : !currentUser ? (
-                <Database className="w-3 h-3 text-[#8C827A]" />
+                <Database className="w-3 h-3 text-[#757575]" />
               ) : (
-                <Database className="w-3 h-3 text-[#E76F51] opacity-70" />
+                <Database className="w-3 h-3 text-[#5E49B0] opacity-70" />
               )}
               <span className="hidden xl:inline">
                 {!currentUser
-                  ? 'Guest'
+                  ? 'guest'
                   : syncStatus === 'synced'
-                  ? 'SQLite'
+                  ? 'sqlite:ok'
                   : syncStatus === 'syncing'
-                  ? 'Syncing…'
-                  : 'Offline'}
+                  ? 'syncing...'
+                  : 'offline'}
               </span>
             </button>
           )}
 
           {/* User Account / Auth Pill */}
           {currentUser ? (
-            <div className="flex items-center gap-1.5 pl-2 pr-1.5 py-1 text-[11px] font-mono rounded-md bg-[#F2EDE4] text-[#2B2C30] border border-[#DDD6C8] shadow-2xs">
+            <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono border border-[#E2E8F0] bg-[#F2F2F4] text-[#212121]">
               <button
                 type="button"
                 onClick={onOpenAccountSettings}
-                className="flex items-center gap-1.5 hover:text-[#000] transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 hover:text-[#3264EB] transition-colors cursor-pointer"
                 title={`Account & Security Settings (${currentUser.email})`}
               >
-                <User className="w-3.5 h-3.5 text-[#2B2C30] shrink-0" />
+                <User className="w-3.5 h-3.5 text-[#3264EB] shrink-0" />
                 <span className="max-w-[120px] truncate font-medium">
                   {currentUser.email.split('@')[0]}
                 </span>
@@ -400,7 +363,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={onLogout}
-                  className="ml-0.5 text-[#8C827A] hover:text-[#D23B38] p-0.5 rounded transition-colors cursor-pointer"
+                  className="ml-0.5 text-[#757575] hover:text-[#3264EB] p-0.5 transition-colors cursor-pointer"
                   title="Sign out of account"
                 >
                   <LogOut className="w-3 h-3" />
@@ -411,11 +374,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenAuthModal}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-medium rounded-md bg-[#2B2C30] text-[#FAF8F5] hover:bg-[#3D3E42] transition-colors cursor-pointer shadow-xs"
-              title="Sign in or create account to sync across devices"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-medium border border-[#2552D0] bg-[#3264EB] text-white hover:bg-[#2552D0] transition-colors cursor-pointer"
+              title="Sign in or register"
             >
-              <User className="w-3 h-3 text-[#FAF8F5]" />
-              <span>Sign In</span>
+              <User className="w-3 h-3 text-white" />
+              <span>:login</span>
             </button>
           ) : null}
 
@@ -424,11 +387,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onExportBackup}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono border border-[#E2E8F0] bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
               title="Download full JSON backup of notes & drawings"
             >
-              <Download className="w-3 h-3 text-[#A19D94]" />
-              <span className="hidden xl:inline">Export</span>
+              <Download className="w-3 h-3 text-[#757575]" />
+              <span className="hidden xl:inline">:export</span>
             </button>
           )}
 
@@ -438,11 +401,11 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono border border-[#E2E8F0] bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
                 title="Import JSON backup file"
               >
-                <Upload className="w-3 h-3 text-[#A19D94]" />
-                <span className="hidden xl:inline">Import</span>
+                <Upload className="w-3 h-3 text-[#757575]" />
+                <span className="hidden xl:inline">:import</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -458,43 +421,20 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => onUpdateSettings({ showStruckItems: !settings.showStruckItems })}
-            className="p-1.5 text-[#6B6C72] hover:text-[#2B2C30] rounded-md hover:bg-[#F2EDE4] transition-colors cursor-pointer"
-            title={settings.showStruckItems ? 'Ledger View (Showing struck items)' : 'Clean View (Hiding struck items)'}
+            className="p-1.5 border border-[#E2E8F0] bg-[#F2F2F4] text-[#757575] hover:text-[#212121] hover:bg-[#E9ECEF] transition-colors cursor-pointer"
+            title={settings.showStruckItems ? 'Showing struck items' : 'Hiding struck items'}
           >
-            {settings.showStruckItems ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4 text-[#A19D94]" />}
-          </button>
-
-          {/* Theme Mode Toggle (Lupine vs Paper) */}
-          <button
-            type="button"
-            onClick={() => onUpdateSettings({ themeMode: isLupine ? 'paper' : 'lupine' })}
-            className={`flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono font-medium rounded-md border transition-colors cursor-pointer ${
-              isLupine
-                ? 'bg-[#EEF2FF] text-[#3264EB] border-[#C7D2FE] hover:bg-[#E0E7FF]'
-                : 'bg-[#F2EDE4] text-[#6B6C72] border-[#E5DFD5] hover:bg-[#EAE3D6]'
-            }`}
-            title={`Active Theme: ${isLupine ? 'Omarchy Lupine' : 'Classic Paper'}. Click to toggle.`}
-          >
-            <span
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: isLupine ? '#3264EB' : '#D23B38' }}
-            />
-            <span className="hidden xl:inline">{isLupine ? 'Lupine Theme' : 'Paper Theme'}</span>
-            <span className="xl:hidden">{isLupine ? 'Lupine' : 'Paper'}</span>
+            {settings.showStruckItems ? <Eye className="w-4 h-4 text-[#3264EB]" /> : <EyeOff className="w-4 h-4 text-[#9E9E9E]" />}
           </button>
 
           {/* Week Start Toggle */}
           <button
             type="button"
             onClick={() => onUpdateSettings({ weekStartsOn: settings.weekStartsOn === 0 ? 1 : 0 })}
-            className={`px-2 py-1 text-[11px] font-mono rounded-md border transition-colors cursor-pointer ${
-              isLupine
-                ? 'hover:bg-[#F2F2F4] text-[#757575] border-[#E2E8F0]'
-                : 'hover:bg-[#F2EDE4] text-[#6B6C72] border-[#E5DFD5]'
-            }`}
+            className="px-2 py-1 text-[11px] font-mono border border-[#E2E8F0] bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
             title="Toggle week start day (Sunday vs. Monday)"
           >
-            {settings.weekStartsOn === 0 ? 'Sun Start' : 'Mon Start'}
+            {settings.weekStartsOn === 0 ? 'w:sun' : 'w:mon'}
           </button>
 
           {/* Search Trigger */}
@@ -502,36 +442,24 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenSearch}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors cursor-pointer ${
-                isLupine
-                  ? 'bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] border-[#E2E8F0]'
-                  : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
-              }`}
-              title="Search notes or filter tags (⌘K / Ctrl+K)"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs font-mono border border-[#E2E8F0] bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] transition-colors cursor-pointer"
+              title="Search notes or filter tags (⌘K / :find)"
             >
-              <Search className={`w-3.5 h-3.5 ${isLupine ? 'text-[#3264EB]' : 'text-[#6B6C72]'}`} />
-              <span className="hidden xl:inline">Search</span>
-              <span className={`hidden xl:inline text-[10px] px-1 py-0.2 rounded border ${
-                isLupine ? 'text-[#757575] bg-white border-[#E2E8F0]' : 'text-[#8C827A] bg-white/70 border-[#E5DFD5]'
-              }`}>⌘K</span>
+              <Search className="w-3.5 h-3.5 text-[#3264EB]" />
+              <span className="hidden xl:inline">:find</span>
+              <span className="hidden xl:inline text-[10px] px-1 py-0.2 border text-[#757575] bg-white border-[#E2E8F0]">⌘K</span>
             </button>
           )}
 
           {/* Active Filter Pill */}
           {activeFilter && (
-            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-mono animate-in fade-in ${
-              isLupine
-                ? 'bg-[#EEF2FF] text-[#3264EB] border-[#C7D2FE]'
-                : 'bg-[#D23B38]/10 text-[#D23B38] border-[#D23B38]/30'
-            }`}>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 border border-[#BFDBFE] bg-[#EFF6FF] text-[#3264EB] text-xs font-mono animate-in fade-in">
               <span className="font-semibold max-w-[120px] truncate">{activeFilter}</span>
               {onClearFilter && (
                 <button
                   type="button"
                   onClick={onClearFilter}
-                  className={`p-0.5 rounded transition-colors cursor-pointer ${
-                    isLupine ? 'hover:bg-[#C7D2FE]' : 'hover:bg-[#D23B38]/20'
-                  }`}
+                  className="p-0.5 hover:bg-[#DBEAFE] transition-colors cursor-pointer"
                   title="Clear filter"
                 >
                   <X className="w-3 h-3" />
@@ -545,15 +473,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenTagSettings}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors cursor-pointer ${
-                isLupine
-                  ? 'hover:bg-[#F2F2F4] text-[#757575] hover:text-[#212121] border-[#E2E8F0]'
-                  : 'hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border-[#E5DFD5]'
-              }`}
-              title="Customize tag prototypes, ink swatches, and gutter dots"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-mono border border-[#E2E8F0] bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
+              title="Tag prototypes (:tags)"
             >
               <TagIcon className="w-3.5 h-3.5 text-[#5E49B0]" />
-              <span className="hidden xl:inline">Tags</span>
+              <span className="hidden xl:inline">:tags</span>
             </button>
           )}
 
@@ -561,19 +485,15 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onToggleSidebar}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium border transition-colors cursor-pointer ${
               isSidebarOpen
-                ? isLupine
-                  ? 'bg-[#3264EB] text-white border-[#2552D0] shadow-xs'
-                  : 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
-                : isLupine
-                ? 'bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] border-[#E2E8F0]'
-                : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
+                ? 'bg-[#3264EB] text-white border-[#2552D0]'
+                : 'bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] border-[#E2E8F0]'
             }`}
-            title="Toggle Continuous Month Calendar"
+            title="Toggle Continuous Month Calendar (:months)"
           >
             <CalendarIcon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Months</span>
+            <span className="hidden sm:inline">:months</span>
           </button>
         </div>
       </div>
@@ -589,22 +509,18 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <div
-              className={`w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-t-2xl border-t shadow-2xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200 ${
-                isLupine
-                  ? 'bg-[#FAFAFA] border-[#E2E8F0] text-[#212121]'
-                  : 'bg-[#FAF8F5] border-[#E5DFD5] text-[#2B2C30]'
-              }`}
+              className="w-full max-w-lg max-h-[85vh] overflow-y-auto border-t-2 border-[#3264EB] shadow-2xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200 bg-[#FAFAFA] text-[#212121] font-mono"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className={`flex items-center justify-between border-b pb-2 ${
-                isLupine ? 'border-[#E2E8F0]' : 'border-[#E5DFD5]'
-              }`}>
-                <span className={`font-bold text-sm ${isLupine ? 'font-sans' : 'font-serif'}`}>Settings & Controls</span>
+              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
+                <span className="font-bold text-sm font-mono text-[#212121] flex items-center gap-1.5">
+                  <span className="text-[#3264EB]">&gt;</span> :settings
+                </span>
                 <button
                   type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-1 rounded-md text-[#8E8F95] hover:text-[#212121] transition-colors cursor-pointer"
+                  className="p-1 text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>

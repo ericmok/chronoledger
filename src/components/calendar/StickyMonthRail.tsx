@@ -289,27 +289,26 @@ interface MonthWatermarkProps {
  */
 const MonthWatermark: React.FC<MonthWatermarkProps> = ({ month }) => {
   return (
-    <div className="py-2.5 px-1 flex flex-col items-center justify-center select-none transition-all">
+    <div className="py-2 px-1 flex flex-col items-center justify-center select-none transition-all">
       <div
-        className="font-serif text-xs sm:text-[13px] font-bold tracking-[0.22em] uppercase flex items-center gap-2.5 select-none transition-all"
+        className="font-mono text-xs sm:text-[13px] font-bold tracking-[0.25em] uppercase flex items-center gap-2 select-none transition-all"
         style={{
           writingMode: 'vertical-rl',
           transform: 'rotate(180deg)',
         }}
       >
         <span
-          className="transition-all duration-200 group-hover/railpill:opacity-100 group-hover/railpill:scale-105"
+          className="transition-all duration-200 group-hover/railpill:opacity-100 group-hover/railpill:scale-105 text-[#212121]"
           style={{
-            color: month.seasonalColor?.accentTag || '#2B2C30',
-            opacity: month.isCurrentMonth ? 0.95 : 0.78,
+            opacity: month.isCurrentMonth ? 1 : 0.8,
           }}
         >
-          {month.fullName}
+          // {month.fullName}
         </span>
         <span
-          className="font-mono text-[10px] sm:text-[10.5px] font-semibold tracking-wider transition-all duration-200 group-hover/railpill:opacity-90 text-[var(--ink-secondary)]"
+          className="font-mono text-[10px] sm:text-[10.5px] font-semibold tracking-wider transition-all duration-200 text-[#3264EB]"
           style={{
-            opacity: month.isCurrentMonth ? 0.9 : 0.65,
+            opacity: month.isCurrentMonth ? 1 : 0.75,
           }}
         >
           {month.year}

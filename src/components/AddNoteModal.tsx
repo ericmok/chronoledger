@@ -75,27 +75,29 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      <div className="w-full max-w-md bg-[#FAF8F5] border border-[#DDD6C8] rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 font-mono">
+      <div className="w-full max-w-md bg-[#FAFAFA] border-2 border-[#3264EB] rounded-none shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-[#212121]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5DFD5]">
-          <h3 className="font-serif text-lg font-semibold text-[#2B2C30]">New Note</h3>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#E2E8F0] bg-[#F2F2F4]">
+          <h3 className="font-mono text-xs font-bold text-[#212121] uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-[#3264EB]">&gt;</span> :new_note
+          </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-[#7E7F85] hover:text-[#2B2C30] hover:bg-[#F2EDE4]"
+            className="p-1 rounded-none text-[#757575] hover:text-[#212121] hover:bg-[#E9ECEF]"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 font-mono text-xs">
           {/* Note content */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-mono text-[#7E7F85] uppercase tracking-wider">
-                Note or Task (Markdown)
+            <div className="flex items-center justify-between mb-1.5 font-mono">
+              <label className="block text-[11px] font-mono text-[#757575] uppercase tracking-wider">
+                // Note Buffer (Markdown)
               </label>
-              <span className="text-[10px] font-mono text-[#A19D94]">⌘↵ to save • Enter for newline</span>
+              <span className="text-[10px] font-mono text-[#9E9E9E]">⌘↵ save • ↵ newline</span>
             </div>
 
             <div className="relative">
@@ -133,7 +135,7 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
                   );
                 }}
                 placeholder="Write note... (e.g. Flight to Tokyo @4:00pm, - [ ] Checklist item, ## Section heading)"
-                className="w-full px-3 py-2 text-sm bg-white border border-[#DDD6C8] rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#2B2C30]/20 focus:border-[#2B2C30] placeholder-[#BBB6AC] resize-none leading-relaxed"
+                className="w-full px-3 py-2 text-xs font-mono bg-white border border-[#CBD5E1] rounded-none focus:outline-hidden focus:border-[#3264EB] placeholder-[#9E9E9E] resize-none leading-relaxed text-[#212121]"
               />
 
               <AnnotationAutocomplete
@@ -148,36 +150,39 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
 
           {/* Span Type Selector */}
           <div>
-            <label className="block text-xs font-mono text-[#7E7F85] uppercase tracking-wider mb-1.5">
-              Date Attachment
+            <label className="block text-[11px] font-mono text-[#757575] uppercase tracking-wider mb-1.5">
+              // Target Attachment
             </label>
-            <div className="grid grid-cols-3 gap-1 p-1 bg-[#F2EDE4] rounded-lg text-xs font-medium">
+            <div className="grid grid-cols-3 gap-1 p-0.5 bg-[#F2F2F4] border border-[#E2E8F0] rounded-none text-xs font-mono font-medium">
               <button
                 type="button"
                 onClick={() => setMode('single')}
-                className={`py-1.5 rounded-md transition-all ${
-                  mode === 'single' ? 'bg-[#FAF8F5] text-[#2B2C30] shadow-xs' : 'text-[#6B6C72]'
+                className={`py-1 rounded-none transition-all cursor-pointer ${
+                  mode === 'single' ? 'bg-[#3264EB] text-white font-bold' : 'text-[#757575] hover:text-[#212121]'
                 }`}
               >
-                Single Day
+                :single
               </button>
               <button
                 type="button"
                 onClick={() => setMode('contiguous')}
-                className={`py-1.5 rounded-md transition-all ${
-                  mode === 'contiguous' ? 'bg-[#FAF8F5] text-[#2B2C30] shadow-xs' : 'text-[#6B6C72]'
+                className={`py-1 rounded-none transition-all cursor-pointer ${
+                  mode === 'contiguous' ? 'bg-[#3264EB] text-white font-bold' : 'text-[#757575] hover:text-[#212121]'
                 }`}
               >
-                Date Span
+                :span
               </button>
               <button
                 type="button"
                 onClick={() => setMode('non-contiguous')}
-                className={`py-1.5 rounded-md transition-all ${
-                  mode === 'non-contiguous' ? 'bg-[#FAF8F5] text-[#2B2C30] shadow-xs' : 'text-[#6B6C72]'
+                className={`py-1 rounded-none transition-all cursor-pointer ${
+                  mode === 'non-contiguous' ? 'bg-[#3264EB] text-white font-bold' : 'text-[#757575] hover:text-[#212121]'
                 }`}
               >
-                Multi-Date
+                :multi
+              </button>
+            </div>
+          </div>
               </button>
             </div>
           </div>
@@ -290,19 +295,19 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
           </div>
 
           {/* Footer buttons */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5DFD5]">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-medium text-[#7E7F85] hover:text-[#2B2C30] rounded-md"
+              className="px-3 py-1.5 text-xs font-mono font-medium text-[#757575] hover:text-[#212121] border border-[#CBD5E1] rounded-none hover:bg-[#F2F2F4] transition-colors cursor-pointer"
             >
-              Cancel
+              [:cancel]
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 text-xs font-medium bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] rounded-md shadow-xs transition-colors"
+              className="px-4 py-1.5 text-xs font-mono font-medium bg-[#3264EB] hover:bg-[#2552D0] text-white rounded-none border border-[#2552D0] transition-colors cursor-pointer"
             >
-              Save Note
+              [+ :save]
             </button>
           </div>
         </form>

@@ -184,53 +184,37 @@ export const DayRow: React.FC<DayRowProps> = ({
       data-date-string={dateItem.dateString}
       className="flex flex-col flex-1 w-full group/row"
     >
-      {/* Month Milestone Ribbon on 1st of month:
-          Rendered inside DayRow to preserve 7-day WeekBlock virtualization,
-          Weekly Scratch Pad geometry, and DrawingOverlay coordinate mappings. */}
+      {/* Month Milestone Ribbon on 1st of month (Console section break) */}
       {dateItem.isFirstDayOfMonth && seasonalColor && (
         <div
           data-month-ribbon="true"
-          /* pt-1.5 (6px) and pb-[5px] (5px + 1px border = 6px) symmetrically balance vertical space */
-          className="w-full flex items-center pr-3 pt-1.5 pb-[5px] border-b select-none transition-colors"
-          style={{
-            backgroundColor: seasonalColor.gutterBg,
-            borderColor: seasonalColor.notesBorder || (isLupine ? '#E2E8F0' : '#E5DFD5'),
-          }}
+          className="w-full flex items-center pr-3 py-1 border-b border-[#CBD5E1] bg-[#F2F2F4] select-none font-mono text-xs transition-colors"
           title={`${fullMonthName} ${dateItem.year}`}
         >
-          {/* w-8 spacer matches the Mo rail column width so month text begins at exact date-column alignment */}
-          <div className={`w-8 shrink-0 border-r self-stretch ${
-            isLupine ? 'border-[#E2E8F0]' : 'border-[#E5DFD5]/40'
-          }`} />
+          {/* Section glyph marker */}
+          <div className="w-8 shrink-0 border-r border-[#CBD5E1] self-stretch flex items-center justify-center text-[10px] text-[#757575] font-bold">
+            //
+          </div>
 
-          {/* Month & Year typography with font-metric optical center compensation */}
-          <div className="flex items-center gap-2.5 pl-3 shrink-0">
-            {/* Serif uppercase month name: shifted 1px down to offset empty descender space */}
-            <span
-              className={`text-xs sm:text-[13px] font-bold tracking-[0.22em] uppercase translate-y-[1px] ${
-                isLupine ? 'font-sans' : 'font-serif'
-              }`}
-              style={{ color: seasonalColor.accentTag }}
-            >
+          {/* Month & Year in console typography */}
+          <div className="flex items-center gap-2 pl-3 shrink-0">
+            <span className="font-bold text-xs tracking-wider uppercase text-[#3264EB]">
               {fullMonthName}
             </span>
-            {/* Monospace 4-digit year: shifted 0.5px down for optical midline alignment with serif text */}
-            <span className={`font-mono text-[10.5px] font-semibold tracking-wider translate-y-[0.5px] ${
-              isLupine ? 'text-[#757575]' : 'text-[#7E7F85]'
-            }`}>
+            <span className="text-[11px] font-mono text-[#757575]">
               {dateItem.year}
             </span>
           </div>
 
-          {/* In-stream horizontal accent rule extending to the right margin */}
-          <div
-            className="flex-1 h-px opacity-40 ml-3"
-            style={{ backgroundColor: seasonalColor.accentTag }}
-          />
+          {/* Console dashed rule */}
+          <div className="flex-1 border-t border-dashed border-[#CBD5E1] ml-3" />
+          <span className="text-[10px] font-mono text-[#757575] pl-2 uppercase tracking-widest opacity-70">
+            [buffer]
+          </span>
         </div>
       )}
 
-      {/* Main Day Content */}
+      {/* Main Day Content (Console buffer line) */}
       <div
         onDoubleClick={(e) => {
           const target = e.target as HTMLElement;
@@ -238,34 +222,24 @@ export const DayRow: React.FC<DayRowProps> = ({
           onStartQuickAdd(dateItem.dateString);
         }}
         title={`${dateItem.monthName} ${dateItem.dayOfMonth}, ${dateItem.year} — double-click to write note`}
-        className={`flex items-start flex-1 min-h-[48px] py-1 transition-colors w-full ${
+        className={`flex items-start flex-1 min-h-[44px] py-1 transition-colors w-full ${
           dateItem.isToday
-            ? isLupine
-              ? 'bg-[#EFF6FF]/95 hover:bg-[#E0EDFE] relative z-10'
-              : 'bg-[#FAF0E4]/90 hover:bg-[#F5E8D6] relative z-10'
-            : isLupine
-            ? 'hover:bg-[#F8FAFC]'
-            : 'hover:bg-[#F2EDE4]/30'
+            ? 'border-l-[3px] border-l-[#3264EB] bg-[#EFF6FF] relative z-10'
+            : 'border-l-[3px] border-l-transparent hover:bg-[#F8FAFC]'
         }`}
       >
         {/* Month Rail Guide */}
-        <div className={`w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r ${
-          isLupine ? 'border-[#E2E8F0]' : 'border-[#E5DFD5]/40'
-        }`} />
+        <div className="w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r border-[#E2E8F0]" />
 
-      {/* Date & Day of Week */}
+      {/* Date Gutter (Terminal Line Numbers Style) */}
       <div
         data-date-gutter="true"
-        className="w-12 shrink-0 flex flex-col items-center justify-start pt-1 font-mono select-none"
+        className="w-14 shrink-0 flex flex-col items-center justify-start pt-0.5 font-mono select-none"
       >
         {dateItem.isToday ? (
-          /* Fused Today Unit: Date Number + Day of Week + TODAY badge */
+          /* Fused Today Unit: Terminal Cursor Pill */
           <div
-            className={`relative flex flex-col items-center justify-center rounded-md px-1.5 py-1 shadow-xs min-w-[36px] cursor-pointer hover:brightness-110 transition-all leading-none ${
-              isLupine
-                ? 'bg-[#3264EB] text-white shadow-xs'
-                : 'bg-[#2B2C30] text-[#FAF8F5]'
-            }`}
+            className="relative flex items-center justify-center bg-[#3264EB] text-white rounded-none px-1.5 py-0.5 shadow-xs min-w-[38px] cursor-pointer hover:bg-[#2552D0] transition-all font-mono leading-none gap-1"
             title={
               isCircled
                 ? `Today (${circleColorName} - click to cycle color, double-click to remove)`
@@ -274,31 +248,22 @@ export const DayRow: React.FC<DayRowProps> = ({
             onDoubleClick={handleDateDoubleClick}
             onClick={handleDateClick}
           >
-            <span className="text-base sm:text-[17px] font-bold text-white leading-none">
-              {dateItem.dayOfMonth}
+            <span className="text-[13px] font-bold font-mono leading-none">
+              {String(dateItem.dayOfMonth).padStart(2, '0')}
             </span>
-            <span className={`text-[8.5px] sm:text-[9px] font-mono uppercase tracking-tight leading-none mt-0.5 select-none ${
-              isLupine ? 'text-white/80' : 'text-[#FAF8F5] opacity-50'
-            }`}>
+            <span className="text-[8.5px] font-mono uppercase font-semibold text-white/80 leading-none">
               {dayOfWeekShort}
-            </span>
-            <span className={`text-[6.5px] font-mono font-black uppercase tracking-wider leading-none mt-1 ${
-              isLupine ? 'text-white/95' : 'text-[#FAF8F5]/80'
-            }`}>
-              TODAY
             </span>
 
             {/* Radar Filter Match Indicator */}
             {hasFilterMatch && (
               <span
-                className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ring-2 ring-white animate-pulse ${
-                  isLupine ? 'bg-[#5E49B0]' : 'bg-[#D23B38]'
-                }`}
+                className="absolute -top-1 -right-1 w-2 h-2 rounded-none bg-[#5E49B0] ring-1 ring-white animate-pulse"
                 title="Date contains notes matching active radar filter"
               />
             )}
 
-            {/* Tactile Hand-Drawn Ring around Today badge */}
+            {/* Circled Ring around Today badge */}
             {isCircled && (
               <span
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[54px] h-[52px] pointer-events-none flex items-center justify-center z-10"
@@ -306,7 +271,7 @@ export const DayRow: React.FC<DayRowProps> = ({
               >
                 <RoughCircledRing
                   dateKey={dateItem.dateString}
-                  color={circleColor || (isLupine ? '#3264EB' : '#9CA3AF')}
+                  color={circleColor || '#3264EB'}
                   variant="today"
                 />
               </span>
@@ -314,7 +279,7 @@ export const DayRow: React.FC<DayRowProps> = ({
           </div>
         ) : (
           <div
-            className="flex flex-col items-center justify-center leading-none cursor-pointer group/date"
+            className="flex items-center justify-center leading-none cursor-pointer group/date gap-1 py-0.5 px-1 hover:bg-[#E2E8F0] font-mono"
             title={
               isCircled
                 ? `${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`
@@ -324,30 +289,22 @@ export const DayRow: React.FC<DayRowProps> = ({
             onClick={handleDateClick}
           >
             <span
-              className={`relative inline-flex items-center justify-center min-w-[22px] h-6 px-0.5 rounded text-base sm:text-[17px] font-bold transition-colors leading-none ${
-                isLupine
-                  ? 'text-[#212121] group-hover/date:bg-[#E2E8F0]/50'
-                  : 'text-[#2B2C30] group-hover/date:bg-black/5'
-              } ${
+              className={`relative inline-flex items-center justify-center text-[13px] font-mono font-bold transition-colors leading-none ${
                 hasFilterMatch
-                  ? isLupine
-                    ? 'ring-2 ring-[#3264EB] bg-[#EFF6FF]'
-                    : 'ring-2 ring-[#D23B38] bg-[#D23B38]/10'
-                  : ''
+                  ? 'ring-1 ring-[#3264EB] bg-[#EFF6FF] px-0.5 text-[#3264EB]'
+                  : 'text-[#212121]'
               }`}
             >
-              {dateItem.dayOfMonth}
+              {String(dateItem.dayOfMonth).padStart(2, '0')}
 
               {hasFilterMatch && (
                 <span
-                  className={`absolute -top-1 -right-1 w-2 h-2 rounded-full animate-pulse ${
-                    isLupine ? 'bg-[#3264EB]' : 'bg-[#D23B38]'
-                  }`}
+                  className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-none bg-[#3264EB] animate-pulse"
                   title="Date contains notes matching active radar filter"
                 />
               )}
 
-              {/* Tactile Hand-Drawn Pen Ring around day number */}
+              {/* Circled Ring around day number */}
               {isCircled && (
                 <span
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[46px] h-[40px] pointer-events-none flex items-center justify-center z-10"
@@ -355,21 +312,17 @@ export const DayRow: React.FC<DayRowProps> = ({
                 >
                   <RoughCircledRing
                     dateKey={dateItem.dateString}
-                    color={circleColor || (isLupine ? '#3264EB' : '#9CA3AF')}
+                    color={circleColor || '#3264EB'}
                     variant="day"
                   />
                 </span>
               )}
             </span>
             <span
-              className={`font-mono text-[8.5px] sm:text-[9px] uppercase tracking-tight leading-none mt-0.5 select-none ${
+              className={`font-mono text-[9px] uppercase font-semibold leading-none ${
                 dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
-                  ? isLupine
-                    ? 'text-[#3264EB] font-medium'
-                    : 'text-[#D23B38] opacity-35'
-                  : isLupine
-                  ? 'text-[#757575]'
-                  : 'text-[#2B2C30] opacity-30'
+                  ? 'text-[#3264EB]'
+                  : 'text-[#757575]'
               }`}
             >
               {dayOfWeekShort}

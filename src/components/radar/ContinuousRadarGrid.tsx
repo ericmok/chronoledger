@@ -120,16 +120,16 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                 >
                   {/* Day Number */}
                   <span
-                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all group-hover:scale-110 ${
+                    className={`inline-flex items-center justify-center w-5 h-5 rounded-none font-mono text-[11px] transition-all group-hover:scale-105 ${
                       cell.isToday
-                        ? 'bg-[var(--today-bg)] text-[var(--today-text)] font-black shadow-md ring-3 ring-[var(--today-bg)]/35 scale-105'
+                        ? 'bg-[#3264EB] text-white font-bold ring-1 ring-[#3264EB]'
                         : selectedDateKey === cell.dateKey
-                        ? 'bg-[var(--ink-primary)] text-[var(--canvas-bg)] font-bold ring-2 ring-[var(--ink-primary)]/40'
+                        ? 'bg-[#212121] text-white font-bold'
                         : isCurrentWeekRow
-                        ? 'text-[var(--ink-primary)] font-bold'
+                        ? 'text-[#212121] font-bold'
                         : cell.isOutsideTargetRange
-                        ? 'text-[var(--ink-strike)] opacity-40'
-                        : 'text-[var(--ink-primary)]'
+                        ? 'text-[#9E9E9E] opacity-40'
+                        : 'text-[#212121]'
                     }`}
                   >
                     {cell.dayNumber}
