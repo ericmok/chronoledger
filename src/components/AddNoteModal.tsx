@@ -183,9 +183,6 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
               </button>
             </div>
           </div>
-              </button>
-            </div>
-          </div>
 
           {/* Date controls based on mode */}
           {mode === 'single' && (

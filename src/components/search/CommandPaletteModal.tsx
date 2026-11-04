@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, X, Tag as TagIcon, Sparkles, Filter, Calendar as CalendarIcon, ArrowRight, CornerDownLeft, RefreshCw } from 'lucide-react';
+import { X, Tag as TagIcon, Sparkles, Filter, Calendar as CalendarIcon, ArrowRight, CornerDownLeft, RefreshCw } from 'lucide-react';
 import type { NoteItem } from '../../types/calendar';
 import { matchesSelector, parseClientSelector } from '../../utils/selectorMatcher.ts';
 import { CORE_TAG_PROTOTYPES } from '../../utils/tagPrototypes';
