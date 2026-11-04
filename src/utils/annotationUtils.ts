@@ -170,6 +170,52 @@ export function hslToHex(h: number, s: number, l: number): string {
   return rgbToHex(r, g, b);
 }
 
+/**
+ * Parses user color input (Hex with or without '#', 3-digit or 6-digit hex,
+ * HSL, or RGB) and normalizes it to a canonical uppercase '#RRGGBB' hex string.
+ * Returns null if the input string is not a valid color.
+ */
+export function parseColorToHex(input: string): string | null {
+  if (!input || typeof input !== 'string') return null;
+  const str = input.trim();
+  if (!str) return null;
+
+  // 1. Hex: #fff, #ffffff, fff, ffffff
+  const hexMatch = str.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+  if (hexMatch) {
+    let hex = hexMatch[1];
+    if (hex.length === 3) {
+      hex = hex.split('').map((c) => c + c).join('');
+    }
+    return `#${hex.toUpperCase()}`;
+  }
+
+  // 2. HSL: hsl(210, 80%, 60%) or hsla(...)
+  const hslMatch = str.match(/^hsla?\(\s*([\d.]+)(?:deg)?\s*[, ]\s*([\d.]+)%\s*[, ]\s*([\d.]+)%/i);
+  if (hslMatch) {
+    const h = parseFloat(hslMatch[1]);
+    const s = parseFloat(hslMatch[2]);
+    const l = parseFloat(hslMatch[3]);
+    if (!isNaN(h) && !isNaN(s) && !isNaN(l)) {
+      const [r, g, b] = hslToRgb(h, s, l);
+      return rgbToHex(r, g, b);
+    }
+  }
+
+  // 3. RGB: rgb(59, 130, 246) or rgba(...)
+  const rgbMatch = str.match(/^rgba?\(\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*[, ]\s*([\d.]+)/i);
+  if (rgbMatch) {
+    const r = Math.round(parseFloat(rgbMatch[1]));
+    const g = Math.round(parseFloat(rgbMatch[2]));
+    const b = Math.round(parseFloat(rgbMatch[3]));
+    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+      return rgbToHex(r, g, b);
+    }
+  }
+
+  return null;
+}
+
 // Relative luminance (0..255) for contrast calculation
 export function getRelativeLuminance(hex: string): number {
   const [r, g, b] = hexToRgb(hex);

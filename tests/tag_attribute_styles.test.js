@@ -12,6 +12,7 @@ import {
   matchesAttributeRule,
   resolveTagStyle,
 } from '../src/utils/tagStyleResolver.ts';
+import { parseColorToHex } from '../src/utils/annotationUtils.ts';
 
 describe('Tag Attribute Styles & Motion (Phase 4 Extension)', () => {
   let db;
@@ -172,5 +173,35 @@ describe('Tag Attribute Styles & Motion (Phase 4 Extension)', () => {
     const styleQuiet = resolveTagStyle('urgent', tokensQuiet[0], customDef, false);
     assert.equal(styleQuiet.animatedStyle, 'none');
     assert.equal(styleQuiet.color.toLowerCase(), '#4fa3f2');
+  });
+
+  test('parseColorToHex: parses 3/6-digit hex, HSL, RGB, and rejects invalid colors', () => {
+    // 6-digit Hex with and without #
+    assert.equal(parseColorToHex('#3B82F6'), '#3B82F6');
+    assert.equal(parseColorToHex('3b82f6'), '#3B82F6');
+    assert.equal(parseColorToHex('#D23B38'), '#D23B38');
+
+    // 3-digit Hex
+    assert.equal(parseColorToHex('#fff'), '#FFFFFF');
+    assert.equal(parseColorToHex('000'), '#000000');
+    assert.equal(parseColorToHex('#abc'), '#AABBCC');
+
+    // HSL with commas and spaces
+    assert.equal(parseColorToHex('hsl(210, 80%, 60%)'), '#4799EB');
+    assert.equal(parseColorToHex('hsl(210 80% 60%)'), '#4799EB');
+    assert.equal(parseColorToHex('hsla(0, 100%, 50%, 0.5)'), '#FF0000');
+
+    // RGB with commas and spaces
+    assert.equal(parseColorToHex('rgb(59, 130, 246)'), '#3B82F6');
+    assert.equal(parseColorToHex('rgba(255, 0, 0, 1)'), '#FF0000');
+    assert.equal(parseColorToHex('rgb(0 0 0)'), '#000000');
+
+    // Invalid formats
+    assert.equal(parseColorToHex(''), null);
+    assert.equal(parseColorToHex('not-a-color'), null);
+    assert.equal(parseColorToHex('#12345'), null);
+    assert.equal(parseColorToHex('#1234567'), null);
+    assert.equal(parseColorToHex(null), null);
+    assert.equal(parseColorToHex(undefined), null);
   });
 });

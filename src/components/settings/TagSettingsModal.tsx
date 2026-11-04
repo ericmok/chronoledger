@@ -10,6 +10,7 @@ import {
   Sliders,
   ChevronDown,
   ChevronUp,
+  Pipette,
 } from 'lucide-react';
 import {
   getTagDefinitions,
@@ -29,6 +30,7 @@ import {
   getWashBgColor,
   getContrastingTextColor,
 } from '../../utils/annotationUtils';
+import { ColorPickerPopover } from '../common/ColorPickerPopover';
 
 interface TagSettingsModalProps {
   isOpen: boolean;
@@ -67,6 +69,13 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
   const [ruleStrikethrough, setRuleStrikethrough] = useState(false);
   const [ruleAnimatedStyle, setRuleAnimatedStyle] = useState<AnimatedStyle>('none');
   const [ruleError, setRuleError] = useState<string | null>(null);
+
+  // Custom Color Picker Popover Controls
+  const [isRuleColorPickerOpen, setIsRuleColorPickerOpen] = useState(false);
+  const [isNewTagColorPickerOpen, setIsNewTagColorPickerOpen] = useState(false);
+  const ruleColorButtonRef = useRef<HTMLButtonElement | null>(null);
+  const newTagColorButtonRef = useRef<HTMLButtonElement | null>(null);
+  const tagColorButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   // Load tag definitions when modal opens
   useEffect(() => {
@@ -433,6 +442,9 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                       {/* Swatch Button */}
                       <div className="relative">
                         <button
+                          ref={(el) => {
+                            tagColorButtonRefs.current[def.tag] = el;
+                          }}
                           type="button"
                           onClick={() => setActiveColorPickerTag(activeColorPickerTag === def.tag ? null : def.tag)}
                           className="w-7 h-7 rounded-full border-2 border-white shadow-xs transition-transform hover:scale-110 cursor-pointer flex items-center justify-center shrink-0"
@@ -444,23 +456,13 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
 
                         {/* Inline Color Palette Popover */}
                         {activeColorPickerTag === def.tag && (
-                          <div
-                            className="absolute left-0 top-9 z-20 p-2 bg-[#FAF8F5] border border-[#DDD6C8] rounded-xl shadow-xl flex gap-1.5 flex-wrap w-48 animate-in zoom-in-95 duration-100"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {CANONICAL_COLOR_LIST.map((c) => (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => handleUpdateColor(def.tag, c.solid)}
-                                className={`w-5 h-5 rounded-full border border-black/10 transition-transform cursor-pointer ${
-                                  def.color.toLowerCase() === c.solid.toLowerCase() ? 'scale-125 ring-2 ring-[#2B2C30]' : 'hover:scale-110'
-                                }`}
-                                style={{ backgroundColor: c.solid }}
-                                title={`${c.label}: ${c.description}`}
-                              />
-                            ))}
-                          </div>
+                          <ColorPickerPopover
+                            currentColor={def.color}
+                            onSelectColor={(hex) => handleUpdateColor(def.tag, hex)}
+                            onClose={() => setActiveColorPickerTag(null)}
+                            triggerRef={{ current: tagColorButtonRefs.current[def.tag] }}
+                            className="left-0 top-9"
+                          />
                         )}
                       </div>
 
@@ -792,10 +794,13 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
 
                           {/* Ink Color Selector */}
                           <div>
-                            <label className="block text-[10px] font-mono text-[#7E7F85] uppercase mb-1">
-                              Ink Swatch
-                            </label>
-                            <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-[10px] font-mono text-[#7E7F85] uppercase">
+                                Ink Swatch & Color
+                              </label>
+                              <span className="font-mono text-[10px] text-[#2B2C30]">{ruleColor}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap relative">
                               {CANONICAL_COLOR_LIST.map((c) => (
                                 <button
                                   key={c.id}
@@ -810,6 +815,40 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                                   title={c.label}
                                 />
                               ))}
+
+                              {/* Custom Color trigger button */}
+                              <div className="relative">
+                                <button
+                                  ref={ruleColorButtonRef}
+                                  type="button"
+                                  onClick={() => setIsRuleColorPickerOpen((prev) => !prev)}
+                                  className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-mono rounded border cursor-pointer transition-colors ${
+                                    isRuleColorPickerOpen || !CANONICAL_COLOR_LIST.some((c) => c.solid.toLowerCase() === ruleColor.toLowerCase())
+                                      ? 'bg-[#2B2C30] text-white border-[#2B2C30]'
+                                      : 'bg-white text-[#2B2C30] border-[#DDD6C8] hover:border-[#2B2C30]'
+                                  }`}
+                                  title="Custom color (Hex, HSL, Eyedropper)"
+                                >
+                                  <span
+                                    className="w-3 h-3 rounded-full border border-black/20 shrink-0"
+                                    style={{ backgroundColor: ruleColor }}
+                                  />
+                                  <span>Custom</span>
+                                </button>
+
+                                {isRuleColorPickerOpen && (
+                                  <ColorPickerPopover
+                                    currentColor={ruleColor}
+                                    onSelectColor={(hex) => {
+                                      setRuleColor(hex);
+                                      setIsRuleColorPickerOpen(false);
+                                    }}
+                                    onClose={() => setIsRuleColorPickerOpen(false)}
+                                    triggerRef={ruleColorButtonRef}
+                                    className="left-0 top-7"
+                                  />
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -985,7 +1024,7 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
             </div>
 
             {/* Color Swatch Picker */}
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 relative">
               {CANONICAL_COLOR_LIST.slice(0, 6).map((c) => (
                 <button
                   key={c.id}
@@ -998,6 +1037,37 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                   title={c.label}
                 />
               ))}
+
+              {/* Custom Color Picker for New Tag */}
+              <div className="relative">
+                <button
+                  ref={newTagColorButtonRef}
+                  type="button"
+                  onClick={() => setIsNewTagColorPickerOpen((prev) => !prev)}
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center cursor-pointer transition-transform hover:scale-110 ${
+                    isNewTagColorPickerOpen || !CANONICAL_COLOR_LIST.slice(0, 6).some((c) => c.solid.toLowerCase() === newTagColor.toLowerCase())
+                      ? 'ring-2 ring-[#2B2C30] border-transparent'
+                      : 'border-[#DDD6C8]'
+                  }`}
+                  style={{ backgroundColor: newTagColor }}
+                  title={`Custom Color: ${newTagColor}`}
+                >
+                  <Pipette className="w-2.5 h-2.5 text-white mix-blend-difference" />
+                </button>
+
+                {isNewTagColorPickerOpen && (
+                  <ColorPickerPopover
+                    currentColor={newTagColor}
+                    onSelectColor={(hex) => {
+                      setNewTagColor(hex);
+                      setIsNewTagColorPickerOpen(false);
+                    }}
+                    onClose={() => setIsNewTagColorPickerOpen(false)}
+                    triggerRef={newTagColorButtonRef}
+                    className="right-0 bottom-7"
+                  />
+                )}
+              </div>
             </div>
 
             {/* Notable checkbox */}
