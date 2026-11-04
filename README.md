@@ -29,6 +29,10 @@ As the calendar rolls through the year, the interface gently transitions through
 
 These ambient tints appear in the radar and section headers, giving a quiet sense of the passing year.
 
+### Multi-Theme Architecture & Design Tokens
+ChronoLedger supports multiple distinct visual styles—including the warm **Paper Ledger** and the crisp **Lupine Console**—via a semantic design token system using CSS Variables and Tailwind `@theme`. Component markup remains theme-agnostic with zero styling ternaries.
+> For the complete token dictionary and instructions on adding new themes, see the **[Theme & Design Token System](docs/THEME_SYSTEM.md)**.
+
 ### Notes Across Horizons
 Plans naturally exist at different scales:
 - **Daily Notes**: Observations, tasks, and appointments attached directly to a date.

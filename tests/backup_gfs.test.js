@@ -269,8 +269,11 @@ test('GFS Backup API: GET and POST /api/backups endpoint', async () => {
     const handledPost = handleApiRequest(mockReqPost, mockResPost, sandbox.db);
     assert.equal(handledPost, true);
 
-    // Wait a brief tick for async performBackup promise resolution
-    await new Promise((r) => setTimeout(r, 50));
+    // Wait for async performBackup promise resolution
+    const start = Date.now();
+    while (postStatusCode === 0 && Date.now() - start < 2000) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
     assert.equal(postStatusCode, 200);
     const parsedPost = JSON.parse(postResponseBody);
     assert.equal(parsedPost.ok, true);
