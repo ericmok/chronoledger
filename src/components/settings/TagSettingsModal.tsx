@@ -107,31 +107,38 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
     setIsLoading(false);
   };
 
-  const handleUpdateColor = async (tagName: string, color: string) => {
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleUpdateColor = (tagName: string, color: string) => {
     const existing = definitions[tagName];
     if (!existing) return;
 
-    // Optimistic UI update
+    // 1. Instant optimistic UI update
     setDefinitions((prev) => ({
       ...prev,
       [tagName]: { ...prev[tagName], color },
     }));
-    setActiveColorPickerTag(null);
 
-    const res = await saveTagDefinition(tagName, {
-      color,
-      notable: existing.notable,
-      gutterPriority: existing.gutterPriority,
-      isCore: existing.isCore,
-    });
-
-    if (res.ok) {
-      setStatusMessage(`Updated @${tagName} color. Existing notes updated.`);
-      setTimeout(() => setStatusMessage(null), 3000);
-      onDefinitionsUpdated?.();
-    } else {
-      loadDefinitions(); // Revert on failure
+    // 2. Debounced persistence to server (300ms) to allow smooth slider dragging
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
+    saveTimeoutRef.current = setTimeout(async () => {
+      const res = await saveTagDefinition(tagName, {
+        color,
+        notable: existing.notable,
+        gutterPriority: existing.gutterPriority,
+        isCore: existing.isCore,
+      });
+
+      if (res.ok) {
+        setStatusMessage(`Updated @${tagName} color.`);
+        setTimeout(() => setStatusMessage(null), 3000);
+        onDefinitionsUpdated?.();
+      } else {
+        loadDefinitions(); // Revert on failure
+      }
+    }, 300);
   };
 
   const handleToggleNotable = async (tagName: string) => {
@@ -461,7 +468,7 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                             onSelectColor={(hex) => handleUpdateColor(def.tag, hex)}
                             onClose={() => setActiveColorPickerTag(null)}
                             triggerRef={{ current: tagColorButtonRefs.current[def.tag] }}
-                            className="left-0 top-9"
+                            portalContainer={dialogRef.current}
                           />
                         )}
                       </div>
@@ -839,13 +846,10 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                                 {isRuleColorPickerOpen && (
                                   <ColorPickerPopover
                                     currentColor={ruleColor}
-                                    onSelectColor={(hex) => {
-                                      setRuleColor(hex);
-                                      setIsRuleColorPickerOpen(false);
-                                    }}
+                                    onSelectColor={(hex) => setRuleColor(hex)}
                                     onClose={() => setIsRuleColorPickerOpen(false)}
                                     triggerRef={ruleColorButtonRef}
-                                    className="left-0 top-7"
+                                    portalContainer={dialogRef.current}
                                   />
                                 )}
                               </div>
@@ -1058,13 +1062,10 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                 {isNewTagColorPickerOpen && (
                   <ColorPickerPopover
                     currentColor={newTagColor}
-                    onSelectColor={(hex) => {
-                      setNewTagColor(hex);
-                      setIsNewTagColorPickerOpen(false);
-                    }}
+                    onSelectColor={(hex) => setNewTagColor(hex)}
                     onClose={() => setIsNewTagColorPickerOpen(false)}
                     triggerRef={newTagColorButtonRef}
-                    className="right-0 bottom-7"
+                    portalContainer={dialogRef.current}
                   />
                 )}
               </div>

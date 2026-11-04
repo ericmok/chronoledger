@@ -170,6 +170,70 @@ export function hslToHex(h: number, s: number, l: number): string {
   return rgbToHex(r, g, b);
 }
 
+export function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(1, s));
+  v = Math.max(0, Math.min(1, v));
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let r1 = 0, g1 = 0, b1 = 0;
+  if (h >= 0 && h < 60) {
+    r1 = c; g1 = x; b1 = 0;
+  } else if (h >= 60 && h < 120) {
+    r1 = x; g1 = c; b1 = 0;
+  } else if (h >= 120 && h < 180) {
+    r1 = 0; g1 = c; b1 = x;
+  } else if (h >= 180 && h < 240) {
+    r1 = 0; g1 = x; b1 = c;
+  } else if (h >= 240 && h < 300) {
+    r1 = x; g1 = 0; b1 = c;
+  } else {
+    r1 = c; g1 = 0; b1 = x;
+  }
+  return [
+    Math.round((r1 + m) * 255),
+    Math.round((g1 + m) * 255),
+    Math.round((b1 + m) * 255),
+  ];
+}
+
+export function rgbToHsv(r: number, g: number, b: number): { h: number; s: number; v: number } {
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  const delta = max - min;
+
+  let h = 0;
+  if (delta !== 0) {
+    if (max === rNorm) {
+      h = 60 * (((gNorm - bNorm) / delta) % 6);
+    } else if (max === gNorm) {
+      h = 60 * ((bNorm - rNorm) / delta + 2);
+    } else {
+      h = 60 * ((rNorm - gNorm) / delta + 4);
+    }
+  }
+  if (h < 0) h += 360;
+
+  const s = max === 0 ? 0 : delta / max;
+  const v = max;
+
+  return { h: Math.round(h), s, v };
+}
+
+export function hexToHsv(hex: string): { h: number; s: number; v: number } {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHsv(r, g, b);
+}
+
+export function hsvToHex(h: number, s: number, v: number): string {
+  const [r, g, b] = hsvToRgb(h, s, v);
+  return rgbToHex(r, g, b);
+}
+
 /**
  * Parses user color input (Hex with or without '#', 3-digit or 6-digit hex,
  * HSL, or RGB) and normalizes it to a canonical uppercase '#RRGGBB' hex string.

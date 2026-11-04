@@ -12,7 +12,11 @@ import {
   matchesAttributeRule,
   resolveTagStyle,
 } from '../src/utils/tagStyleResolver.ts';
-import { parseColorToHex } from '../src/utils/annotationUtils.ts';
+import {
+  parseColorToHex,
+  hexToHsv,
+  hsvToHex,
+} from '../src/utils/annotationUtils.ts';
 
 describe('Tag Attribute Styles & Motion (Phase 4 Extension)', () => {
   let db;
@@ -203,5 +207,30 @@ describe('Tag Attribute Styles & Motion (Phase 4 Extension)', () => {
     assert.equal(parseColorToHex('#1234567'), null);
     assert.equal(parseColorToHex(null), null);
     assert.equal(parseColorToHex(undefined), null);
+  });
+
+  test('HSV conversions: hexToHsv and hsvToHex roundtrip with pure and mixed hues', () => {
+    // Pure red
+    const redHsv = hexToHsv('#FF0000');
+    assert.equal(redHsv.h, 0);
+    assert.equal(redHsv.s, 1);
+    assert.equal(redHsv.v, 1);
+    assert.equal(hsvToHex(0, 1, 1), '#FF0000');
+
+    // Pure green
+    const greenHsv = hexToHsv('#00FF00');
+    assert.equal(greenHsv.h, 120);
+    assert.equal(hsvToHex(120, 1, 1), '#00FF00');
+
+    // Pure blue
+    const blueHsv = hexToHsv('#0000FF');
+    assert.equal(blueHsv.h, 240);
+    assert.equal(hsvToHex(240, 1, 1), '#0000FF');
+
+    // ChronoLedger blue: #3B82F6
+    const clBlue = hexToHsv('#3B82F6');
+    assert.equal(clBlue.h, 217);
+    const roundtrip = hsvToHex(clBlue.h, clBlue.s, clBlue.v);
+    assert.equal(roundtrip, '#3B83F6'); // 1-bit quantization tolerance
   });
 });
