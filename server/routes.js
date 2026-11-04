@@ -1140,15 +1140,31 @@ export function handleApiRequest(req, res, db = getDatabase()) {
 
           db.exec('BEGIN TRANSACTION;');
           try {
-            db.prepare(`
-              INSERT INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(user_id, tag_name) DO UPDATE SET
-                color = excluded.color,
-                notable = excluded.notable,
-                gutter_priority = excluded.gutter_priority,
-                updated_at = excluded.updated_at
-            `).run(`${userId}_${tagName}`, userId, tagName, color, notable, gutterPriority, isCore, now, now);
+            const hasStyleRulesCol = db.prepare("PRAGMA table_info(user_tag_definitions)").all().some(c => c.name === 'style_rules');
+
+            if (hasStyleRulesCol && Array.isArray(body.styleRules)) {
+              const styleRulesJson = JSON.stringify(body.styleRules);
+              db.prepare(`
+                INSERT INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, style_rules, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, tag_name) DO UPDATE SET
+                  color = excluded.color,
+                  notable = excluded.notable,
+                  gutter_priority = excluded.gutter_priority,
+                  style_rules = excluded.style_rules,
+                  updated_at = excluded.updated_at
+              `).run(`${userId}_${tagName}`, userId, tagName, color, notable, gutterPriority, isCore, styleRulesJson, now, now);
+            } else {
+              db.prepare(`
+                INSERT INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, tag_name) DO UPDATE SET
+                  color = excluded.color,
+                  notable = excluded.notable,
+                  gutter_priority = excluded.gutter_priority,
+                  updated_at = excluded.updated_at
+              `).run(`${userId}_${tagName}`, userId, tagName, color, notable, gutterPriority, isCore, now, now);
+            }
 
             // Propagate modified defaults to all existing notes using defaults (is_default = 1)
             if (body.color !== undefined) {
@@ -1185,6 +1201,7 @@ export function handleApiRequest(req, res, db = getDatabase()) {
             notable,
             gutterPriority,
             isCore,
+            styleRules: Array.isArray(body.styleRules) ? body.styleRules : undefined,
             updatedAt: now,
           });
         })

@@ -47,3 +47,23 @@ html, body, #root {
 ::-webkit-scrollbar-thumb:hover {
   background: #B8B09F;
 }
+
+/* Subtle harmonic bounce animation for active priority notes */
+@keyframes subtle-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.animate-subtle-bounce {
+  animation: subtle-bounce 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-subtle-bounce {
+    animation: none;
+  }
+}

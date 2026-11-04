@@ -24,6 +24,7 @@ export function getUserTagDefinitions(db, userId) {
       gutterPriority: proto.gutterPriority,
       isCore: proto.isCore ? 1 : 0,
       defaultStatus: proto.defaultStatus,
+      styleRules: proto.styleRules ? [...proto.styleRules] : [],
     });
   }
 
@@ -31,13 +32,20 @@ export function getUserTagDefinitions(db, userId) {
 
   try {
     const rows = db.prepare(`
-      SELECT tag_name, color, notable, gutter_priority, is_core
+      SELECT *
       FROM user_tag_definitions
       WHERE user_id = ?
     `).all(userId);
 
     for (const r of rows) {
       const existing = map.get(r.tag_name.toLowerCase());
+      let styleRules = existing?.styleRules || [];
+      if (r.style_rules !== undefined && r.style_rules !== null) {
+        try {
+          styleRules = JSON.parse(r.style_rules);
+        } catch {}
+      }
+
       map.set(r.tag_name.toLowerCase(), {
         tag: r.tag_name,
         color: r.color,
@@ -45,6 +53,7 @@ export function getUserTagDefinitions(db, userId) {
         gutterPriority: r.gutter_priority,
         isCore: r.is_core,
         defaultStatus: existing?.defaultStatus,
+        styleRules,
       });
     }
   } catch {

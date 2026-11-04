@@ -9,7 +9,8 @@ import {
   type BadgeTheme,
   DEFAULT_BADGE_THEME,
 } from '../../utils/annotationUtils';
-import { cycleTagStatus } from '../../utils/tagParser';
+import { cycleTagStatus, type ParsedTagToken } from '../../utils/tagParser';
+import { useTagDefinitions } from '../../context/TagDefinitionsContext';
 import { useAnnotationInput } from '../../hooks/useAnnotationInput';
 import { AnnotationAutocomplete } from './AnnotationAutocomplete';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -141,6 +142,37 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   const hasEdits = Boolean(
     originalSplit && (hasBodyEdits || anchorReplaced || anchorAdded)
   );
+
+  const { getStyleForToken } = useTagDefinitions();
+
+  const anchorToken = useMemo<ParsedTagToken | null>(() => {
+    if (!currentSplit.anchor) return null;
+    return {
+      tag: currentSplit.anchor.tag,
+      tagBody: currentSplit.anchor.tag,
+      instanceId: 'anchor',
+      raw: currentSplit.anchor.raw,
+      startIndex: 0,
+      endIndex: currentSplit.anchor.raw.length,
+      isEscaped: false,
+      isResolved: Boolean(isStruck || currentSplit.anchor.isResolved),
+      positionalValues: currentSplit.anchor.positionalValues || [],
+      attributes: currentSplit.anchor.attributes || {},
+      relations: currentSplit.anchor.relations || [],
+    };
+  }, [currentSplit.anchor, isStruck]);
+
+  const anchorStyle = useMemo(() => {
+    if (!currentSplit.anchor) return null;
+    return getStyleForToken(
+      currentSplit.anchor.tag,
+      anchorToken,
+      Boolean(isStruck || currentSplit.anchor.isResolved),
+      badgeTheme
+    );
+  }, [currentSplit.anchor, anchorToken, isStruck, badgeTheme, getStyleForToken]);
+
+  const shouldBounce = !isStruck && anchorStyle?.animatedStyle === 'bounce';
 
   const parsedNote = useMemo(
     () => parseNoteContent(content || originalContent || '', isStruck, badgeTheme),
@@ -305,11 +337,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
    */
   const renderAnchorBadge = (anchor: ParsedAnnotation, isAdded = false) => {
     const isResolved = Boolean(isStruck || anchor.isResolved);
-    const bgColor = isResolved ? anchor.resolvedBgColor : anchor.bgColor;
-    const textColor = isResolved ? anchor.resolvedTextColor : anchor.textColor;
-    const bulletColor = isResolved
+    const bgColor = anchorStyle?.bgColor || (isResolved ? anchor.resolvedBgColor : anchor.bgColor);
+    const textColor = anchorStyle?.textColor || (isResolved ? anchor.resolvedTextColor : anchor.textColor);
+    const bulletColor = anchorStyle?.bulletColor || (isResolved
       ? (anchor.resolvedBulletColor || anchor.resolvedColor)
-      : (anchor.bulletColor || anchor.color);
+      : (anchor.bulletColor || anchor.color));
 
     return (
       <button
@@ -338,14 +370,18 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           isComfortable
             ? '-ml-5 mr-1.5 pl-1.5 pr-2 py-[3.5px]'
             : '-ml-4 mr-1.5 pl-1 pr-1.5 py-[2.5px]'
-        } rounded text-[11px] font-sans font-semibold select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+        } rounded text-[11px] font-sans ${
+          anchorStyle?.isBold ? 'font-bold' : 'font-semibold'
+        } ${anchorStyle?.isItalic ? 'italic' : ''} ${
+          anchorStyle?.isDim ? 'opacity-60' : ''
+        } select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
           isAdded ? '-rotate-[3deg] origin-[20%_50%]' : ''
         } ${
           isDraggable
             ? 'cursor-grab active:cursor-grabbing hover:brightness-105'
             : 'cursor-pointer hover:scale-105 active:scale-95'
         } ${
-          isResolved ? 'line-through opacity-75' : ''
+          isResolved || anchorStyle?.isStrikethrough ? 'line-through opacity-75' : ''
         }`}
         style={{
           backgroundColor: bgColor,
@@ -413,11 +449,23 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     isAdded = false
   ) => {
     const isResolved = Boolean(isStruck || badge.isResolved);
-    const bgColor = isResolved ? badge.resolvedBgColor : badge.bgColor;
-    const textColor = isResolved ? badge.resolvedTextColor : badge.textColor;
-    const bulletColor = isResolved
-      ? (badge.resolvedBulletColor || badge.resolvedColor)
-      : (badge.bulletColor || badge.color);
+    const inlineToken: ParsedTagToken = {
+      tag: badge.tag,
+      tagBody: badge.tag,
+      instanceId: `inline_${key}`,
+      raw: badge.raw,
+      startIndex: 0,
+      endIndex: badge.raw.length,
+      isEscaped: false,
+      isResolved,
+      positionalValues: badge.positionalValues || [],
+      attributes: badge.attributes || {},
+      relations: badge.relations || [],
+    };
+    const inlineStyle = getStyleForToken(badge.tag, inlineToken, isResolved, badgeTheme);
+    const bgColor = inlineStyle.bgColor;
+    const textColor = inlineStyle.textColor;
+    const bulletColor = inlineStyle.bulletColor;
 
     return (
       <button
@@ -434,12 +482,20 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         }}
         className={`inline-flex items-center gap-1 ${
           isComfortable ? 'mx-0.5 pl-1.5 pr-2 py-[3.5px]' : 'mx-0.5 pl-1 pr-1.5 py-[2.5px]'
-        } rounded text-[11px] font-sans font-semibold select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
+        } rounded text-[11px] font-sans ${
+          inlineStyle.isBold ? 'font-bold' : 'font-semibold'
+        } ${inlineStyle.isItalic ? 'italic' : ''} ${
+          inlineStyle.isDim ? 'opacity-60' : ''
+        } ${
+          !isStruck && !currentSplit.anchor && inlineStyle.animatedStyle === 'bounce'
+            ? 'animate-subtle-bounce'
+            : ''
+        } select-none transition-all align-baseline leading-none border-none outline-none ring-0 focus:outline-none focus:ring-0 ${
           isAdded ? '-rotate-[3deg] origin-[20%_50%]' : ''
         } ${
           isDeleted
             ? 'cursor-default line-through decoration-[#2B2C30] decoration-[1.5px] opacity-50'
-            : isResolved
+            : isResolved || inlineStyle.isStrikethrough
             ? 'cursor-pointer hover:scale-105 active:scale-95 line-through opacity-75'
             : 'cursor-pointer hover:scale-105 active:scale-95'
         }`}
@@ -599,7 +655,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           : isComfortable
           ? 'hover:bg-[#F2EDE4]/70 text-[#2B2C30]'
           : 'text-[#2B2C30] bg-[#FAF8F5]/80 hover:bg-white shadow-2xs'
-      } ${className}`}
+      } ${shouldBounce ? 'animate-subtle-bounce' : ''} ${className}`}
       title="Double-click to edit note • Drag handle to reorder"
     >
       {/* Drop Target Indicator: Before */}
@@ -696,7 +752,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
           <div
             className={`transition-all duration-200 ${
               isFoldable && isFolded ? 'max-h-[140px] overflow-y-clip overflow-x-visible' : ''
-            }`}
+            } ${anchorStyle?.isBold ? 'font-bold text-[#1C1D20]' : ''} ${anchorStyle?.isDim ? 'opacity-60' : ''}`}
           >
             {isStruck ? (
               // Full note strike overrides inner diffs with graphite pencil strike

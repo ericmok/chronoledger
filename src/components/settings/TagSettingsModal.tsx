@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, RotateCcw, Plus, Trash2, Check, Tag as TagIcon, Sparkles } from 'lucide-react';
+import {
+  X,
+  RotateCcw,
+  Plus,
+  Trash2,
+  Check,
+  Tag as TagIcon,
+  Sparkles,
+  Sliders,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import {
   getTagDefinitions,
   saveTagDefinition,
@@ -7,7 +18,16 @@ import {
   type UserTagDefinition,
 } from '../../services/tagService';
 import { CANONICAL_COLOR_LIST } from '../../utils/canonicalColors';
-import { CORE_TAG_PROTOTYPES } from '../../utils/tagPrototypes';
+import {
+  CORE_TAG_PROTOTYPES,
+  type AttributeStyleRule,
+  type ColorStyle,
+  type AnimatedStyle,
+} from '../../utils/tagPrototypes';
+import {
+  getWashBgColor,
+  getContrastingTextColor,
+} from '../../utils/annotationUtils';
 
 interface TagSettingsModalProps {
   isOpen: boolean;
@@ -32,6 +52,20 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
   const [newTagNotable, setNewTagNotable] = useState(true);
   const [newTagPriority, setNewTagPriority] = useState(3);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Attribute Rules State
+  const [expandedTagRules, setExpandedTagRules] = useState<string | null>(null);
+  const [isAddingRule, setIsAddingRule] = useState(false);
+  const [ruleKey, setRuleKey] = useState('');
+  const [ruleValue, setRuleValue] = useState('');
+  const [ruleColor, setRuleColor] = useState(CANONICAL_COLOR_LIST[0].solid);
+  const [ruleColorStyle, setRuleColorStyle] = useState<ColorStyle>('light_on_dark');
+  const [ruleBold, setRuleBold] = useState(false);
+  const [ruleItalic, setRuleItalic] = useState(false);
+  const [ruleDim, setRuleDim] = useState(false);
+  const [ruleStrikethrough, setRuleStrikethrough] = useState(false);
+  const [ruleAnimatedStyle, setRuleAnimatedStyle] = useState<AnimatedStyle>('none');
+  const [ruleError, setRuleError] = useState<string | null>(null);
 
   // Load tag definitions when modal opens
   useEffect(() => {
@@ -131,6 +165,103 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
     });
 
     if (res.ok) {
+      onDefinitionsUpdated?.();
+    } else {
+      loadDefinitions();
+    }
+  };
+
+  const handleSaveRule = async (tagName: string) => {
+    setRuleError(null);
+    const trimmedVal = ruleValue.trim().toLowerCase();
+    if (!trimmedVal) {
+      setRuleError('Attribute value is required (e.g. high, low, wip, done)');
+      return;
+    }
+
+    const existing = definitions[tagName];
+    if (!existing) return;
+
+    const newRule: AttributeStyleRule = {
+      id: `rule_${Date.now()}`,
+      attrKey: ruleKey.trim().toLowerCase() || undefined,
+      attrValue: trimmedVal,
+      color: ruleColor,
+      colorStyle: ruleColorStyle,
+      bold: ruleBold || undefined,
+      italic: ruleItalic || undefined,
+      dim: ruleDim || undefined,
+      strikethrough: ruleStrikethrough || undefined,
+      animatedStyle: ruleAnimatedStyle,
+    };
+
+    const currentRules = existing.styleRules ? [...existing.styleRules] : [];
+    const existingIdx = currentRules.findIndex(
+      (r) =>
+        (r.attrKey || '').toLowerCase() === (newRule.attrKey || '').toLowerCase() &&
+        r.attrValue.toLowerCase() === newRule.attrValue.toLowerCase()
+    );
+
+    let updatedRules: AttributeStyleRule[];
+    if (existingIdx !== -1) {
+      updatedRules = currentRules.map((r, i) => (i === existingIdx ? newRule : r));
+    } else {
+      updatedRules = [...currentRules, newRule];
+    }
+
+    setDefinitions((prev) => ({
+      ...prev,
+      [tagName]: { ...prev[tagName], styleRules: updatedRules },
+    }));
+
+    const res = await saveTagDefinition(tagName, {
+      color: existing.color,
+      notable: existing.notable,
+      gutterPriority: existing.gutterPriority,
+      isCore: existing.isCore,
+      styleRules: updatedRules,
+    });
+
+    if (res.ok) {
+      setStatusMessage(`Updated attribute rules for @${tagName}.`);
+      setTimeout(() => setStatusMessage(null), 3000);
+      setIsAddingRule(false);
+      setRuleKey('');
+      setRuleValue('');
+      setRuleBold(false);
+      setRuleItalic(false);
+      setRuleDim(false);
+      setRuleStrikethrough(false);
+      setRuleAnimatedStyle('none');
+      onDefinitionsUpdated?.();
+    } else {
+      loadDefinitions();
+    }
+  };
+
+  const handleDeleteRule = async (tagName: string, ruleId: string) => {
+    const existing = definitions[tagName];
+    if (!existing) return;
+
+    const currentRules = existing.styleRules ? [...existing.styleRules] : [];
+    const updatedRules = currentRules.filter((r) => r.id !== ruleId);
+
+    setDefinitions((prev) => ({
+      ...prev,
+      [tagName]: { ...prev[tagName], styleRules: updatedRules },
+    }));
+
+    const res = await saveTagDefinition(tagName, {
+      color: existing.color,
+      notable: existing.notable,
+      gutterPriority: existing.gutterPriority,
+      isCore: existing.isCore,
+      styleRules: updatedRules,
+    });
+
+    if (res.ok) {
+      setStatusMessage(`Deleted rule for @${tagName}.`);
+      setTimeout(() => setStatusMessage(null), 3000);
       onDefinitionsUpdated?.();
     } else {
       loadDefinitions();
@@ -254,7 +385,8 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                 const isCustom = !def.isCore;
 
                 return (
-                  <div key={def.tag} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5]/80 transition-colors">
+                  <div key={def.tag} className="flex flex-col">
+                    <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5]/80 transition-colors">
                     {/* Left: Tag Badge & Color Indicator */}
                     <div className="flex items-center gap-3">
                       {/* Swatch Button */}
@@ -322,8 +454,39 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Right: Controls (Notable toggle, Gutter Priority, Reset) */}
-                    <div className="flex items-center gap-4 text-xs">
+                    {/* Right: Controls (Notable toggle, Gutter Priority, Rules Drawer, Reset) */}
+                    <div className="flex items-center gap-3 text-xs flex-wrap sm:flex-nowrap">
+                      {/* Rules Drawer Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (expandedTagRules === def.tag) {
+                            setExpandedTagRules(null);
+                            setIsAddingRule(false);
+                          } else {
+                            setExpandedTagRules(def.tag);
+                            setIsAddingRule(false);
+                            setRuleColor(def.color);
+                          }
+                        }}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono border transition-colors cursor-pointer ${
+                          expandedTagRules === def.tag
+                            ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                            : (def.styleRules || []).length > 0
+                            ? 'bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8] hover:bg-[#DDD6C8]'
+                            : 'bg-[#F2EDE4]/60 text-[#7E7F85] border-[#DDD6C8] hover:text-[#2B2C30]'
+                        }`}
+                        title="Configure attribute variant styles (e.g. priority=high, wip, done)"
+                      >
+                        <Sliders className="w-3 h-3" />
+                        <span>Rules ({(def.styleRules || []).length})</span>
+                        {expandedTagRules === def.tag ? (
+                          <ChevronUp className="w-3 h-3" />
+                        ) : (
+                          <ChevronDown className="w-3 h-3" />
+                        )}
+                      </button>
+
                       {/* Notable Toggle */}
                       <label className="flex items-center gap-1.5 text-xs text-[#2B2C30] cursor-pointer select-none">
                         <input
@@ -332,23 +495,23 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                           onChange={() => handleToggleNotable(def.tag)}
                           className="rounded border-[#DDD6C8] text-[#2B2C30] focus:ring-0 cursor-pointer"
                         />
-                        <span className="text-[#6B6C72]">Notable Dot</span>
+                        <span className="text-[#6B6C72]">Notable</span>
                       </label>
 
                       {/* Gutter Priority */}
                       <div className="flex items-center gap-1">
-                        <span className="text-[11px] font-mono text-[#7E7F85]">Gutter:</span>
+                        <span className="text-[11px] font-mono text-[#7E7F85]">P:</span>
                         <select
                           value={def.gutterPriority}
                           onChange={(e) => handleUpdatePriority(def.tag, parseInt(e.target.value, 10))}
                           className="text-xs font-mono bg-[#F2EDE4] border border-[#DDD6C8] rounded px-1.5 py-0.5 text-[#2B2C30] cursor-pointer"
                           title="Gutter priority: 1 is highest priority when multiple tags share a date"
                         >
-                          <option value="1">P1 (Top)</option>
-                          <option value="2">P2</option>
-                          <option value="3">P3</option>
-                          <option value="4">P4</option>
-                          <option value="5">P5</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
                         </select>
                       </div>
 
@@ -375,8 +538,314 @@ export const TagSettingsModal: React.FC<TagSettingsModalProps> = ({
                       ) : null}
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* Attribute Rules Accordion Drawer */}
+                  {expandedTagRules === def.tag && (
+                    <div className="px-4 py-3 bg-[#FAF8F5] border-t border-[#E5DFD5] space-y-3 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#7E7F85]">
+                          Attribute Variant Styles for @{def.tag}
+                        </span>
+                        {!isAddingRule && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingRule(true);
+                              setRuleKey('');
+                              setRuleValue('');
+                              setRuleColor(def.color);
+                              setRuleColorStyle('light_on_dark');
+                              setRuleBold(false);
+                              setRuleItalic(false);
+                              setRuleDim(false);
+                              setRuleStrikethrough(false);
+                              setRuleAnimatedStyle('none');
+                              setRuleError(null);
+                            }}
+                            className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-[#2B2C30] text-[#FAF8F5] hover:bg-[#404147] transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Add Rule</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Existing Rules List */}
+                      {(!def.styleRules || def.styleRules.length === 0) && !isAddingRule ? (
+                        <p className="text-xs text-[#A19D94] italic font-sans py-1">
+                          No attribute rules configured. All notes with @{def.tag} use base stationery styling.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {(def.styleRules || []).map((rule) => {
+                            const badgeBg =
+                              rule.colorStyle === 'dark_on_light'
+                                ? getWashBgColor(rule.color || def.color)
+                                : (rule.color || def.color);
+                            const badgeText =
+                              rule.colorStyle === 'dark_on_light'
+                                ? '#2B2C30'
+                                : getContrastingTextColor(badgeBg);
+
+                            return (
+                              <div
+                                key={rule.id}
+                                className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white border border-[#E5DFD5] shadow-2xs text-xs"
+                              >
+                                <div className="flex items-center gap-2.5 flex-wrap">
+                                  {/* Live Preview Mini Badge */}
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-sans ${
+                                      rule.bold ? 'font-bold' : 'font-semibold'
+                                    } ${rule.italic ? 'italic' : ''} ${
+                                      rule.dim ? 'opacity-60' : ''
+                                    } ${rule.strikethrough ? 'line-through' : ''} ${
+                                      rule.animatedStyle === 'bounce' ? 'animate-subtle-bounce' : ''
+                                    } select-none`}
+                                    style={{
+                                      backgroundColor: badgeBg,
+                                      color: badgeText,
+                                    }}
+                                  >
+                                    @{def.tag}[{rule.attrKey ? `${rule.attrKey}=${rule.attrValue}` : rule.attrValue}]
+                                  </span>
+
+                                  {/* Property Summary Chips */}
+                                  <div className="flex items-center gap-1 text-[10px] font-mono text-[#7E7F85]">
+                                    <span className="px-1 py-0.2 rounded bg-[#F2EDE4]">
+                                      {rule.colorStyle === 'dark_on_light' ? 'Wash' : 'Solid'}
+                                    </span>
+                                    {rule.bold && <span className="px-1 py-0.2 rounded bg-[#F2EDE4] font-bold">Bold</span>}
+                                    {rule.italic && <span className="px-1 py-0.2 rounded bg-[#F2EDE4] italic">Italic</span>}
+                                    {rule.dim && <span className="px-1 py-0.2 rounded bg-[#F2EDE4]">Dim</span>}
+                                    {rule.strikethrough && <span className="px-1 py-0.2 rounded bg-[#F2EDE4] line-through">Strike</span>}
+                                    {rule.animatedStyle === 'bounce' && (
+                                      <span className="px-1 py-0.2 rounded bg-[#51C391]/20 text-[#1D7446] font-semibold">
+                                        Bounce
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRule(def.tag, rule.id)}
+                                  className="p-1 text-[#8C827A] hover:text-[#D23B38] hover:bg-[#D23B38]/10 rounded transition-colors cursor-pointer shrink-0"
+                                  title="Delete this attribute rule"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Add/Edit Rule Form */}
+                      {isAddingRule && (
+                        <div className="p-3 rounded-lg bg-white border border-[#DDD6C8] shadow-sm space-y-3 animate-in zoom-in-95 duration-100">
+                          <div className="text-xs font-semibold text-[#2B2C30]">
+                            New Attribute Styling Rule
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {/* Attribute Key (Optional) */}
+                            <div>
+                              <label className="block text-[10px] font-mono text-[#7E7F85] uppercase mb-0.5">
+                                Attribute Key (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ruleKey}
+                                onChange={(e) => setRuleKey(e.target.value)}
+                                placeholder="e.g. priority, status (leave blank for any)"
+                                className="w-full px-2 py-1 text-xs font-mono bg-[#FAF8F5] border border-[#DDD6C8] rounded focus:outline-none focus:border-[#2B2C30]"
+                              />
+                            </div>
+
+                            {/* Attribute Value (Required) */}
+                            <div>
+                              <label className="block text-[10px] font-mono text-[#7E7F85] uppercase mb-0.5">
+                                Attribute Value *
+                              </label>
+                              <input
+                                type="text"
+                                value={ruleValue}
+                                onChange={(e) => setRuleValue(e.target.value)}
+                                placeholder="e.g. high, low, wip, done"
+                                className="w-full px-2 py-1 text-xs font-mono bg-[#FAF8F5] border border-[#DDD6C8] rounded focus:outline-none focus:border-[#2B2C30]"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Ink Color Selector */}
+                          <div>
+                            <label className="block text-[10px] font-mono text-[#7E7F85] uppercase mb-1">
+                              Ink Swatch
+                            </label>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {CANONICAL_COLOR_LIST.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => setRuleColor(c.solid)}
+                                  className={`w-5 h-5 rounded-full border border-black/10 transition-transform cursor-pointer ${
+                                    ruleColor.toLowerCase() === c.solid.toLowerCase()
+                                      ? 'scale-125 ring-2 ring-[#2B2C30]'
+                                      : 'hover:scale-110'
+                                  }`}
+                                  style={{ backgroundColor: c.solid }}
+                                  title={c.label}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Color Style Toggle & Motion */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] font-mono text-[#7E7F85] uppercase mb-1">
+                                Color Style
+                              </label>
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <button
+                                  type="button"
+                                  onClick={() => setRuleColorStyle('light_on_dark')}
+                                  className={`px-2 py-1 rounded text-xs font-medium border cursor-pointer transition-colors ${
+                                    ruleColorStyle === 'light_on_dark'
+                                      ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                                      : 'bg-[#F2EDE4] text-[#6B6C72] border-[#DDD6C8]'
+                                  }`}
+                                >
+                                  Solid (Light on Dark)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setRuleColorStyle('dark_on_light')}
+                                  className={`px-2 py-1 rounded text-xs font-medium border cursor-pointer transition-colors ${
+                                    ruleColorStyle === 'dark_on_light'
+                                      ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                                      : 'bg-[#F2EDE4] text-[#6B6C72] border-[#DDD6C8]'
+                                  }`}
+                                >
+                                  Wash (Dark on Light)
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-mono text-[#7E7F85] uppercase mb-1">
+                                Motion Animation
+                              </label>
+                              <select
+                                value={ruleAnimatedStyle}
+                                onChange={(e) => setRuleAnimatedStyle(e.target.value as AnimatedStyle)}
+                                className="w-full text-xs font-mono bg-[#FAF8F5] border border-[#DDD6C8] rounded px-2 py-1 text-[#2B2C30] cursor-pointer"
+                              >
+                                <option value="none">None (Resting)</option>
+                                <option value="bounce">Subtle Bounce (Harmonic Bob)</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Typography Toggles */}
+                          <div>
+                            <label className="block text-[10px] font-mono text-[#7E7F85] uppercase mb-1">
+                              Typography Options
+                            </label>
+                            <div className="flex items-center gap-3 text-xs flex-wrap">
+                              <label className="flex items-center gap-1 text-[#2B2C30] cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={ruleBold}
+                                  onChange={(e) => setRuleBold(e.target.checked)}
+                                  className="rounded border-[#DDD6C8] text-[#2B2C30] cursor-pointer"
+                                />
+                                <span className="font-bold">Bold</span>
+                              </label>
+                              <label className="flex items-center gap-1 text-[#2B2C30] cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={ruleItalic}
+                                  onChange={(e) => setRuleItalic(e.target.checked)}
+                                  className="rounded border-[#DDD6C8] text-[#2B2C30] cursor-pointer"
+                                />
+                                <span className="italic">Italic</span>
+                              </label>
+                              <label className="flex items-center gap-1 text-[#2B2C30] cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={ruleDim}
+                                  onChange={(e) => setRuleDim(e.target.checked)}
+                                  className="rounded border-[#DDD6C8] text-[#2B2C30] cursor-pointer"
+                                />
+                                <span>Dim</span>
+                              </label>
+                              <label className="flex items-center gap-1 text-[#2B2C30] cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={ruleStrikethrough}
+                                  onChange={(e) => setRuleStrikethrough(e.target.checked)}
+                                  className="rounded border-[#DDD6C8] text-[#2B2C30] cursor-pointer"
+                                />
+                                <span className="line-through">Strikethrough</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Live Preview Card */}
+                          <div className="p-2 rounded bg-[#FAF8F5] border border-[#E5DFD5] flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-mono text-[#7E7F85]">Preview:</span>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs select-none ${
+                                ruleBold ? 'font-bold' : 'font-semibold'
+                              } ${ruleItalic ? 'italic' : ''} ${ruleDim ? 'opacity-60' : ''} ${
+                                ruleStrikethrough ? 'line-through' : ''
+                              } ${ruleAnimatedStyle === 'bounce' ? 'animate-subtle-bounce' : ''}`}
+                              style={{
+                                backgroundColor:
+                                  ruleColorStyle === 'dark_on_light'
+                                    ? getWashBgColor(ruleColor)
+                                    : ruleColor,
+                                color:
+                                  ruleColorStyle === 'dark_on_light'
+                                    ? '#2B2C30'
+                                    : getContrastingTextColor(ruleColor),
+                              }}
+                            >
+                              @{def.tag}[{ruleKey ? `${ruleKey}=${ruleValue || 'val'}` : ruleValue || 'val'}]
+                            </span>
+                          </div>
+
+                          {ruleError && (
+                            <p className="text-xs text-[#D23B38] font-sans">{ruleError}</p>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#E5DFD5]">
+                            <button
+                              type="button"
+                              onClick={() => setIsAddingRule(false)}
+                              className="px-2.5 py-1 text-xs text-[#7E7F85] hover:text-[#2B2C30] hover:bg-[#EAE3D6] rounded transition-colors cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveRule(def.tag)}
+                              className="flex items-center gap-1 px-3 py-1 text-xs font-medium rounded bg-[#2B2C30] text-[#FAF8F5] hover:bg-[#404147] transition-colors cursor-pointer shadow-xs"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Save Rule</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             </div>
           )}
         </div>

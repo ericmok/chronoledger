@@ -16,8 +16,10 @@ import { StandaloneMonthReflectionsRoll } from './components/radar/StandaloneMon
 import { NoteFolioModal } from './components/common/NoteFolioModal';
 import { TagSettingsModal } from './components/settings/TagSettingsModal';
 import { CommandPaletteModal } from './components/search/CommandPaletteModal';
+import { useTagDefinitions } from './context/TagDefinitionsContext';
 
 export function App() {
+  const { refreshDefinitions } = useTagDefinitions();
   const {
     notes,
     weekNotes,
@@ -689,6 +691,7 @@ export function App() {
       <TagSettingsModal
         isOpen={isTagSettingsOpen}
         onClose={() => setIsTagSettingsOpen(false)}
+        onDefinitionsUpdated={refreshDefinitions}
       />
 
       {/* Command Palette & Search / Filter Modal (⌘K) */}
