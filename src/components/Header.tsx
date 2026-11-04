@@ -81,6 +81,8 @@ export const Header: React.FC<HeaderProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const isLupine = settings.themeMode !== 'paper';
+
   const tools: { id: DrawingTool; label: string; icon: React.ReactNode; shortcut: string; hint: string }[] = [
     { id: 'select', label: 'Select / Notes', icon: <MousePointer className="w-4 h-4" />, shortcut: 'V', hint: 'Browse and edit typed notes' },
     { id: 'pencil', label: 'Pencil', icon: <PenTool className="w-4 h-4" />, shortcut: 'P', hint: 'Pencil: Sketch freely in margins and notes' },
@@ -88,12 +90,19 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'eraser', label: 'Eraser', icon: <Eraser className="w-4 h-4" />, shortcut: 'E', hint: 'Eraser: Paint over pencil strokes to erase them' },
   ];
 
-  const inkColors = [
-    { name: 'Graphite', hex: '#2B2C30' },
-    { name: 'Red Pencil', hex: '#D23B38' },
-    { name: 'Cobalt Ink', hex: '#1D4ED8' },
-    { name: 'Amber Marker', hex: '#D97706' },
-  ];
+  const inkColors = isLupine
+    ? [
+        { name: 'Cobalt Blue', hex: '#3264EB' },
+        { name: 'Lupine Violet', hex: '#5E49B0' },
+        { name: 'Heather Lavender', hex: '#B378B1' },
+        { name: 'Obsidian Slate', hex: '#212121' },
+      ]
+    : [
+        { name: 'Graphite', hex: '#2B2C30' },
+        { name: 'Red Pencil', hex: '#D23B38' },
+        { name: 'Cobalt Ink', hex: '#1D4ED8' },
+        { name: 'Amber Marker', hex: '#D97706' },
+      ];
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,28 +120,51 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     // Invariant: Rigid flex sibling header. flex-none ensures it retains exactly 48px height
     // and is never pushed out of the viewport by scroll events in child lists.
-    <header className="flex-none shrink-0 w-full z-30 h-12 bg-[#FAF8F5]/95 backdrop-blur-sm border-b border-[#E5DFD5] px-3 sm:px-4 flex items-center justify-between shadow-xs">
+    <header className={`flex-none shrink-0 w-full z-30 h-12 backdrop-blur-sm border-b px-3 sm:px-4 flex items-center justify-between shadow-xs transition-colors ${
+      isLupine
+        ? 'bg-[#FAFAFA]/95 border-[#E2E8F0] text-[#212121]'
+        : 'bg-[#FAF8F5]/95 border-[#E5DFD5] text-[#2B2C30]'
+    }`}>
       {/* Left: Branding & Today Button */}
       <div className="flex items-center gap-3 shrink-0">
-        <div className="flex items-center gap-1.5 font-serif text-lg font-semibold tracking-tight text-[#2B2C30]">
-          <span className="text-xl">🕮</span>
+        <div className={`flex items-center gap-1.5 font-sans text-base sm:text-lg font-bold tracking-tight ${
+          isLupine ? 'text-[#212121]' : 'font-serif text-[#2B2C30]'
+        }`}>
+          {isLupine ? (
+            <span className="w-2.5 h-2.5 rounded-full bg-[#3264EB] shadow-xs shrink-0" />
+          ) : (
+            <span className="text-xl">🕮</span>
+          )}
           <span className="hidden sm:inline">ChronoLedger</span>
+          {isLupine && (
+            <span className="text-[10px] font-mono font-bold tracking-wide uppercase px-1.5 py-0.5 rounded bg-[#EEF2FF] text-[#3264EB] border border-[#C7D2FE] hidden md:inline">
+              Lupine
+            </span>
+          )}
         </div>
 
         <button
           type="button"
           onClick={onJumpToToday}
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border border-[#DDD6C8] transition-colors cursor-pointer"
+          className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-medium rounded-md border transition-colors cursor-pointer ${
+            isLupine
+              ? 'bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] border-[#E2E8F0]'
+              : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
+          }`}
           title="Jump to current date"
         >
-          <Compass className="w-3.5 h-3.5 text-[#D23B38]" />
+          <Compass className={`w-3.5 h-3.5 ${isLupine ? 'text-[#3264EB]' : 'text-[#D23B38]'}`} />
           <span>Today</span>
         </button>
 
         <button
           type="button"
           onClick={onOpenAddNote}
-          className="px-2.5 py-1 text-xs font-sans font-medium rounded-md bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5] transition-colors cursor-pointer"
+          className={`px-2.5 py-1 text-xs font-sans font-medium rounded-md transition-colors cursor-pointer shadow-xs ${
+            isLupine
+              ? 'bg-[#3264EB] hover:bg-[#2552D0] text-white'
+              : 'bg-[#2B2C30] hover:bg-[#404147] text-[#FAF8F5]'
+          }`}
         >
           + New Note
         </button>
@@ -144,7 +176,11 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onOpenSearch}
-            className="p-1 rounded text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#F2EDE4] border border-[#DDD6C8] transition-colors cursor-pointer"
+            className={`p-1 rounded border transition-colors cursor-pointer ${
+              isLupine
+                ? 'text-[#757575] hover:text-[#212121] hover:bg-[#F2F2F4] border-[#E2E8F0]'
+                : 'text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#F2EDE4] border-[#DDD6C8]'
+            }`}
             title="Search & Filter (⌘K)"
           >
             <Search className="w-3.5 h-3.5" />
@@ -160,7 +196,11 @@ export const Header: React.FC<HeaderProps> = ({
           }}
           className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-mono font-medium transition-all border cursor-pointer ${
             settings.activeTool !== 'select'
-              ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+              ? isLupine
+                ? 'bg-[#3264EB] text-white border-[#2552D0]'
+                : 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+              : isLupine
+              ? 'bg-[#F2F2F4] text-[#212121] border-[#E2E8F0]'
               : 'bg-[#F2EDE4] text-[#2B2C30] border-[#DDD6C8]'
           }`}
           title={`Active tool: ${settings.activeTool} (Tap to change)`}
@@ -176,8 +216,10 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* Desktop Center: Analog Drawing Tools */}
-      <div className="hidden md:flex items-center gap-1 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8] shrink-0">
+      {/* Desktop Center: Drawing Tools (Lupine Vim-style pills) */}
+      <div className={`hidden md:flex items-center gap-1 p-1 rounded-lg border shrink-0 ${
+        isLupine ? 'bg-[#F2F2F4] border-[#E2E8F0]' : 'bg-[#F2EDE4] border-[#DDD6C8]'
+      }`}>
         {tools.map((t) => (
           <button
             key={t.id}
@@ -185,7 +227,11 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => onUpdateSettings({ activeTool: t.id })}
             className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all cursor-pointer ${
               settings.activeTool === t.id
-                ? 'bg-[#FAF8F5] text-[#2B2C30] shadow-xs border border-[#D5CDC0]'
+                ? isLupine
+                  ? 'bg-[#3264EB] text-white shadow-xs border border-[#2552D0]'
+                  : 'bg-[#FAF8F5] text-[#2B2C30] shadow-xs border border-[#D5CDC0]'
+                : isLupine
+                ? 'text-[#757575] hover:text-[#212121] hover:bg-[#E9ECEF]'
                 : 'text-[#6B6C72] hover:text-[#2B2C30] hover:bg-[#EAE3D6]/50'
             }`}
             title={`${t.label} (${t.shortcut}) — ${t.hint}`}
@@ -197,14 +243,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Color Palette (visible when drawing tool active) */}
         {settings.activeTool !== 'select' && settings.activeTool !== 'eraser' && (
-          <div className="flex items-center gap-1 pl-2 ml-1 border-l border-[#DDD6C8]">
+          <div className={`flex items-center gap-1 pl-2 ml-1 border-l ${
+            isLupine ? 'border-[#E2E8F0]' : 'border-[#DDD6C8]'
+          }`}>
             {inkColors.map((c) => (
               <button
                 key={c.hex}
                 type="button"
                 onClick={() => onUpdateSettings({ inkColor: c.hex })}
                 className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
-                  settings.inkColor === c.hex ? 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]' : 'opacity-70 hover:opacity-100'
+                  settings.inkColor === c.hex
+                    ? isLupine
+                      ? 'scale-125 ring-2 ring-offset-1 ring-[#3264EB]'
+                      : 'scale-125 ring-2 ring-offset-1 ring-[#2B2C30]'
+                    : 'opacity-70 hover:opacity-100'
                 }`}
                 style={{ backgroundColor: c.hex }}
                 title={c.name}
@@ -216,7 +268,9 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Undo & Redo History Controls */}
       {(onUndo || onRedo) && (
-        <div className="hidden sm:flex items-center gap-0.5 bg-[#F2EDE4] p-1 rounded-lg border border-[#DDD6C8] shrink-0">
+        <div className={`hidden sm:flex items-center gap-0.5 p-1 rounded-lg border shrink-0 ${
+          isLupine ? 'bg-[#F2F2F4] border-[#E2E8F0]' : 'bg-[#F2EDE4] border-[#DDD6C8]'
+        }`}>
           {onUndo && (
             <button
               type="button"
@@ -410,11 +464,34 @@ export const Header: React.FC<HeaderProps> = ({
             {settings.showStruckItems ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4 text-[#A19D94]" />}
           </button>
 
+          {/* Theme Mode Toggle (Lupine vs Paper) */}
+          <button
+            type="button"
+            onClick={() => onUpdateSettings({ themeMode: isLupine ? 'paper' : 'lupine' })}
+            className={`flex items-center gap-1.5 px-2 py-1 text-[11px] font-mono font-medium rounded-md border transition-colors cursor-pointer ${
+              isLupine
+                ? 'bg-[#EEF2FF] text-[#3264EB] border-[#C7D2FE] hover:bg-[#E0E7FF]'
+                : 'bg-[#F2EDE4] text-[#6B6C72] border-[#E5DFD5] hover:bg-[#EAE3D6]'
+            }`}
+            title={`Active Theme: ${isLupine ? 'Omarchy Lupine' : 'Classic Paper'}. Click to toggle.`}
+          >
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: isLupine ? '#3264EB' : '#D23B38' }}
+            />
+            <span className="hidden xl:inline">{isLupine ? 'Lupine Theme' : 'Paper Theme'}</span>
+            <span className="xl:hidden">{isLupine ? 'Lupine' : 'Paper'}</span>
+          </button>
+
           {/* Week Start Toggle */}
           <button
             type="button"
             onClick={() => onUpdateSettings({ weekStartsOn: settings.weekStartsOn === 0 ? 1 : 0 })}
-            className="px-2 py-1 text-[11px] font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] border border-[#E5DFD5] transition-colors cursor-pointer"
+            className={`px-2 py-1 text-[11px] font-mono rounded-md border transition-colors cursor-pointer ${
+              isLupine
+                ? 'hover:bg-[#F2F2F4] text-[#757575] border-[#E2E8F0]'
+                : 'hover:bg-[#F2EDE4] text-[#6B6C72] border-[#E5DFD5]'
+            }`}
             title="Toggle week start day (Sunday vs. Monday)"
           >
             {settings.weekStartsOn === 0 ? 'Sun Start' : 'Mon Start'}
@@ -425,24 +502,36 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenSearch}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border border-[#DDD6C8] transition-colors cursor-pointer"
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors cursor-pointer ${
+                isLupine
+                  ? 'bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] border-[#E2E8F0]'
+                  : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
+              }`}
               title="Search notes or filter tags (⌘K / Ctrl+K)"
             >
-              <Search className="w-3.5 h-3.5 text-[#6B6C72]" />
+              <Search className={`w-3.5 h-3.5 ${isLupine ? 'text-[#3264EB]' : 'text-[#6B6C72]'}`} />
               <span className="hidden xl:inline">Search</span>
-              <span className="hidden xl:inline text-[10px] text-[#8C827A] bg-white/70 px-1 py-0.2 rounded border border-[#E5DFD5]">⌘K</span>
+              <span className={`hidden xl:inline text-[10px] px-1 py-0.2 rounded border ${
+                isLupine ? 'text-[#757575] bg-white border-[#E2E8F0]' : 'text-[#8C827A] bg-white/70 border-[#E5DFD5]'
+              }`}>⌘K</span>
             </button>
           )}
 
           {/* Active Filter Pill */}
           {activeFilter && (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#D23B38]/10 text-[#D23B38] border border-[#D23B38]/30 text-xs font-mono animate-in fade-in">
+            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-mono animate-in fade-in ${
+              isLupine
+                ? 'bg-[#EEF2FF] text-[#3264EB] border-[#C7D2FE]'
+                : 'bg-[#D23B38]/10 text-[#D23B38] border-[#D23B38]/30'
+            }`}>
               <span className="font-semibold max-w-[120px] truncate">{activeFilter}</span>
               {onClearFilter && (
                 <button
                   type="button"
                   onClick={onClearFilter}
-                  className="p-0.5 hover:bg-[#D23B38]/20 rounded transition-colors cursor-pointer"
+                  className={`p-0.5 rounded transition-colors cursor-pointer ${
+                    isLupine ? 'hover:bg-[#C7D2FE]' : 'hover:bg-[#D23B38]/20'
+                  }`}
                   title="Clear filter"
                 >
                   <X className="w-3 h-3" />
@@ -456,10 +545,14 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenTagSettings}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border border-[#E5DFD5] transition-colors cursor-pointer"
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono rounded-md border transition-colors cursor-pointer ${
+                isLupine
+                  ? 'hover:bg-[#F2F2F4] text-[#757575] hover:text-[#212121] border-[#E2E8F0]'
+                  : 'hover:bg-[#F2EDE4] text-[#6B6C72] hover:text-[#2B2C30] border-[#E5DFD5]'
+              }`}
               title="Customize tag prototypes, ink swatches, and gutter dots"
             >
-              <TagIcon className="w-3.5 h-3.5 text-[#6B6C72]" />
+              <TagIcon className="w-3.5 h-3.5 text-[#5E49B0]" />
               <span className="hidden xl:inline">Tags</span>
             </button>
           )}
@@ -470,7 +563,11 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onToggleSidebar}
             className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
               isSidebarOpen
-                ? 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                ? isLupine
+                  ? 'bg-[#3264EB] text-white border-[#2552D0] shadow-xs'
+                  : 'bg-[#2B2C30] text-[#FAF8F5] border-[#2B2C30]'
+                : isLupine
+                ? 'bg-[#F2F2F4] hover:bg-[#E9ECEF] text-[#212121] border-[#E2E8F0]'
                 : 'bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] border-[#DDD6C8]'
             }`}
             title="Toggle Continuous Month Calendar"
@@ -492,19 +589,56 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <div
-              className="w-full max-w-lg max-h-[85vh] overflow-y-auto bg-[#FAF8F5] rounded-t-2xl border-t border-[#E5DFD5] shadow-2xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200"
+              className={`w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-t-2xl border-t shadow-2xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200 ${
+                isLupine
+                  ? 'bg-[#FAFAFA] border-[#E2E8F0] text-[#212121]'
+                  : 'bg-[#FAF8F5] border-[#E5DFD5] text-[#2B2C30]'
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-[#E5DFD5] pb-2">
-                <span className="font-serif font-bold text-sm text-[#2B2C30]">Settings & Controls</span>
+              <div className={`flex items-center justify-between border-b pb-2 ${
+                isLupine ? 'border-[#E2E8F0]' : 'border-[#E5DFD5]'
+              }`}>
+                <span className={`font-bold text-sm ${isLupine ? 'font-sans' : 'font-serif'}`}>Settings & Controls</span>
                 <button
                   type="button"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-1 rounded-md text-[#8E8F95] hover:text-[#2B2C30] transition-colors cursor-pointer"
+                  className="p-1 rounded-md text-[#8E8F95] hover:text-[#212121] transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* Theme Mode Selector Row */}
+              <div className={`flex items-center justify-between p-2.5 rounded-lg border ${
+                isLupine ? 'bg-[#F2F2F4] border-[#E2E8F0]' : 'bg-[#F2EDE4]/60 border-[#E5DFD5]'
+              }`}>
+                <span className="text-xs font-mono font-medium">Theme Mode</span>
+                <div className="flex items-center gap-1.5 font-mono text-xs">
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSettings({ themeMode: 'lupine' })}
+                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                      isLupine
+                        ? 'bg-[#3264EB] text-white font-bold shadow-xs'
+                        : 'text-[#757575] hover:bg-[#E2E8F0]'
+                    }`}
+                  >
+                    Lupine
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSettings({ themeMode: 'paper' })}
+                    className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                      !isLupine
+                        ? 'bg-[#2B2C30] text-[#FAF8F5] font-bold shadow-xs'
+                        : 'text-[#757575] hover:bg-[#E2E8F0]'
+                    }`}
+                  >
+                    Paper
+                  </button>
+                </div>
               </div>
 
               {/* Account / Sync Row */}

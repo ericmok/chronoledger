@@ -180,10 +180,179 @@ export const MONTH_SEASONAL_COLORS: MonthSeasonalColor[] = [
 ];
 
 /**
- * Returns the seasonal color configuration for a given month index (0-11).
- * Safely handles any integer using modulo 12.
+ * 12-Month Lupine Nordic Botanical Spectrum:
+ * High-key crisp light mode with cobalt, floral violet, heather lavender, and cyan telemetry.
  */
-export function getSeasonalColor(monthIndex: number): MonthSeasonalColor {
+export const LUPINE_SEASONAL_COLORS: MonthSeasonalColor[] = [
+  // 0: January (Winter - crisp Nordic ice blue)
+  {
+    monthIndex: 0,
+    name: 'January',
+    season: 'winter',
+    cellBg: '#F0F6FF',
+    cellHoverBg: '#E0EEFE',
+    notesBg: '#F8FAFF',
+    notesHoverBg: '#EDF4FE',
+    notesBorder: '#D0E1FD',
+    gutterBg: '#EBF3FE',
+    accentTag: '#3264EB',
+  },
+  // 1: February (Winter - frosted lupine lavender)
+  {
+    monthIndex: 1,
+    name: 'February',
+    season: 'winter',
+    cellBg: '#F5F3FF',
+    cellHoverBg: '#ECE7FE',
+    notesBg: '#FAF8FF',
+    notesHoverBg: '#F3EFFF',
+    notesBorder: '#DDD6FE',
+    gutterBg: '#F1ECFE',
+    accentTag: '#7C3AED',
+  },
+  // 2: March (Spring - alpine gentian blue)
+  {
+    monthIndex: 2,
+    name: 'March',
+    season: 'spring',
+    cellBg: '#EFF6FF',
+    cellHoverBg: '#DBEAFE',
+    notesBg: '#F6F9FF',
+    notesHoverBg: '#E9F2FE',
+    notesBorder: '#BFDBFE',
+    gutterBg: '#E8F1FD',
+    accentTag: '#2563EB',
+  },
+  // 3: April (Spring - wild lupine floral violet)
+  {
+    monthIndex: 3,
+    name: 'April',
+    season: 'spring',
+    cellBg: '#F3E8FF',
+    cellHoverBg: '#E9D5FF',
+    notesBg: '#FAF5FF',
+    notesHoverBg: '#F3E8FF',
+    notesBorder: '#E9D5FF',
+    gutterBg: '#EFE0FE',
+    accentTag: '#5E49B0',
+  },
+  // 4: May (Spring - heather orchid blossom)
+  {
+    monthIndex: 4,
+    name: 'May',
+    season: 'spring',
+    cellBg: '#FDF2F8',
+    cellHoverBg: '#FCE7F3',
+    notesBg: '#FDF4F9',
+    notesHoverBg: '#FAE8F4',
+    notesBorder: '#FBCFE8',
+    gutterBg: '#FBE4F2',
+    accentTag: '#B378B1',
+  },
+  // 5: June (Summer - high-noon cyan telemetry)
+  {
+    monthIndex: 5,
+    name: 'June',
+    season: 'summer',
+    cellBg: '#ECFEFF',
+    cellHoverBg: '#CFFAFE',
+    notesBg: '#F4FEFF',
+    notesHoverBg: '#E0F9FD',
+    notesBorder: '#A5F3FC',
+    gutterBg: '#DDF7FA',
+    accentTag: '#0891B2',
+  },
+  // 6: July (Summer - royal lupine cobalt)
+  {
+    monthIndex: 6,
+    name: 'July',
+    season: 'summer',
+    cellBg: '#EFF6FF',
+    cellHoverBg: '#DBEAFE',
+    notesBg: '#F6F9FF',
+    notesHoverBg: '#E9F2FE',
+    notesBorder: '#BFDBFE',
+    gutterBg: '#E8F1FD',
+    accentTag: '#1D4ED8',
+  },
+  // 7: August (Summer - heather rose dusk)
+  {
+    monthIndex: 7,
+    name: 'August',
+    season: 'summer',
+    cellBg: '#FDF2F8',
+    cellHoverBg: '#FCE7F3',
+    notesBg: '#FDF4F9',
+    notesHoverBg: '#FAE8F4',
+    notesBorder: '#FBCFE8',
+    gutterBg: '#FBE4F2',
+    accentTag: '#9D4EDD',
+  },
+  // 8: September (Autumn - rich wild lupine violet)
+  {
+    monthIndex: 8,
+    name: 'September',
+    season: 'autumn',
+    cellBg: '#F5F3FF',
+    cellHoverBg: '#ECE7FE',
+    notesBg: '#FAF8FF',
+    notesHoverBg: '#F3EFFF',
+    notesBorder: '#DDD6FE',
+    gutterBg: '#F1ECFE',
+    accentTag: '#5E49B0',
+  },
+  // 9: October (Autumn - deep montane cobalt)
+  {
+    monthIndex: 9,
+    name: 'October',
+    season: 'autumn',
+    cellBg: '#EFF6FF',
+    cellHoverBg: '#DBEAFE',
+    notesBg: '#F6F9FF',
+    notesHoverBg: '#E9F2FE',
+    notesBorder: '#BFDBFE',
+    gutterBg: '#E8F1FD',
+    accentTag: '#3264EB',
+  },
+  // 10: November (Autumn - obsidian violet night)
+  {
+    monthIndex: 10,
+    name: 'November',
+    season: 'autumn',
+    cellBg: '#FAF5FF',
+    cellHoverBg: '#F3E8FF',
+    notesBg: '#FAF7FF',
+    notesHoverBg: '#F4EBFF',
+    notesBorder: '#E9D5FF',
+    gutterBg: '#EFE4FE',
+    accentTag: '#4A2FD0',
+  },
+  // 11: December (Winter - frosted iris slate)
+  {
+    monthIndex: 11,
+    name: 'December',
+    season: 'winter',
+    cellBg: '#F1F5F9',
+    cellHoverBg: '#E2E8F0',
+    notesBg: '#F8FAFC',
+    notesHoverBg: '#F1F5F9',
+    notesBorder: '#CBD5E1',
+    gutterBg: '#EAEFF5',
+    accentTag: '#3B82F6',
+  },
+];
+
+/**
+ * Returns the seasonal color configuration for a given month index (0-11).
+ * Safely handles any integer using modulo 12, adapting automatically to the active theme.
+ */
+export function getSeasonalColor(monthIndex: number, themeMode?: string): MonthSeasonalColor {
   const normalized = ((monthIndex % 12) + 12) % 12;
-  return MONTH_SEASONAL_COLORS[normalized];
+  const isLupine =
+    themeMode === 'lupine' ||
+    (themeMode !== 'paper' &&
+      typeof document !== 'undefined' &&
+      document.documentElement.getAttribute('data-theme') !== 'paper');
+
+  return isLupine ? LUPINE_SEASONAL_COLORS[normalized] : MONTH_SEASONAL_COLORS[normalized];
 }

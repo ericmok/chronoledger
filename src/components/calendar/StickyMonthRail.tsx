@@ -307,10 +307,9 @@ const MonthWatermark: React.FC<MonthWatermarkProps> = ({ month }) => {
           {month.fullName}
         </span>
         <span
-          className="font-mono text-[10px] sm:text-[10.5px] font-semibold tracking-wider transition-all duration-200 group-hover/railpill:opacity-90"
+          className="font-mono text-[10px] sm:text-[10.5px] font-semibold tracking-wider transition-all duration-200 group-hover/railpill:opacity-90 text-[var(--ink-secondary)]"
           style={{
-            color: '#2B2C30',
-            opacity: month.isCurrentMonth ? 0.75 : 0.55,
+            opacity: month.isCurrentMonth ? 0.9 : 0.65,
           }}
         >
           {month.year}

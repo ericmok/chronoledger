@@ -1,35 +1,92 @@
 @import "tailwindcss";
 
+:root, [data-theme="paper"] {
+  --canvas-bg: #FAF8F5;
+  --canvas-card: #FFFFFF;
+  --canvas-subtle: #F2EDE4;
+  --canvas-subtle-hover: #EAE3D6;
+  --canvas-border: #E5DFD5;
+  --canvas-border-strong: #DDD6C8;
+  --focus-border: #D23B38;
+  --ink-primary: #2B2C30;
+  --ink-secondary: #7E7F85;
+  --ink-strike: #A19D94;
+  --ink-accent: #D23B38;
+  --accent-blue: #1D4ED8;
+  --accent-purple: #D097F7;
+  --accent-lavender: #DBB3F6;
+  --today-bg: #2B2C30;
+  --today-text: #FAF8F5;
+  --today-row-bg: #FAF0E4;
+  --today-row-hover-bg: #F5E8D6;
+  --day-row-hover-bg: #F2EDE4;
+  --radar-current-week-bg: #FCE7D2;
+}
+
+[data-theme="lupine"] {
+  --canvas-bg: #FAFAFA;
+  --canvas-card: #FFFFFF;
+  --canvas-subtle: #F2F2F4;
+  --canvas-subtle-hover: #E9ECEF;
+  --canvas-border: #E2E8F0;
+  --canvas-border-strong: #DEDEDE;
+  --focus-border: #3264EB;
+  --ink-primary: #212121;
+  --ink-secondary: #757575;
+  --ink-strike: #9E9E9E;
+  --ink-accent: #3264EB;
+  --accent-blue: #3264EB;
+  --accent-purple: #5E49B0;
+  --accent-lavender: #B378B1;
+  --accent-cyan: #0C67DE;
+  --today-bg: #3264EB;
+  --today-text: #FFFFFF;
+  --today-row-bg: #EFF6FF;
+  --today-row-hover-bg: #E0EDFE;
+  --day-row-hover-bg: #F8FAFC;
+  --radar-current-week-bg: #EFF6FF;
+}
+
 @theme {
   --font-hand: 'Caveat', cursive, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --font-serif: 'Newsreader', Georgia, serif;
   --font-sans: 'Inter', system-ui, sans-serif;
   
-  --color-paper: #FAF8F5;
-  --color-paper-card: #FFFFFF;
-  --color-paper-line: #E5DFD5;
-  --color-pencil: #2B2C30;
-  --color-pencil-light: #7E7F85;
-  --color-pencil-strike: #A19D94;
-  --color-ink-red: #D23B38;
+  --color-paper: var(--canvas-bg);
+  --color-paper-card: var(--canvas-card);
+  --color-paper-line: var(--canvas-border);
+  --color-pencil: var(--ink-primary);
+  --color-pencil-light: var(--ink-secondary);
+  --color-pencil-strike: var(--ink-strike);
+  --color-ink-red: var(--ink-accent);
+
+  --color-lupine-blue: #3264EB;
+  --color-lupine-purple: #5E49B0;
+  --color-lupine-lavender: #B378B1;
+  --color-lupine-cyan: #0C67DE;
 }
 
 html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #FAF8F5;
-  color: #2B2C30;
+  background-color: var(--canvas-bg);
+  color: var(--ink-primary);
   font-family: 'Inter', system-ui, sans-serif;
   overflow: hidden;
 }
 
-/* Analog paper subtle grain or texture */
+/* Analog paper subtle grain or texture (disabled in Lupine for pure Scandinavian/Linux clarity) */
 .paper-texture {
-  background-color: #FAF8F5;
+  background-color: var(--canvas-bg);
   background-image: radial-gradient(#E8E3D8 0.75px, transparent 0.75px);
   background-size: 16px 16px;
+}
+
+[data-theme="lupine"] .paper-texture {
+  background-color: #FAFAFA;
+  background-image: none;
 }
 
 /* Custom subtle scrollbar */
@@ -46,6 +103,14 @@ html, body, #root {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #B8B09F;
+}
+
+[data-theme="lupine"] ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+[data-theme="lupine"] ::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 /* Subtle harmonic bounce animation for active priority notes */

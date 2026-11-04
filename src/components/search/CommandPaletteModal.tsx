@@ -206,15 +206,15 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-[#FAF8F5] border border-[#DDD6C8] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-150"
+        className="w-full max-w-2xl bg-[var(--canvas-card)] border border-[var(--canvas-border-strong)] rounded-2xl shadow-2xl ring-1 ring-[var(--focus-border)]/20 overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Search Input Bar */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#E5DFD5] bg-white/70">
+        {/* Search Input Bar (Walker style) */}
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[var(--canvas-border)] bg-[var(--canvas-subtle)]/50">
           {isSearchingServer ? (
-            <RefreshCw className="w-5 h-5 text-[#D97706] animate-spin shrink-0" />
+            <RefreshCw className="w-5 h-5 text-[var(--accent-blue)] animate-spin shrink-0" />
           ) : (
-            <Search className="w-5 h-5 text-[#8C827A] shrink-0" />
+            <Search className="w-5 h-5 text-[var(--ink-secondary)] shrink-0" />
           )}
           <input
             ref={inputRef}
@@ -233,7 +233,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
               }
             }}
             placeholder="Search notes or filter tags (@todo[status=wip], @project[apollo], !@memo)..."
-            className="flex-1 bg-transparent border-0 text-sm font-mono text-[#2B2C30] placeholder:text-[#A19D94] focus:outline-none"
+            className="flex-1 bg-transparent border-0 text-sm font-mono text-[var(--ink-primary)] placeholder:text-[var(--ink-strike)] focus:outline-none"
           />
 
           {query && (

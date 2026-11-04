@@ -121,12 +121,12 @@ export const MonthNotesColumn: React.FC<MonthNotesColumnProps> = ({
               onStartQuickAddMonth(meta.monthKey);
             }}
             title={`${meta.fullName} notes — double-click to add`}
-            className="absolute left-0 w-full border-b-[2.5px] border-b-[#2B2C30] flex flex-col justify-between p-2 group/month transition-colors cursor-pointer hover:brightness-[0.98]"
+            className="absolute left-0 w-full flex flex-col justify-between p-2 group/month transition-colors cursor-pointer hover:brightness-[0.98]"
             style={{
               top: `${meta.topPx}px`,
               height: `${meta.heightPx}px`,
               backgroundColor: seasonalColor.notesBg,
-              borderBottom: '2.5px solid #2B2C30',
+              borderBottom: '2.5px solid var(--ink-primary)',
             }}
           >
             {/* Notes List for this month */}

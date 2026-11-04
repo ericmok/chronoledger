@@ -121,6 +121,7 @@ export interface DrawingElement {
 }
 
 export type BadgeTheme = 'solid' | 'wash';
+export type AppThemeMode = 'paper' | 'lupine';
 
 export interface CalendarSettings {
   weekStartsOn: WeekStartDay;
@@ -128,4 +129,5 @@ export interface CalendarSettings {
   activeTool: DrawingTool;
   inkColor: string;
   badgeTheme?: BadgeTheme;
+  themeMode?: AppThemeMode;
 }

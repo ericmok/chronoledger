@@ -75,6 +75,12 @@ export function App() {
   const [unclaimedCount, setUnclaimedCount] = useState(0);
   const [isFirstSetup, setIsFirstSetup] = useState(false);
 
+  // Synchronize active theme with document element for CSS variables & scrollbars
+  useEffect(() => {
+    const activeTheme = settings.themeMode || 'lupine';
+    document.documentElement.setAttribute('data-theme', activeTheme);
+  }, [settings.themeMode]);
+
   useEffect(() => {
     checkAuthSession().then((res) => {
       if (res.authenticated && res.user) {
@@ -401,7 +407,10 @@ export function App() {
     // Invariant: Root container strictly uses h-full w-full (never h-screen / 100vh) to prevent
     // mobile browser URL bar expansion from overflowing the viewport and causing window-level scrolling.
     // The Header is a rigid flex sibling (flex-none) anchored above the flex-1 min-h-0 deck.
-    <div className="flex flex-col h-full w-full overflow-hidden bg-[#FAF8F5] text-[#2B2C30]">
+    <div
+      data-theme={settings.themeMode || 'lupine'}
+      className="flex flex-col h-full w-full overflow-hidden bg-[var(--canvas-bg)] text-[var(--ink-primary)]"
+    >
       {/* Top Analog Header Bar */}
       <Header
         settings={settings}

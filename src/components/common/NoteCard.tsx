@@ -663,9 +663,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         <div
           className={`absolute -top-[1px] ${
             isMinimal ? 'left-0 right-0' : 'left-1 right-1'
-          } h-[2px] bg-[#D23B38] z-30 pointer-events-none rounded-full flex items-center shadow-xs`}
+          } h-[2px] bg-[var(--focus-border)] z-30 pointer-events-none rounded-full flex items-center shadow-xs`}
         >
-          <div className="w-1.5 h-1.5 rounded-full bg-[#D23B38] -ml-0.5" />
+          <div className="w-1.5 h-1.5 rounded-full bg-[var(--focus-border)] -ml-0.5" />
         </div>
       )}
 
@@ -674,9 +674,9 @@ export const NoteCard: React.FC<NoteCardProps> = ({
         <div
           className={`absolute -bottom-[1px] ${
             isMinimal ? 'left-0 right-0' : 'left-1 right-1'
-          } h-[2px] bg-[#D23B38] z-30 pointer-events-none rounded-full flex items-center shadow-xs`}
+          } h-[2px] bg-[var(--focus-border)] z-30 pointer-events-none rounded-full flex items-center shadow-xs`}
         >
-          <div className="w-1.5 h-1.5 rounded-full bg-[#D23B38] -ml-0.5" />
+          <div className="w-1.5 h-1.5 rounded-full bg-[var(--focus-border)] -ml-0.5" />
         </div>
       )}
 

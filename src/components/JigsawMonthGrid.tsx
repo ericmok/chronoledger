@@ -721,17 +721,17 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
   return (
     <aside className={asideClass}>
       {/* Top Header Bar */}
-      <div className="h-11 border-b border-[#E5DFD5] px-2.5 flex items-center justify-between bg-[#FAF8F5]/90 shrink-0">
+      <div className="h-11 border-b border-[var(--canvas-border)] px-2.5 flex items-center justify-between bg-[var(--canvas-bg)]/90 shrink-0">
         {isCompact && onCompactViewChange ? (
           /* Compact View Switcher: Split | Grid | Notes */
-          <div className="flex items-center bg-[#F2EDE4] p-0.5 rounded-md border border-[#DDD6C8] text-[11px] font-mono">
+          <div className="flex items-center bg-[var(--canvas-subtle)] p-0.5 rounded-md border border-[var(--canvas-border-strong)] text-[11px] font-mono">
             <button
               type="button"
               onClick={() => onCompactViewChange('stacked')}
               className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
                 compactView === 'stacked'
-                  ? 'bg-[#FAF8F5] text-[#2B2C30] font-bold shadow-2xs'
-                  : 'text-[#71727A] hover:text-[#2B2C30]'
+                  ? 'bg-[var(--canvas-card)] text-[var(--ink-primary)] font-bold shadow-2xs'
+                  : 'text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]'
               }`}
               title="Split View: Continuous Radar Grid + Month Reflections"
             >
@@ -742,8 +742,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
               onClick={() => onCompactViewChange('grid')}
               className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
                 compactView === 'grid'
-                  ? 'bg-[#FAF8F5] text-[#2B2C30] font-bold shadow-2xs'
-                  : 'text-[#71727A] hover:text-[#2B2C30]'
+                  ? 'bg-[var(--canvas-card)] text-[var(--ink-primary)] font-bold shadow-2xs'
+                  : 'text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]'
               }`}
               title="Full Month Grid"
             >
@@ -754,8 +754,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
               onClick={() => onCompactViewChange('reflections')}
               className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
                 compactView === 'reflections'
-                  ? 'bg-[#FAF8F5] text-[#2B2C30] font-bold shadow-2xs'
-                  : 'text-[#71727A] hover:text-[#2B2C30]'
+                  ? 'bg-[var(--canvas-card)] text-[var(--ink-primary)] font-bold shadow-2xs'
+                  : 'text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]'
               }`}
               title="Full Continuous Reflections Roll"
             >
@@ -764,7 +764,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
           </div>
         ) : (
           /* Desktop / Mobile Title */
-          <div className="flex items-center gap-1.5 font-serif font-bold text-xs text-[#2B2C30] tracking-tight">
+          <div className="flex items-center gap-1.5 font-sans font-bold text-xs text-[var(--ink-primary)] tracking-tight">
             <span>Months</span>
           </div>
         )}
@@ -775,7 +775,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1 rounded hover:bg-[#EAE3D6] text-[#63666A] hover:text-[#2B2C30] transition-colors cursor-pointer"
+              className="p-1 rounded hover:bg-[var(--canvas-subtle-hover)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
               title="Scroll to previous month"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -783,7 +783,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1 rounded hover:bg-[#EAE3D6] text-[#63666A] hover:text-[#2B2C30] transition-colors cursor-pointer"
+              className="p-1 rounded hover:bg-[var(--canvas-subtle-hover)] text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors cursor-pointer"
               title="Scroll to next month"
             >
               <ChevronRight className="w-4 h-4" />

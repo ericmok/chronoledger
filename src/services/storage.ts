@@ -65,8 +65,9 @@ export const DEFAULT_SETTINGS: CalendarSettings = {
   weekStartsOn: 0,
   showStruckItems: true,
   activeTool: 'select',
-  inkColor: '#2B2C30',
+  inkColor: '#3264EB',
   badgeTheme: 'solid',
+  themeMode: 'lupine',
 };
 
 export { createDefaultNotes, createDefaultWeekNotes, createDefaultMonthNotes };

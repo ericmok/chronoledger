@@ -35,6 +35,7 @@ export interface DayRowProps {
   onMoveNoteScope?: (noteId: string, targetScope: NoteScope, targetTargets: string[], position?: 'start' | 'end') => boolean;
   onSizeChange?: () => void;
   onOpenFolio?: (noteId: string) => void;
+  themeMode?: string;
 }
 
 export const DayRow: React.FC<DayRowProps> = ({
@@ -62,7 +63,13 @@ export const DayRow: React.FC<DayRowProps> = ({
   onMoveNoteScope,
   onSizeChange,
   onOpenFolio,
+  themeMode,
 }) => {
+  const isLupine =
+    themeMode === 'lupine' ||
+    (themeMode !== 'paper' &&
+      typeof document !== 'undefined' &&
+      document.documentElement.getAttribute('data-theme') !== 'paper');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
@@ -118,8 +125,8 @@ export const DayRow: React.FC<DayRowProps> = ({
     (dateItem.dayOfWeek !== undefined ? DAY_NAMES_SHORT[dateItem.dayOfWeek] : dateItem.dayOfWeekLetter);
 
   const seasonalColor = useMemo(
-    () => (dateItem.isFirstDayOfMonth ? getSeasonalColor(dateItem.monthIndex) : null),
-    [dateItem.isFirstDayOfMonth, dateItem.monthIndex]
+    () => (dateItem.isFirstDayOfMonth ? getSeasonalColor(dateItem.monthIndex, isLupine ? 'lupine' : 'paper') : null),
+    [dateItem.isFirstDayOfMonth, dateItem.monthIndex, isLupine]
   );
   const fullMonthName = FULL_MONTH_NAMES[dateItem.monthIndex] || dateItem.monthName;
 
@@ -187,24 +194,30 @@ export const DayRow: React.FC<DayRowProps> = ({
           className="w-full flex items-center pr-3 pt-1.5 pb-[5px] border-b select-none transition-colors"
           style={{
             backgroundColor: seasonalColor.gutterBg,
-            borderColor: seasonalColor.notesBorder || '#E5DFD5',
+            borderColor: seasonalColor.notesBorder || (isLupine ? '#E2E8F0' : '#E5DFD5'),
           }}
           title={`${fullMonthName} ${dateItem.year}`}
         >
           {/* w-8 spacer matches the Mo rail column width so month text begins at exact date-column alignment */}
-          <div className="w-8 shrink-0 border-r border-[#E5DFD5]/40 self-stretch" />
+          <div className={`w-8 shrink-0 border-r self-stretch ${
+            isLupine ? 'border-[#E2E8F0]' : 'border-[#E5DFD5]/40'
+          }`} />
 
           {/* Month & Year typography with font-metric optical center compensation */}
           <div className="flex items-center gap-2.5 pl-3 shrink-0">
             {/* Serif uppercase month name: shifted 1px down to offset empty descender space */}
             <span
-              className="font-serif text-xs sm:text-[13px] font-bold tracking-[0.22em] uppercase translate-y-[1px]"
+              className={`text-xs sm:text-[13px] font-bold tracking-[0.22em] uppercase translate-y-[1px] ${
+                isLupine ? 'font-sans' : 'font-serif'
+              }`}
               style={{ color: seasonalColor.accentTag }}
             >
               {fullMonthName}
             </span>
             {/* Monospace 4-digit year: shifted 0.5px down for optical midline alignment with serif text */}
-            <span className="font-mono text-[10.5px] font-semibold text-[#7E7F85] tracking-wider translate-y-[0.5px]">
+            <span className={`font-mono text-[10.5px] font-semibold tracking-wider translate-y-[0.5px] ${
+              isLupine ? 'text-[#757575]' : 'text-[#7E7F85]'
+            }`}>
               {dateItem.year}
             </span>
           </div>
@@ -227,12 +240,18 @@ export const DayRow: React.FC<DayRowProps> = ({
         title={`${dateItem.monthName} ${dateItem.dayOfMonth}, ${dateItem.year} — double-click to write note`}
         className={`flex items-start flex-1 min-h-[48px] py-1 transition-colors w-full ${
           dateItem.isToday
-            ? 'bg-[#FAF0E4]/90 hover:bg-[#F5E8D6] relative z-10'
+            ? isLupine
+              ? 'bg-[#EFF6FF]/95 hover:bg-[#E0EDFE] relative z-10'
+              : 'bg-[#FAF0E4]/90 hover:bg-[#F5E8D6] relative z-10'
+            : isLupine
+            ? 'hover:bg-[#F8FAFC]'
             : 'hover:bg-[#F2EDE4]/30'
         }`}
       >
         {/* Month Rail Guide */}
-        <div className="w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r border-[#E5DFD5]/40" />
+        <div className={`w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r ${
+          isLupine ? 'border-[#E2E8F0]' : 'border-[#E5DFD5]/40'
+        }`} />
 
       {/* Date & Day of Week */}
       <div
@@ -242,7 +261,11 @@ export const DayRow: React.FC<DayRowProps> = ({
         {dateItem.isToday ? (
           /* Fused Today Unit: Date Number + Day of Week + TODAY badge */
           <div
-            className="relative flex flex-col items-center justify-center bg-[#2B2C30] text-[#FAF8F5] rounded-md px-1.5 py-1 shadow-xs min-w-[36px] cursor-pointer hover:brightness-110 transition-all leading-none"
+            className={`relative flex flex-col items-center justify-center rounded-md px-1.5 py-1 shadow-xs min-w-[36px] cursor-pointer hover:brightness-110 transition-all leading-none ${
+              isLupine
+                ? 'bg-[#3264EB] text-white shadow-xs'
+                : 'bg-[#2B2C30] text-[#FAF8F5]'
+            }`}
             title={
               isCircled
                 ? `Today (${circleColorName} - click to cycle color, double-click to remove)`
@@ -251,20 +274,26 @@ export const DayRow: React.FC<DayRowProps> = ({
             onDoubleClick={handleDateDoubleClick}
             onClick={handleDateClick}
           >
-            <span className="text-base sm:text-[17px] font-bold text-[#FAF8F5] leading-none">
+            <span className="text-base sm:text-[17px] font-bold text-white leading-none">
               {dateItem.dayOfMonth}
             </span>
-            <span className="text-[8.5px] sm:text-[9px] font-mono uppercase tracking-tight text-[#FAF8F5] opacity-50 leading-none mt-0.5 select-none">
+            <span className={`text-[8.5px] sm:text-[9px] font-mono uppercase tracking-tight leading-none mt-0.5 select-none ${
+              isLupine ? 'text-white/80' : 'text-[#FAF8F5] opacity-50'
+            }`}>
               {dayOfWeekShort}
             </span>
-            <span className="text-[6.5px] font-mono font-black uppercase tracking-wider text-[#FAF8F5]/80 leading-none mt-1">
+            <span className={`text-[6.5px] font-mono font-black uppercase tracking-wider leading-none mt-1 ${
+              isLupine ? 'text-white/95' : 'text-[#FAF8F5]/80'
+            }`}>
               TODAY
             </span>
 
             {/* Radar Filter Match Indicator */}
             {hasFilterMatch && (
               <span
-                className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#D23B38] ring-2 ring-[#FAF8F5] animate-pulse"
+                className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ring-2 ring-white animate-pulse ${
+                  isLupine ? 'bg-[#5E49B0]' : 'bg-[#D23B38]'
+                }`}
                 title="Date contains notes matching active radar filter"
               />
             )}
@@ -277,7 +306,7 @@ export const DayRow: React.FC<DayRowProps> = ({
               >
                 <RoughCircledRing
                   dateKey={dateItem.dateString}
-                  color={circleColor || '#9CA3AF'}
+                  color={circleColor || (isLupine ? '#3264EB' : '#9CA3AF')}
                   variant="today"
                 />
               </span>
@@ -295,15 +324,25 @@ export const DayRow: React.FC<DayRowProps> = ({
             onClick={handleDateClick}
           >
             <span
-              className={`relative inline-flex items-center justify-center min-w-[22px] h-6 px-0.5 rounded text-base sm:text-[17px] font-bold text-[#2B2C30] group-hover/date:bg-black/5 transition-colors leading-none ${
-                hasFilterMatch ? 'ring-2 ring-[#D23B38] bg-[#D23B38]/10' : ''
+              className={`relative inline-flex items-center justify-center min-w-[22px] h-6 px-0.5 rounded text-base sm:text-[17px] font-bold transition-colors leading-none ${
+                isLupine
+                  ? 'text-[#212121] group-hover/date:bg-[#E2E8F0]/50'
+                  : 'text-[#2B2C30] group-hover/date:bg-black/5'
+              } ${
+                hasFilterMatch
+                  ? isLupine
+                    ? 'ring-2 ring-[#3264EB] bg-[#EFF6FF]'
+                    : 'ring-2 ring-[#D23B38] bg-[#D23B38]/10'
+                  : ''
               }`}
             >
               {dateItem.dayOfMonth}
 
               {hasFilterMatch && (
                 <span
-                  className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[#D23B38] animate-pulse"
+                  className={`absolute -top-1 -right-1 w-2 h-2 rounded-full animate-pulse ${
+                    isLupine ? 'bg-[#3264EB]' : 'bg-[#D23B38]'
+                  }`}
                   title="Date contains notes matching active radar filter"
                 />
               )}
@@ -316,7 +355,7 @@ export const DayRow: React.FC<DayRowProps> = ({
                 >
                   <RoughCircledRing
                     dateKey={dateItem.dateString}
-                    color={circleColor || '#9CA3AF'}
+                    color={circleColor || (isLupine ? '#3264EB' : '#9CA3AF')}
                     variant="day"
                   />
                 </span>
@@ -325,7 +364,11 @@ export const DayRow: React.FC<DayRowProps> = ({
             <span
               className={`font-mono text-[8.5px] sm:text-[9px] uppercase tracking-tight leading-none mt-0.5 select-none ${
                 dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
-                  ? 'text-[#D23B38] opacity-35'
+                  ? isLupine
+                    ? 'text-[#3264EB] font-medium'
+                    : 'text-[#D23B38] opacity-35'
+                  : isLupine
+                  ? 'text-[#757575]'
                   : 'text-[#2B2C30] opacity-30'
               }`}
             >

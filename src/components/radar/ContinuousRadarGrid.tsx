@@ -78,7 +78,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
             {/* Solid color rectangle highlighting the current week */}
             {isCurrentWeekRow && (
               <div
-                className="absolute inset-0 bg-[#FCE7D2] pointer-events-none"
+                className="absolute inset-0 bg-[var(--radar-current-week-bg)] pointer-events-none"
                 style={{
                   width: `${gridWidth}px`,
                   height: `${cellHeight}px`,
@@ -108,9 +108,9 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                     backgroundColor: isCurrentWeekRow
                       ? undefined
                       : cell.isToday
-                      ? '#FAF3EA'
+                      ? 'var(--today-row-bg)'
                       : seasonalColor.cellBg,
-                    boxShadow: 'inset 0 0 0 0.5px rgba(229, 223, 213, 0.45)',
+                    boxShadow: 'inset 0 0 0 0.5px var(--canvas-border)',
                   }}
                   title={`${cell.monthKey} - ${cell.dayNumber}${
                     cell.isCircled
@@ -122,14 +122,14 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                   <span
                     className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all group-hover:scale-110 ${
                       cell.isToday
-                        ? 'bg-[#D23B38] text-white font-black shadow-md ring-3 ring-[#D23B38]/35 scale-105'
+                        ? 'bg-[var(--today-bg)] text-[var(--today-text)] font-black shadow-md ring-3 ring-[var(--today-bg)]/35 scale-105'
                         : selectedDateKey === cell.dateKey
-                        ? 'bg-[#2B2C30] text-white font-bold ring-2 ring-[#2B2C30]/40'
+                        ? 'bg-[var(--ink-primary)] text-[var(--canvas-bg)] font-bold ring-2 ring-[var(--ink-primary)]/40'
                         : isCurrentWeekRow
-                        ? 'text-[#2B2C30] font-bold'
+                        ? 'text-[var(--ink-primary)] font-bold'
                         : cell.isOutsideTargetRange
-                        ? 'text-[#B8B4AA] opacity-40'
-                        : 'text-[#2B2C30]'
+                        ? 'text-[var(--ink-strike)] opacity-40'
+                        : 'text-[var(--ink-primary)]'
                     }`}
                   >
                     {cell.dayNumber}
@@ -242,7 +242,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
             y1={b.y1}
             x2={b.x2}
             y2={b.y2}
-            stroke="#2B2C30"
+            stroke="var(--ink-primary)"
             strokeWidth="2.5"
             strokeLinecap="square"
           />

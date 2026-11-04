@@ -56,18 +56,18 @@ export const NoteItemComponent: React.FC<NoteItemComponentProps> = ({
   const currentIndexInSpan = note.parentDates.indexOf(currentDate);
 
   const spanBadge = isMultiDate ? (
-    <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[11px] font-mono text-[#7E7F85]">
+    <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[11px] font-mono text-[var(--ink-secondary)]">
       {spanInfo.isContiguous ? (
-        <span className="inline-flex items-center gap-1 bg-[#EBE5DA] px-1.5 py-0.5 rounded text-[10px] text-[#55565B]">
-          <Calendar className="w-2.5 h-2.5 text-[#7E7F85]" />
+        <span className="inline-flex items-center gap-1 bg-[var(--canvas-subtle)] px-1.5 py-0.5 rounded text-[10px] text-[var(--ink-secondary)] border border-[var(--canvas-border)]">
+          <Calendar className="w-2.5 h-2.5 text-[var(--ink-secondary)]" />
           <span>{spanInfo.count}d span</span>
-          <span className="text-[#8E8F95]">
+          <span className="text-[var(--ink-strike)]">
             ({spanInfo.startDate.slice(5)} → {spanInfo.endDate.slice(5)})
           </span>
         </span>
       ) : (
-        <div className="inline-flex items-center gap-1 bg-[#EBE5DA] px-1.5 py-0.5 rounded text-[10px] text-[#55565B]">
-          <Link2 className="w-2.5 h-2.5 text-[#D23B38]" />
+        <div className="inline-flex items-center gap-1 bg-[var(--canvas-subtle)] px-1.5 py-0.5 rounded text-[10px] text-[var(--ink-secondary)] border border-[var(--canvas-border)]">
+          <Link2 className="w-2.5 h-2.5 text-[var(--focus-border)]" />
           <span>Linked ({currentIndexInSpan + 1}/{note.parentDates.length}):</span>
           {note.parentDates.map((d) => (
             <button

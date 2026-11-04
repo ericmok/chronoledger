@@ -169,7 +169,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
             }
           }}
           className={`flex-1 overflow-y-auto pr-0.5 transition-colors ${
-            isWeekDragOver && !dropTargetId ? 'bg-[#FCE7D2]/40 ring-1 ring-[#D23B38]/30 p-1' : ''
+            isWeekDragOver && !dropTargetId ? 'bg-[var(--radar-current-week-bg)]/40 ring-1 ring-[var(--focus-border)]/30 p-1' : ''
           }`}
         >
           {currentWeekNotes.length === 0 && !isAddingWeekNote && (
@@ -179,14 +179,14 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 e.stopPropagation();
                 onStartAddWeekNote(weekBlock.weekKey);
               }}
-              className="w-full h-full min-h-[60px] my-auto py-2 px-2 border border-dashed border-[#DDD6C8] hover:border-[#2B2C30]/50 rounded-lg flex flex-col items-center justify-center text-center bg-white/40 hover:bg-white/80 transition-all cursor-pointer group/placeholder"
+              className="w-full h-full min-h-[60px] my-auto py-2 px-2 border border-dashed border-[var(--canvas-border-strong)] hover:border-[var(--ink-primary)]/50 rounded-lg flex flex-col items-center justify-center text-center bg-white/40 hover:bg-white/80 transition-all cursor-pointer group/placeholder"
               title="Click or double-click to add weekly note"
             >
-              <div className="flex items-center gap-1 text-xs font-serif italic text-[#71727A] group-hover/placeholder:text-[#2B2C30]">
-                <Plus className="w-3.5 h-3.5 text-[#D23B38]" />
+              <div className="flex items-center gap-1 text-xs font-mono text-[var(--ink-secondary)] group-hover/placeholder:text-[var(--ink-primary)]">
+                <Plus className="w-3.5 h-3.5 text-[var(--focus-border)]" />
                 <span>Add weekly note</span>
               </div>
-              <span className="text-[9px] font-mono text-[#A19D94] mt-0.5">
+              <span className="text-[9px] font-mono text-[var(--ink-strike)] mt-0.5">
                 or double-click panel
               </span>
             </button>
