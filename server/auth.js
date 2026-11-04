@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import argon2 from 'argon2';
 import { parseCookie, stringifySetCookie } from 'cookie';
+import { CORE_TAG_PROTOTYPES } from '../src/utils/tagPrototypes.ts';
 
 /**
  * Registers a new user account and atomically migrates any legacy unassigned notes
@@ -51,6 +52,45 @@ export async function registerUser(db, { email, password, clientName, clientType
     const claimCircled = db.prepare("UPDATE circled_dates SET user_id = ? WHERE user_id IS NULL OR user_id = '__guest__'").run(userId);
     const claimSettings = db.prepare("UPDATE settings SET user_id = ?, id = ? WHERE user_id IS NULL OR id = 'default'").run(userId, userId);
     const claimTombstones = db.prepare("UPDATE deleted_records SET user_id = ? WHERE user_id IS NULL OR user_id = '__guest__'").run(userId);
+
+    // Auto-claim note_attributes and seed user_tag_definitions
+    try {
+      const hasNoteAttrs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='note_attributes'").get();
+      if (hasNoteAttrs) {
+        db.prepare("UPDATE note_attributes SET user_id = ? WHERE user_id IS NULL OR user_id = '__guest__'").run(userId);
+      }
+      const hasTagDefs = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='user_tag_definitions'").get();
+      if (hasTagDefs) {
+        // Copy guest tag defs if any
+        db.prepare(`
+          INSERT OR IGNORE INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, created_at, updated_at)
+          SELECT ? || '_' || tag_name, ?, tag_name, color, notable, gutter_priority, is_core, created_at, updated_at
+          FROM user_tag_definitions WHERE user_id = '__guest__'
+        `).run(userId, userId);
+
+        // Seed core tag prototypes for new user if not present
+        const insertDefStmt = db.prepare(`
+          INSERT OR IGNORE INTO user_tag_definitions (
+            id, user_id, tag_name, color, notable, gutter_priority, is_core, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        for (const proto of Object.values(CORE_TAG_PROTOTYPES)) {
+          insertDefStmt.run(
+            `${userId}_${proto.tag}`,
+            userId,
+            proto.tag,
+            proto.color,
+            proto.notable ? 1 : 0,
+            proto.gutterPriority,
+            proto.isCore ? 1 : 0,
+            now,
+            now
+          );
+        }
+      }
+    } catch {
+      // Ignore if migration 0003 is not applied yet
+    }
 
     // Migrate guest ledger sequence to newly registered account
     const guestSeq = db.prepare("SELECT current_revision FROM ledger_sequences WHERE user_id = '__guest__'").get();

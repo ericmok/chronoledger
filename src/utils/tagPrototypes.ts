@@ -67,6 +67,7 @@ export const CORE_TAG_PROTOTYPES: Record<string, TagTypeDefinition> = {
     notable: true,
     gutterPriority: 6,
     isCore: true,
+    defaultStatus: 'open',
   },
   time: {
     tag: 'time',

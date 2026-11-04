@@ -16,6 +16,7 @@ import {
   getIsoWeek,
   getIsoWeekBounds,
 } from './bounds.js';
+import { reindexNoteAttributes } from './tagIndexer.js';
 
 export {
   calculateBounds,
@@ -24,6 +25,7 @@ export {
   runMigrations,
   rollbackMigration,
   getMigrationStatus,
+  reindexNoteAttributes,
 };
 export { handleApiRequest } from './routes.js';
 
@@ -341,8 +343,14 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
     if (data.allNotes !== undefined || data.notes !== undefined || data.weekNotes !== undefined || data.monthNotes !== undefined) {
       if (userId) {
         db.prepare('DELETE FROM notes WHERE user_id = ?').run(userId);
+        try {
+          db.prepare('DELETE FROM note_attributes WHERE user_id = ?').run(userId);
+        } catch {}
       } else {
         db.exec('DELETE FROM notes WHERE user_id IS NULL;');
+        try {
+          db.exec("DELETE FROM note_attributes WHERE user_id IS NULL OR user_id = '__guest__';");
+        } catch {}
       }
 
       const insertNote = db.prepare(`
@@ -368,6 +376,9 @@ export function saveCalendarData(db = getDatabase(), data, userId = null) {
           n.updatedAt,
           revision
         );
+        try {
+          reindexNoteAttributes(db, userId, n.id, n.content, n.isStruck, n.createdAt);
+        } catch {}
       }
     }
 
@@ -507,11 +518,27 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
       ? db.prepare('DELETE FROM notes WHERE id = ? AND user_id = ?')
       : db.prepare('DELETE FROM notes WHERE id = ? AND user_id IS NULL');
 
+    let deleteAttrStmt = null;
+    try {
+      deleteAttrStmt = userId
+        ? db.prepare('DELETE FROM note_attributes WHERE note_id = ? AND user_id = ?')
+        : db.prepare("DELETE FROM note_attributes WHERE note_id = ? AND (user_id IS NULL OR user_id = '__guest__')");
+    } catch {}
+
     const handleNoteDeletes = (ids, entityType) => {
       if (!Array.isArray(ids)) return;
       for (const id of ids) {
-        if (userId) deleteNoteStmt.run(id, userId);
-        else deleteNoteStmt.run(id);
+        if (userId) {
+          deleteNoteStmt.run(id, userId);
+          if (deleteAttrStmt) {
+            try { deleteAttrStmt.run(id, userId); } catch {}
+          }
+        } else {
+          deleteNoteStmt.run(id);
+          if (deleteAttrStmt) {
+            try { deleteAttrStmt.run(id); } catch {}
+          }
+        }
         insertTombstone.run(id, userId || null, entityType, now, revision);
       }
     };
@@ -553,7 +580,7 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
           else if (scope === 'year') targets = [String(new Date(n.createdAt || Date.now()).getFullYear())];
         }
         const bounds = calculateBounds(scope, targets);
-        upsertUnifiedNote.run(
+        const res = upsertUnifiedNote.run(
           n.id,
           userId || null,
           n.content || '',
@@ -569,6 +596,11 @@ export function saveCalendarDelta(db = getDatabase(), delta, userId = null) {
           n.updatedAt || now,
           revision
         );
+        if (res && res.changes > 0) {
+          try {
+            reindexNoteAttributes(db, userId, n.id, n.content || '', n.isStruck, n.createdAt || now);
+          } catch {}
+        }
         executeRemoveTombstone(n.id);
       }
     };

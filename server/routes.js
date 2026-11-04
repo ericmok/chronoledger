@@ -35,6 +35,7 @@ import {
   getNextLedgerRevision,
   formatUnifiedNote,
 } from './db.js';
+import { reindexNoteAttributes, getUserTagDefinitions } from './tagIndexer.js';
 
 /**
  * Reads and parses JSON payload from incoming HTTP request.
@@ -789,6 +790,10 @@ export function handleApiRequest(req, res, db = getDatabase()) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(id, userId, content, originalContent, scope, JSON.stringify(targets), bounds.startAt, bounds.endAt, isStruck, strikeStyle, colorTag, createdAt, null, revision);
 
+          try {
+            reindexNoteAttributes(db, userId, id, content, isStruck, createdAt);
+          } catch {}
+
           if (userId) {
             db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(id, userId);
           } else {
@@ -838,6 +843,10 @@ export function handleApiRequest(req, res, db = getDatabase()) {
       } else {
         db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ? AND user_id IS NULL`).run(nextStruck, now, revision, noteId);
       }
+
+      try {
+        reindexNoteAttributes(db, userId, noteId, found.row.content, nextStruck, found.row.created_at);
+      } catch {}
 
       triggerBackupCheck(db, DEFAULT_DATA_DIR);
       sendJsonResponse(req, res, 200, {
@@ -963,6 +972,10 @@ export function handleApiRequest(req, res, db = getDatabase()) {
               );
             }
 
+            try {
+              reindexNoteAttributes(db, userId, noteId, newContent, newIsStruck, current.created_at);
+            } catch {}
+
             if (userId) {
               db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(noteId, userId);
             } else {
@@ -1004,8 +1017,14 @@ export function handleApiRequest(req, res, db = getDatabase()) {
 
         if (userId) {
           db.prepare('DELETE FROM notes WHERE id = ? AND user_id = ?').run(noteId, userId);
+          try {
+            db.prepare('DELETE FROM note_attributes WHERE note_id = ? AND user_id = ?').run(noteId, userId);
+          } catch {}
         } else {
           db.prepare('DELETE FROM notes WHERE id = ? AND user_id IS NULL').run(noteId);
+          try {
+            db.prepare("DELETE FROM note_attributes WHERE note_id = ? AND (user_id IS NULL OR user_id = '__guest__')").run(noteId);
+          } catch {}
         }
 
         db.prepare(`
@@ -1017,6 +1036,81 @@ export function handleApiRequest(req, res, db = getDatabase()) {
         sendJsonResponse(req, res, 200, { ok: true, deletedId: noteId });
         return true;
       }
+    }
+  }
+
+  // 10. Tag Definitions: /api/tags/definitions and /api/tags/definitions/:tagName
+  if (pathname === '/api/tags/definitions' || pathname.startsWith('/api/tags/definitions/')) {
+    const session = authenticateRequest(req, db);
+    const totalUsers = getUserCount(db);
+    if (!session && totalUsers > 0) {
+      sendJsonResponse(req, res, 401, { error: 'Authentication required' });
+      return true;
+    }
+    const userId = session?.userId || '__guest__';
+
+    // GET /api/tags/definitions
+    if (pathname === '/api/tags/definitions' && req.method === 'GET') {
+      const defs = getUserTagDefinitions(db, userId);
+      const result = {};
+      for (const [tag, def] of defs.entries()) {
+        result[tag] = def;
+      }
+      sendJsonResponse(req, res, 200, { definitions: result });
+      return true;
+    }
+
+    // PUT /api/tags/definitions/:tagName
+    const tagMatch = pathname.match(/^\/api\/tags\/definitions\/([^/]+)$/);
+    if (tagMatch && req.method === 'PUT') {
+      const tagName = decodeURIComponent(tagMatch[1]).toLowerCase();
+      readRequestBody(req)
+        .then((body) => {
+          if (!body || typeof body !== 'object') {
+            sendJsonResponse(req, res, 400, { error: 'Invalid request body' });
+            return;
+          }
+          const now = new Date().toISOString();
+          const color = typeof body.color === 'string' ? body.color : '#6F7880';
+          const notable = body.notable === 1 || body.notable === true ? 1 : 0;
+          const gutterPriority = typeof body.gutterPriority === 'number' ? body.gutterPriority : 5;
+          const isCore = body.isCore === 1 || body.isCore === true ? 1 : 0;
+
+          db.prepare(`
+            INSERT INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, tag_name) DO UPDATE SET
+              color = excluded.color,
+              notable = excluded.notable,
+              gutter_priority = excluded.gutter_priority,
+              updated_at = excluded.updated_at
+          `).run(`${userId}_${tagName}`, userId, tagName, color, notable, gutterPriority, isCore, now, now);
+
+          sendJsonResponse(req, res, 200, {
+            tag: tagName,
+            color,
+            notable,
+            gutterPriority,
+            isCore,
+            updatedAt: now,
+          });
+        })
+        .catch((err) => sendJsonResponse(req, res, 400, { error: err.message }));
+      return true;
+    }
+
+    // DELETE /api/tags/definitions/:tagName (reset to core or remove custom)
+    if (tagMatch && req.method === 'DELETE') {
+      const tagName = decodeURIComponent(tagMatch[1]).toLowerCase();
+      db.prepare(`
+        DELETE FROM user_tag_definitions
+        WHERE user_id = ? AND tag_name = ?
+      `).run(userId, tagName);
+
+      const defs = getUserTagDefinitions(db, userId);
+      const restored = defs.get(tagName) || null;
+      sendJsonResponse(req, res, 200, { ok: true, tag: tagName, definition: restored });
+      return true;
     }
   }
 
