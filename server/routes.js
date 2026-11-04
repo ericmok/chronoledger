@@ -785,19 +785,25 @@ export function handleApiRequest(req, res, db = getDatabase()) {
           const bounds = calculateBounds(scope, targets);
           const revision = getNextLedgerRevision(db, userId);
 
-          db.prepare(`
-            INSERT INTO notes (id, user_id, content, original_content, scope, targets, start_at, end_at, is_struck, strike_style, color_tag, created_at, updated_at, revision)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(id, userId, content, originalContent, scope, JSON.stringify(targets), bounds.startAt, bounds.endAt, isStruck, strikeStyle, colorTag, createdAt, null, revision);
-
+          db.exec('BEGIN TRANSACTION;');
           try {
-            reindexNoteAttributes(db, userId, id, content, isStruck, createdAt);
-          } catch {}
+            db.prepare(`
+              INSERT INTO notes (id, user_id, content, original_content, scope, targets, start_at, end_at, is_struck, strike_style, color_tag, created_at, updated_at, revision)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(id, userId, content, originalContent, scope, JSON.stringify(targets), bounds.startAt, bounds.endAt, isStruck, strikeStyle, colorTag, createdAt, null, revision);
 
-          if (userId) {
-            db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(id, userId);
-          } else {
-            db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL').run(id);
+            reindexNoteAttributes(db, userId, id, content, isStruck, createdAt);
+
+            if (userId) {
+              db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(id, userId);
+            } else {
+              db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL').run(id);
+            }
+
+            db.exec('COMMIT;');
+          } catch (err) {
+            db.exec('ROLLBACK;');
+            throw err;
           }
 
           triggerBackupCheck(db, DEFAULT_DATA_DIR);
@@ -838,15 +844,21 @@ export function handleApiRequest(req, res, db = getDatabase()) {
       const now = new Date().toISOString();
       const revision = getNextLedgerRevision(db, userId);
 
-      if (userId) {
-        db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ? AND user_id = ?`).run(nextStruck, now, revision, noteId, userId);
-      } else {
-        db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ? AND user_id IS NULL`).run(nextStruck, now, revision, noteId);
-      }
-
+      db.exec('BEGIN TRANSACTION;');
       try {
+        if (userId) {
+          db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ? AND user_id = ?`).run(nextStruck, now, revision, noteId, userId);
+        } else {
+          db.prepare(`UPDATE notes SET is_struck = ?, updated_at = ?, revision = ? WHERE id = ? AND user_id IS NULL`).run(nextStruck, now, revision, noteId);
+        }
+
         reindexNoteAttributes(db, userId, noteId, found.row.content, nextStruck, found.row.created_at);
-      } catch {}
+
+        db.exec('COMMIT;');
+      } catch (err) {
+        db.exec('ROLLBACK;');
+        throw err;
+      }
 
       triggerBackupCheck(db, DEFAULT_DATA_DIR);
       sendJsonResponse(req, res, 200, {
@@ -931,55 +943,61 @@ export function handleApiRequest(req, res, db = getDatabase()) {
             const now = new Date().toISOString();
             const revision = getNextLedgerRevision(db, userId);
 
-            if (userId) {
-              db.prepare(`
-                UPDATE notes
-                SET content = ?, original_content = ?, scope = ?, targets = ?, start_at = ?, end_at = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?, revision = ?
-                WHERE id = ? AND user_id = ?
-              `).run(
-                newContent,
-                newOriginalContent,
-                newScope,
-                JSON.stringify(newTargets),
-                bounds.startAt,
-                bounds.endAt,
-                newIsStruck,
-                newStrikeStyle,
-                newColorTag,
-                now,
-                revision,
-                noteId,
-                userId
-              );
-            } else {
-              db.prepare(`
-                UPDATE notes
-                SET content = ?, original_content = ?, scope = ?, targets = ?, start_at = ?, end_at = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?, revision = ?
-                WHERE id = ? AND user_id IS NULL
-              `).run(
-                newContent,
-                newOriginalContent,
-                newScope,
-                JSON.stringify(newTargets),
-                bounds.startAt,
-                bounds.endAt,
-                newIsStruck,
-                newStrikeStyle,
-                newColorTag,
-                now,
-                revision,
-                noteId
-              );
-            }
-
+            db.exec('BEGIN TRANSACTION;');
             try {
-              reindexNoteAttributes(db, userId, noteId, newContent, newIsStruck, current.created_at);
-            } catch {}
+              if (userId) {
+                db.prepare(`
+                  UPDATE notes
+                  SET content = ?, original_content = ?, scope = ?, targets = ?, start_at = ?, end_at = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?, revision = ?
+                  WHERE id = ? AND user_id = ?
+                `).run(
+                  newContent,
+                  newOriginalContent,
+                  newScope,
+                  JSON.stringify(newTargets),
+                  bounds.startAt,
+                  bounds.endAt,
+                  newIsStruck,
+                  newStrikeStyle,
+                  newColorTag,
+                  now,
+                  revision,
+                  noteId,
+                  userId
+                );
+              } else {
+                db.prepare(`
+                  UPDATE notes
+                  SET content = ?, original_content = ?, scope = ?, targets = ?, start_at = ?, end_at = ?, is_struck = ?, strike_style = ?, color_tag = ?, updated_at = ?, revision = ?
+                  WHERE id = ? AND user_id IS NULL
+                `).run(
+                  newContent,
+                  newOriginalContent,
+                  newScope,
+                  JSON.stringify(newTargets),
+                  bounds.startAt,
+                  bounds.endAt,
+                  newIsStruck,
+                  newStrikeStyle,
+                  newColorTag,
+                  now,
+                  revision,
+                  noteId
+                );
+              }
 
-            if (userId) {
-              db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(noteId, userId);
-            } else {
-              db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL').run(noteId);
+              reindexNoteAttributes(db, userId, noteId, newContent, newIsStruck, current.created_at);
+
+              if (userId) {
+                db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id = ?').run(noteId, userId);
+              } else {
+                db.prepare('DELETE FROM deleted_records WHERE id = ? AND user_id IS NULL').run(noteId);
+              }
+
+              db.exec('COMMIT;');
+            } catch (err) {
+              db.exec('ROLLBACK;');
+              throw err;
             }
 
             const updatedRow = {
@@ -1015,22 +1033,30 @@ export function handleApiRequest(req, res, db = getDatabase()) {
         const now = new Date().toISOString();
         const revision = getNextLedgerRevision(db, userId);
 
-        if (userId) {
-          db.prepare('DELETE FROM notes WHERE id = ? AND user_id = ?').run(noteId, userId);
-          try {
-            db.prepare('DELETE FROM note_attributes WHERE note_id = ? AND user_id = ?').run(noteId, userId);
-          } catch {}
-        } else {
-          db.prepare('DELETE FROM notes WHERE id = ? AND user_id IS NULL').run(noteId);
-          try {
-            db.prepare("DELETE FROM note_attributes WHERE note_id = ? AND (user_id IS NULL OR user_id = '__guest__')").run(noteId);
-          } catch {}
-        }
+        db.exec('BEGIN TRANSACTION;');
+        try {
+          if (userId) {
+            db.prepare('DELETE FROM notes WHERE id = ? AND user_id = ?').run(noteId, userId);
+            try {
+              db.prepare('DELETE FROM note_attributes WHERE note_id = ? AND user_id = ?').run(noteId, userId);
+            } catch {}
+          } else {
+            db.prepare('DELETE FROM notes WHERE id = ? AND user_id IS NULL').run(noteId);
+            try {
+              db.prepare("DELETE FROM note_attributes WHERE note_id = ? AND (user_id IS NULL OR user_id = '__guest__')").run(noteId);
+            } catch {}
+          }
 
-        db.prepare(`
-          INSERT OR REPLACE INTO deleted_records (id, user_id, entity_type, deleted_at, revision)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(noteId, userId || null, 'note', now, revision);
+          db.prepare(`
+            INSERT OR REPLACE INTO deleted_records (id, user_id, entity_type, deleted_at, revision)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(noteId, userId || null, 'note', now, revision);
+
+          db.exec('COMMIT;');
+        } catch (err) {
+          db.exec('ROLLBACK;');
+          throw err;
+        }
 
         triggerBackupCheck(db, DEFAULT_DATA_DIR);
         sendJsonResponse(req, res, 200, { ok: true, deletedId: noteId });
