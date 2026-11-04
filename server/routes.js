@@ -36,6 +36,7 @@ import {
   formatUnifiedNote,
 } from './db.js';
 import { reindexNoteAttributes, getUserTagDefinitions } from './tagIndexer.js';
+import { executeSelectorSearch } from './selectorCompiler.js';
 
 /**
  * Reads and parses JSON payload from incoming HTTP request.
@@ -640,7 +641,37 @@ export function handleApiRequest(req, res, db = getDatabase()) {
     }
     const userId = session?.userId || null;
 
-    // A. Query & Filter: GET /api/notes
+    // A. Structured Tag Selector Search: GET /api/notes/search or GET /api/notes?selector=...
+    const selectorParam = parsedUrl.searchParams.get('selector');
+    if ((pathname === '/api/notes/search' || (pathname === '/api/notes' && selectorParam)) && req.method === 'GET') {
+      try {
+        const textParam = parsedUrl.searchParams.get('text') || parsedUrl.searchParams.get('q');
+        const scopeParam = parsedUrl.searchParams.get('scope') || 'all';
+        const dateParam = parsedUrl.searchParams.get('date');
+        const startDateParam = parsedUrl.searchParams.get('start_date');
+        const endDateParam = parsedUrl.searchParams.get('end_date');
+        const limitParam = parsedUrl.searchParams.get('limit') || '50';
+        const offsetParam = parsedUrl.searchParams.get('offset') || '0';
+
+        const result = executeSelectorSearch(db, selectorParam || '', userId, {
+          text: textParam,
+          scope: scopeParam,
+          date: dateParam,
+          startDate: startDateParam,
+          endDate: endDateParam,
+          limit: limitParam,
+          offset: offsetParam,
+        });
+
+        sendJsonResponse(req, res, 200, result);
+        return true;
+      } catch (err) {
+        sendJsonResponse(req, res, 400, { error: err.message });
+        return true;
+      }
+    }
+
+    // B. Standard Query & Filter: GET /api/notes
     if (pathname === '/api/notes' && req.method === 'GET') {
       const scopeParam = parsedUrl.searchParams.get('scope') || 'all';
       const dateParam = parsedUrl.searchParams.get('date');

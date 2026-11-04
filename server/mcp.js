@@ -173,6 +173,57 @@ server.tool(
   }
 );
 
+// --- TOOL: search_notes_by_selector ---
+server.tool(
+  'search_notes_by_selector',
+  {
+    selector: z.string().describe('Tag selector expression, e.g. @todo[status=wip], @*[color="#F47290"], @project[mars], @wait[ref=*], !@todo[status=done]'),
+    scope: z.enum(['time', 'day', 'week', 'month', 'year', 'span', 'all']).optional().describe('Scope filter: time, day, week, month, year, span, or all (default all)'),
+    text: z.string().optional().describe('Optional full-text search string in note content'),
+    limit: z.number().optional().default(50).describe('Maximum number of matching notes to return (default 50)'),
+    offset: z.number().optional().default(0).describe('Pagination offset (default 0)'),
+  },
+  async ({ selector, scope, text, limit, offset }) => {
+    try {
+      const params = new URLSearchParams();
+      if (selector) params.set('selector', selector);
+      if (scope) params.set('scope', scope);
+      if (text) params.set('text', text);
+      if (limit !== undefined) params.set('limit', String(limit));
+      if (offset !== undefined) params.set('offset', String(offset));
+
+      const data = await apiRequest(`/api/notes/search?${params.toString()}`);
+      if (!data.notes || data.notes.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `No notes matched selector "${selector}".`,
+            },
+          ],
+        };
+      }
+
+      const formatted = data.notes.map((n) => {
+        const targets = n.targets?.join(', ') || 'none';
+        const strikeMark = n.isStruck ? '~~' : '';
+        return `• [${n.id}] (${n.scope} | ${targets}) ${strikeMark}${n.content}${strikeMark}`;
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Found ${data.total} note(s) matching "${selector}":\n\n${formatted.join('\n')}`,
+          },
+        ],
+      };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error searching notes by selector: ${err.message}` }], isError: true };
+    }
+  }
+);
+
 // --- TOOL: get_note ---
 server.tool(
   'get_note',
