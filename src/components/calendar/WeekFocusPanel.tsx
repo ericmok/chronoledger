@@ -95,35 +95,32 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
         className
           ? className
           : isFullWidth
-          ? `w-full p-3.5 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer rounded-none border border-[#E2E8F0] ${
+          ? `w-full p-3.5 flex flex-col justify-between group/weekpanel transition-colors cursor-pointer rounded-box border border-canvas-border ${
               weekBlock.containsToday
-                ? 'bg-[#EFF6FF] border-[#3264EB]'
-                : 'bg-[#FAFAFA] hover:bg-[#F2F2F4]'
+                ? 'bg-today border-accent shadow-xs'
+                : 'bg-canvas-subtle/50 hover:bg-canvas-subtle'
             }`
-          : `sticky top-2 self-start w-full max-h-[calc(100vh-80px)] p-2.5 flex flex-col justify-between group/weekpanel transition-all cursor-pointer rounded-none border border-[#E2E8F0] ${
+          : `sticky top-2 self-start w-full max-h-[calc(100vh-80px)] p-2.5 flex flex-col justify-between group/weekpanel transition-all cursor-pointer rounded-box border border-canvas-border shadow-xs ${
               weekBlock.containsToday
-                ? 'bg-[#EFF6FF] border-[#3264EB]'
-                : 'bg-[#FAFAFA] hover:bg-[#F2F2F4]'
+                ? 'bg-today border-accent shadow-xs hover:brightness-95'
+                : 'bg-canvas-card hover:bg-canvas-subtle hover:border-canvas-border-strong'
             }`
       }
     >
       {/* Week Header & Notes Section (expands to utilize full vertical space of the week) */}
       <div className="flex-1 flex flex-col min-h-0">
         <div
-          className="flex items-baseline justify-between border-b border-[#E2E8F0] pb-1 mb-1.5 shrink-0"
+          className="flex items-baseline justify-between border-b border-canvas-border pb-1 mb-1.5 shrink-0"
         >
           <div className="flex items-baseline gap-1.5 min-w-0">
-            <span className="font-mono text-xs font-bold text-[#212121] shrink-0 flex items-center gap-1.5">
-              <span className="text-[#3264EB] font-bold">::</span>
+            <span className="font-mono text-xs font-bold text-ink shrink-0 flex items-center gap-1">
               <span>W{String(weekBlock.weekNumber).padStart(2, '0')}</span>
               {weekBlock.containsToday && (
-                <span className="text-[9px] font-mono font-bold px-1 py-0.2 bg-[#3264EB] text-white">
-                  TODAY
-                </span>
+                <span className="w-1.5 h-1.5 rounded-full bg-accent" />
               )}
             </span>
-            <span className="text-[10px] font-mono text-[#757575] truncate">
-              // {weekBlock.startDate.monthName} {weekBlock.startDate.dayOfMonth} – {weekBlock.endDate.monthName} {weekBlock.endDate.dayOfMonth}
+            <span className="text-[10px] font-mono text-ink-secondary truncate">
+              {weekBlock.startDate.monthName} {weekBlock.startDate.dayOfMonth} – {weekBlock.endDate.monthName} {weekBlock.endDate.dayOfMonth}
             </span>
           </div>
         </div>
@@ -172,7 +169,7 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
             }
           }}
           className={`flex-1 overflow-y-auto pr-0.5 transition-colors ${
-            isWeekDragOver && !dropTargetId ? 'bg-[var(--radar-current-week-bg)]/40 ring-1 ring-[var(--focus-border)]/30 p-1' : ''
+            isWeekDragOver && !dropTargetId ? 'bg-today/40 ring-1 ring-accent/30 p-1' : ''
           }`}
         >
           {currentWeekNotes.length === 0 && !isAddingWeekNote && (
@@ -182,16 +179,15 @@ export const WeekFocusPanel: React.FC<WeekFocusPanelProps> = ({
                 e.stopPropagation();
                 onStartAddWeekNote(weekBlock.weekKey);
               }}
-              className="w-full h-full min-h-[60px] my-auto py-2 px-2 border border-dashed border-[#CBD5E1] hover:border-[#3264EB] rounded-none flex flex-col items-center justify-center text-center bg-white/60 hover:bg-white transition-all cursor-pointer group/placeholder"
+              className="w-full h-full min-h-[60px] my-auto py-2 px-2 border border-dashed border-canvas-border hover:border-accent rounded-box flex flex-col items-center justify-center text-center bg-canvas/60 hover:bg-canvas transition-all cursor-pointer group/placeholder"
               title="Click or double-click to add weekly note"
             >
-              <div className="flex items-center gap-1.5 text-xs font-mono text-[#757575] group-hover/placeholder:text-[#3264EB]">
-                <span className="text-[#3264EB] font-bold">&gt;</span>
-                <span>// week focus buffer [empty]</span>
-                <span className="animate-console-cursor text-[#3264EB]">_</span>
+              <div className="flex items-center gap-1.5 text-xs font-mono text-ink-secondary group-hover/placeholder:text-accent">
+                <Plus className="w-3.5 h-3.5 text-accent" />
+                <span>Add note</span>
               </div>
-              <span className="text-[9px] font-mono text-[#9E9E9E] mt-0.5">
-                :new-week-note or double-click
+              <span className="text-[9px] font-mono text-ink-strike mt-0.5">
+                or double-click
               </span>
             </button>
           )}

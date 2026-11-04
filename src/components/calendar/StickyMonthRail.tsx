@@ -225,7 +225,7 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
               }
             }}
             title={`${activeMonth.fullName} ${activeMonth.year} — click to jump to start of month`}
-            className="absolute left-0 pointer-events-auto cursor-pointer group/railpill flex flex-col items-start transition-all focus:outline-hidden focus-visible:ring-1 focus-visible:ring-[#D23B38]/40 focus-visible:rounded"
+            className="absolute left-0 pointer-events-auto cursor-pointer group/railpill flex flex-col items-start transition-all focus:outline-hidden focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:rounded"
             style={{
               transform: `translateY(${-transitionProgress * DISSOLVE_DRIFT}px)`,
               opacity: Math.max(0, 1 - transitionProgress),
@@ -248,7 +248,7 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
               }
             }}
             title={`${transitionNextMonth.fullName} ${transitionNextMonth.year} — click to jump to start of month`}
-            className="absolute left-0 pointer-events-auto cursor-pointer group/railpill flex flex-col items-start transition-all focus:outline-hidden focus-visible:ring-1 focus-visible:ring-[#D23B38]/40 focus-visible:rounded"
+            className="absolute left-0 pointer-events-auto cursor-pointer group/railpill flex flex-col items-start transition-all focus:outline-hidden focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:rounded"
             style={{
               transform: `translateY(${(1 - transitionProgress) * DISSOLVE_DRIFT}px)`,
               opacity: Math.max(0, transitionProgress),
@@ -268,7 +268,7 @@ export const StickyMonthRail: React.FC<StickyMonthRailProps> = ({
               }
             }}
             title={`${activeMonth.fullName} ${activeMonth.year} — click to jump to start of month`}
-            className="pointer-events-auto cursor-pointer group/railpill flex flex-col items-start focus:outline-hidden focus-visible:ring-1 focus-visible:ring-[#D23B38]/40 focus-visible:rounded"
+            className="pointer-events-auto cursor-pointer group/railpill flex flex-col items-start focus:outline-hidden focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:rounded"
           >
             <MonthWatermark month={activeMonth} />
           </div>
@@ -291,22 +291,22 @@ const MonthWatermark: React.FC<MonthWatermarkProps> = ({ month }) => {
   return (
     <div className="py-2 px-1 flex flex-col items-center justify-center select-none transition-all">
       <div
-        className="font-mono text-xs sm:text-[13px] font-bold tracking-[0.25em] uppercase flex items-center gap-2 select-none transition-all"
+        className="font-ui text-xs sm:text-[13px] font-bold tracking-[0.25em] uppercase flex items-center gap-2 select-none transition-all"
         style={{
           writingMode: 'vertical-rl',
           transform: 'rotate(180deg)',
         }}
       >
         <span
-          className="transition-all duration-200 group-hover/railpill:opacity-100 group-hover/railpill:scale-105 text-[#212121]"
+          className="transition-all duration-200 group-hover/railpill:opacity-100 group-hover/railpill:scale-105 text-ink"
           style={{
             opacity: month.isCurrentMonth ? 1 : 0.8,
           }}
         >
-          // {month.fullName}
+          {month.fullName}
         </span>
         <span
-          className="font-mono text-[10px] sm:text-[10.5px] font-semibold tracking-wider transition-all duration-200 text-[#3264EB]"
+          className="font-ui text-[10px] sm:text-[10.5px] font-semibold tracking-wider transition-all duration-200 text-accent"
           style={{
             opacity: month.isCurrentMonth ? 1 : 0.75,
           }}

@@ -86,7 +86,6 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
   const [quickInputDate, setQuickInputDate] = useState<string | null>(null);
   const [quickInputWeek, setQuickInputWeek] = useState<string | null>(null);
 
-  const isLupine = settings.themeMode !== 'paper';
   const currentMonthKey = useMemo(() => formatDateKey(new Date()).slice(0, 7), []);
 
   // Prepending & Appending scroll compensation refs
@@ -428,24 +427,18 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
             >
               {/* Top Week Divider for First Row (if not current week) */}
               {virtualRow.index === 0 && !weekBlock.containsToday ? (
-                <div className={`w-full h-[2px] shrink-0 ${isLupine ? 'bg-[#CBD5E1]' : 'bg-[#8E8F95]'}`} />
+                <div className="w-full h-[2px] shrink-0 bg-canvas-border-strong" />
               ) : null}
 
               <div
                 className={`flex items-stretch transition-colors ${
                   weekBlock.containsToday
-                    ? isLupine
-                      ? 'border-2 border-[#3264EB] bg-[#FFFFFF] shadow-sm relative z-10'
-                      : 'border-2 border-[#D23B38] bg-[#FAF7F2] shadow-xs relative z-10'
-                    : isLupine
-                    ? 'border-x border-[#E2E8F0] bg-[#FAFAFA]'
-                    : 'border-x border-[#E5DFD5] bg-[#FAF8F5]'
+                    ? 'border-2 border-accent bg-today shadow-xs relative z-10'
+                    : 'border-x border-canvas-border bg-canvas'
                 }`}
               >
                 {/* TIER 1: Daily Timeline (7 Days) */}
-                <div className={`flex-1 flex flex-col min-w-0 ${
-                  isLupine ? 'divide-y divide-[#E2E8F0]' : 'divide-y divide-[#D5CDC0]'
-                }`}>
+                <div className="flex-1 flex flex-col min-w-0 divide-y divide-canvas-border">
                   {weekBlock.days.map((dateItem, dayIdx) => (
                     <DayRow
                       key={dateItem.dateString}
@@ -479,20 +472,14 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                   ))}
                   {/* Mobile In-Stream Week Scratch Pad Bridge */}
                   {hideWeekPanel && onOpenWeekScratchPad && (
-                    <div className={`px-3 py-1.5 flex items-center justify-between text-[11px] font-mono select-none border-t ${
-                      isLupine
-                        ? 'bg-[#F2F2F4]/90 border-[#E2E8F0]'
-                        : 'bg-[#FAF3EA]/80 border-[#E5DFD5]'
-                    }`}>
+                    <div className="px-3 py-1.5 flex items-center justify-between text-[11px] font-ui select-none border-t bg-canvas-subtle/90 border-canvas-border">
                       <div className="flex items-center gap-1.5">
-                        <span className={`font-semibold ${isLupine ? 'text-[#212121]' : 'text-[#2B2C30]'}`}>Week {weekBlock.weekNumber}</span>
-                        <span className={`text-[10px] ${isLupine ? 'text-[#757575]' : 'text-[#8E8F95]'}`}>
+                        <span className="font-semibold text-ink">Week {weekBlock.weekNumber}</span>
+                        <span className="text-[10px] text-ink-secondary">
                           {weekBlock.startDate.monthName} {weekBlock.startDate.dayOfMonth} – {weekBlock.endDate.monthName} {weekBlock.endDate.dayOfMonth}
                         </span>
                         {currentWeekNotes.length > 0 && (
-                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            isLupine ? 'bg-[#E2E8F0] text-[#212121]' : 'bg-[#E5DFD5] text-[#2B2C30]'
-                          }`}>
+                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-canvas-subtle text-ink">
                             {currentWeekNotes.length} note{currentWeekNotes.length > 1 ? 's' : ''}
                           </span>
                         )}
@@ -500,9 +487,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                       <button
                         type="button"
                         onClick={() => onOpenWeekScratchPad(weekBlock.weekKey)}
-                        className={`flex items-center gap-1 font-medium transition-colors cursor-pointer text-xs ${
-                          isLupine ? 'text-[#3264EB] hover:text-[#2552D0]' : 'text-[#2B2C30] hover:text-[#D23B38]'
-                        }`}
+                        className="flex items-center gap-1 font-medium transition-colors cursor-pointer text-xs text-ink hover:text-accent"
                         title="Open Week Scratch Pad"
                       >
                         <span>Scratch Pad</span>
@@ -515,14 +500,8 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                 {/* TIER 2: Week Notes Rail & Sticky Sled */}
                 {!hideWeekPanel && (
                   <div
-                    className={`w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 p-1.5 relative flex flex-col transition-colors ${
-                      isLupine
-                        ? weekBlock.containsToday
-                          ? 'border-l border-[#E2E8F0] bg-[#EFF6FF]/40'
-                          : 'border-l border-[#E2E8F0] bg-[#FFFFFF]/60'
-                        : weekBlock.containsToday
-                        ? 'border-l border-[#E5DFD5] bg-[#FAF3EA]/40'
-                        : 'border-l border-[#E5DFD5] bg-[#F7F4EC]/20'
+                    className={`w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 p-1.5 relative flex flex-col transition-colors border-l border-canvas-border ${
+                      weekBlock.containsToday ? 'bg-today/40' : 'bg-canvas-subtle/20'
                     }`}
                   >
                     <WeekFocusPanel

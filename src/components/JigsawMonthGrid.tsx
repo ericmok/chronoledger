@@ -715,23 +715,23 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
   const asideClass = className
     ? className
     : isCompact
-    ? 'w-[306px] shrink-0 border-l border-[#E5DFD5] bg-[#FAF8F5] flex flex-col h-full select-none relative z-20 shadow-xs'
-    : 'w-[580px] shrink-0 border-l border-[#E5DFD5] bg-[#FAF8F5] flex flex-col h-full select-none relative z-20 shadow-xs';
+    ? 'w-[306px] shrink-0 border-l border-canvas-border bg-canvas flex flex-col h-full select-none relative z-20 shadow-xs'
+    : 'w-[580px] shrink-0 border-l border-canvas-border bg-canvas flex flex-col h-full select-none relative z-20 shadow-xs';
 
   return (
     <aside className={asideClass}>
       {/* Top Header Bar */}
-      <div className="h-11 border-b border-[var(--canvas-border)] px-2.5 flex items-center justify-between bg-[var(--canvas-bg)]/90 shrink-0">
+      <div className="h-11 border-b border-canvas-border px-2.5 flex items-center justify-between bg-canvas/90 shrink-0">
         {isCompact && onCompactViewChange ? (
           /* Compact View Switcher: Split | Grid | Notes */
-          <div className="flex items-center bg-[var(--canvas-subtle)] p-0.5 rounded-md border border-[var(--canvas-border-strong)] text-[11px] font-mono">
+          <div className="flex items-center bg-canvas-subtle p-0.5 rounded-btn border border-canvas-border-strong text-[11px] font-ui">
             <button
               type="button"
               onClick={() => onCompactViewChange('stacked')}
-              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded-btn transition-all cursor-pointer ${
                 compactView === 'stacked'
-                  ? 'bg-[var(--canvas-card)] text-[var(--ink-primary)] font-bold shadow-2xs'
-                  : 'text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]'
+                  ? 'bg-canvas-card text-ink font-bold shadow-2xs'
+                  : 'text-ink-secondary hover:text-ink'
               }`}
               title="Split View: Continuous Radar Grid + Month Reflections"
             >
@@ -740,10 +740,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
             <button
               type="button"
               onClick={() => onCompactViewChange('grid')}
-              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded-btn transition-all cursor-pointer ${
                 compactView === 'grid'
-                  ? 'bg-[var(--canvas-card)] text-[var(--ink-primary)] font-bold shadow-2xs'
-                  : 'text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]'
+                  ? 'bg-canvas-card text-ink font-bold shadow-2xs'
+                  : 'text-ink-secondary hover:text-ink'
               }`}
               title="Full Month Grid"
             >
@@ -752,10 +752,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
             <button
               type="button"
               onClick={() => onCompactViewChange('reflections')}
-              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded-btn transition-all cursor-pointer ${
                 compactView === 'reflections'
-                  ? 'bg-[var(--canvas-card)] text-[var(--ink-primary)] font-bold shadow-2xs'
-                  : 'text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]'
+                  ? 'bg-canvas-card text-ink font-bold shadow-2xs'
+                  : 'text-ink-secondary hover:text-ink'
               }`}
               title="Full Continuous Reflections Roll"
             >
@@ -764,19 +764,19 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
           </div>
         ) : (
           /* Desktop / Mobile Title */
-          <div className="flex items-center gap-1 font-mono font-bold text-xs text-[#212121] tracking-tight">
-            <span className="text-[#3264EB] font-bold">::</span>
-            <span>months</span>
+          <div className="flex items-center gap-1.5 font-ui font-semibold text-xs text-ink tracking-tight">
+            <span className="text-accent font-bold">::</span>
+            <span>Months</span>
           </div>
         )}
 
         {/* Right: Month Navigation (< >) & Today Button */}
-        <div className="flex items-center gap-1.5 font-mono">
+        <div className="flex items-center gap-1.5 font-ui">
           <div className="flex items-center">
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1 rounded-none hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
+              className="p-1 rounded-btn hover:bg-canvas-subtle-hover text-ink-secondary hover:text-ink transition-colors cursor-pointer"
               title="Scroll to previous month"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -784,7 +784,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1 rounded-none hover:bg-[#E9ECEF] text-[#757575] hover:text-[#212121] transition-colors cursor-pointer"
+              className="p-1 rounded-btn hover:bg-canvas-subtle-hover text-ink-secondary hover:text-ink transition-colors cursor-pointer"
               title="Scroll to next month"
             >
               <ChevronRight className="w-4 h-4" />
@@ -794,26 +794,26 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
           <button
             type="button"
             onClick={handleResetToCurrent}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-[#212121] hover:bg-[#E9ECEF] rounded-none transition-colors cursor-pointer border border-[#E2E8F0] bg-[#F2F2F4]"
-            title="Jump calendar to today (:today)"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-ui text-ink hover:bg-canvas-subtle-hover rounded-btn transition-colors cursor-pointer border border-canvas-border bg-canvas-subtle"
+            title="Jump calendar to today"
           >
-            <Compass className="w-3 h-3 text-[#3264EB]" />
-            <span>:today</span>
+            <Compass className="w-3 h-3 text-accent" />
+            <span>Today</span>
           </button>
         </div>
       </div>
 
       {/* Column Headers */}
-      <div className="h-7 border-b border-[#E2E8F0] flex items-center bg-[#F2F2F4] shrink-0 font-mono text-[10px]">
+      <div className="h-7 border-b border-canvas-border flex items-center bg-canvas-subtle shrink-0 font-ui text-[10px]">
         {(!isCompact || compactView !== 'reflections') && (
-          <div className="w-10 shrink-0 uppercase tracking-wider text-[#757575] font-bold text-center border-r border-[#E2E8F0]">
-            mo
+          <div className="w-10 shrink-0 uppercase tracking-wider text-ink-secondary font-bold text-center border-r border-canvas-border">
+            Mo
           </div>
         )}
         {(!isCompact || compactView !== 'reflections') && (
           <div
-            className={`shrink-0 grid grid-cols-7 text-center font-bold text-[#757575] ${
-              !isCompact ? 'border-r border-[#E2E8F0]' : ''
+            className={`shrink-0 grid grid-cols-7 text-center font-bold text-ink-secondary ${
+              !isCompact ? 'border-r border-canvas-border' : ''
             }`}
             style={{ width: `${gridWidth}px` }}
           >
@@ -823,8 +823,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
           </div>
         )}
         {(!isCompact || compactView === 'reflections') && (
-          <div className="flex-1 uppercase tracking-wider text-[#757575] font-bold pl-3 truncate">
-            // monthly buffers
+          <div className="flex-1 uppercase tracking-wider text-ink-secondary font-bold pl-3 truncate">
+            Monthly Notes
           </div>
         )}
       </div>
@@ -838,7 +838,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
             onScroll={handleScroll}
             className={`overflow-y-auto relative flex scroll-smooth-focus ${
               isCompact && compactView === 'stacked'
-                ? 'shrink-0 max-h-[50%] h-[350px] border-b border-[#E5DFD5]'
+                ? 'shrink-0 max-h-[50%] h-[350px] border-b border-canvas-border'
                 : 'flex-1 h-full'
             }`}
             style={{ overflowAnchor: 'none' }}
@@ -901,17 +901,17 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
             <>
               {/* Stacked Divider: Active Focused Month Header */}
               <div
-                className="border-t-2 border-[#2B2C30] px-3 py-1.5 flex items-center justify-between text-[11px] font-mono shrink-0 transition-colors shadow-2xs"
+                className="border-t-2 border-canvas-border-strong px-3 py-1.5 flex items-center justify-between text-[11px] font-ui shrink-0 transition-colors shadow-2xs"
                 style={{ backgroundColor: focusedSeasonal.notesBg }}
               >
-                <div className="flex items-center gap-1.5 font-semibold text-[#2B2C30] truncate">
+                <div className="flex items-center gap-1.5 font-semibold text-ink truncate">
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
                     style={{ backgroundColor: focusedSeasonal.accentTag }}
                   />
-                  <span className="truncate">{focusedMonthName} Reflections</span>
+                  <span className="truncate">{focusedMonthName} Notes</span>
                   {focusedMonthNotes.length > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#E5DFD5] text-[#2B2C30] text-[10px] font-bold">
+                    <span className="px-1.5 py-0.2 rounded-full bg-canvas-subtle text-ink text-[10px] font-bold">
                       {focusedMonthNotes.length}
                     </span>
                   )}
@@ -920,8 +920,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
                 <button
                   type="button"
                   onClick={() => setQuickInputMonth(focusedMonthKey)}
-                  className="flex items-center gap-0.5 text-[#2B2C30] hover:text-[#D23B38] font-bold cursor-pointer text-[10px] uppercase tracking-wider"
-                  title={`Add reflection for ${focusedMonthName}`}
+                  className="flex items-center gap-0.5 text-ink hover:text-accent font-medium cursor-pointer text-[10px] uppercase tracking-wider"
+                  title={`Add note for ${focusedMonthName}`}
                 >
                   <Plus className="w-3 h-3" />
                   <span>Add</span>
@@ -929,7 +929,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
               </div>
 
               {/* Bottom Pane: Active Month Reflections with Generous Vertical Space */}
-              <div className="flex-1 min-h-0 overflow-y-auto p-2 bg-[#FAF8F5] flex flex-col gap-1.5">
+              <div className="flex-1 min-h-0 overflow-y-auto p-2 bg-canvas flex flex-col gap-1.5">
                 {quickInputMonth === focusedMonthKey && (
                   <div className="mb-2">
                     <MonthNoteInlineForm
@@ -947,11 +947,11 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
                 {focusedMonthNotes.length === 0 && quickInputMonth !== focusedMonthKey && (
                   <div
                     onDoubleClick={() => setQuickInputMonth(focusedMonthKey)}
-                    className="text-xs text-[#A19D94] italic py-6 text-center cursor-pointer hover:text-[#7E7F85]"
+                    className="text-xs text-ink-strike italic py-6 text-center cursor-pointer hover:text-ink-secondary"
                   >
-                    No reflections recorded for {focusedMonthName}.
+                    No notes recorded for {focusedMonthName}.
                     <br />
-                    <span className="text-[10px] text-[#71727A] not-italic mt-1 inline-block">
+                    <span className="text-[10px] text-ink-secondary not-italic mt-1 inline-block">
                       Double-click or tap Add to record.
                     </span>
                   </div>
@@ -985,7 +985,7 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
         <div
           ref={gridContainerRef}
           onScroll={handleNotesRollScroll}
-          className="flex-1 overflow-y-auto p-2.5 bg-[#FAF8F5] flex flex-col gap-3 select-none"
+          className="flex-1 overflow-y-auto p-2.5 bg-canvas flex flex-col gap-3 select-none"
           style={{ overflowAnchor: 'none' }}
         >
           {notesMonthMetas.map((m) => {
@@ -1001,10 +1001,10 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
                   if (el) monthSectionRefs.current.set(m.monthKey, el);
                   else monthSectionRefs.current.delete(m.monthKey);
                 }}
-                className={`rounded-lg border transition-colors ${
+                className={`rounded-box border transition-colors ${
                   isCurrent
-                    ? 'border-[#D23B38] bg-[#FAF7F2] shadow-xs'
-                    : 'border-[#E5DFD5] bg-[#FAF8F5]'
+                    ? 'border-accent bg-today shadow-xs'
+                    : 'border-canvas-border bg-canvas'
                 }`}
                 style={{
                   borderLeftWidth: '3.5px',
@@ -1013,22 +1013,22 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
               >
                 {/* Month Header on TOP of Notes */}
                 <div
-                  className="px-2.5 py-1.5 flex items-center justify-between border-b border-[#E5DFD5]/80 transition-colors rounded-t-lg"
+                  className="px-2.5 py-1.5 flex items-center justify-between border-b border-canvas-border/80 transition-colors rounded-t-box"
                   style={{ backgroundColor: seasonal.notesBg }}
                 >
-                  <div className="flex items-center gap-1.5 font-serif font-bold text-xs text-[#2B2C30] truncate">
+                  <div className="flex items-center gap-1.5 font-ui font-semibold text-xs text-ink truncate">
                     <span
                       className="w-2 h-2 rounded-full shrink-0 shadow-2xs"
                       style={{ backgroundColor: seasonal.accentTag }}
                     />
                     <span className="truncate">{m.fullName} {m.year}</span>
                     {isCurrent && (
-                      <span className="text-[9px] font-mono uppercase bg-[#2B2C30] text-[#FAF8F5] px-1 py-0.2 rounded font-bold">
+                      <span className="text-[9px] font-ui uppercase bg-ink text-canvas px-1 py-0.2 rounded-badge font-bold">
                         Today
                       </span>
                     )}
                     {notes.length > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-[#E5DFD5] text-[#2B2C30] text-[10px] font-mono font-bold">
+                      <span className="px-1.5 py-0.2 rounded-full bg-canvas-subtle text-ink text-[10px] font-ui font-bold">
                         {notes.length}
                       </span>
                     )}
@@ -1037,8 +1037,8 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
                   <button
                     type="button"
                     onClick={() => setQuickInputMonth(m.monthKey)}
-                    className="flex items-center gap-0.5 text-[#2B2C30] hover:text-[#D23B38] font-bold cursor-pointer text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded hover:bg-black/5 transition-colors shrink-0"
-                    title={`Add reflection for ${m.fullName}`}
+                    className="flex items-center gap-0.5 text-ink hover:text-accent font-medium cursor-pointer text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-btn hover:bg-black/5 transition-colors shrink-0"
+                    title={`Add note for ${m.fullName}`}
                   >
                     <Plus className="w-3 h-3" />
                     <span>Add</span>
@@ -1064,9 +1064,9 @@ export const JigsawMonthGrid: React.FC<JigsawMonthGridProps> = memo(({
                   {notes.length === 0 && !isAdding && (
                     <div
                       onDoubleClick={() => setQuickInputMonth(m.monthKey)}
-                      className="text-xs text-[#A19D94] italic py-2.5 text-center cursor-pointer hover:text-[#7E7F85]"
+                      className="text-xs text-ink-strike italic py-2.5 text-center cursor-pointer hover:text-ink-secondary"
                     >
-                      No reflections for {m.name}. Tap Add to write.
+                      No notes for {m.name}. Tap Add to write.
                     </div>
                   )}
 

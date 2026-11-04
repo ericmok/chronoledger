@@ -127,7 +127,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         return (
           <code
             key={key}
-            className="font-mono text-[11px] bg-[#F2F2F4] text-[#3264EB] px-1 py-0.5 rounded-none border border-[#CBD5E1] align-baseline font-bold"
+            className="font-mono text-[11px] bg-canvas-subtle text-accent px-1 py-0.5 rounded-badge border border-canvas-border-strong align-baseline font-bold"
           >
             {token.text}
           </code>
@@ -213,7 +213,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return (
             <h1
               key={key}
-              className="font-mono text-[14px] font-bold text-[#212121] mt-1 mb-1 pb-0.5 border-b border-[#E2E8F0] leading-snug tracking-tight"
+              className="font-ui text-[14px] font-bold text-ink mt-1 mb-1 pb-0.5 border-b border-canvas-border leading-snug tracking-tight"
             >
               {anchor}
               {children}
@@ -224,7 +224,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           return (
             <h2
               key={key}
-              className="font-mono text-[13px] font-bold text-[#3264EB] mt-1 mb-0.5 leading-snug tracking-tight"
+              className="font-ui text-[13px] font-bold text-accent mt-1 mb-0.5 leading-snug tracking-tight"
             >
               {anchor}
               {children}
@@ -234,7 +234,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         return (
           <h3
             key={key}
-            className="font-mono text-[12px] font-semibold text-[#5E49B0] mt-0.5 mb-0.5 leading-snug tracking-tight"
+            className="font-ui text-[12px] font-semibold text-ink-secondary mt-0.5 mb-0.5 leading-snug tracking-tight"
           >
             {anchor}
             {children}
@@ -341,7 +341,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         return (
           <blockquote
             key={key}
-            className="border-l-2 border-[#3264EB] pl-2.5 my-1 text-[#757575] font-mono text-xs leading-relaxed bg-[#F8FAFC] py-0.5"
+            className="border-l-2 border-accent pl-2.5 my-1 text-ink-secondary font-ui text-xs leading-relaxed bg-canvas-subtle/50 py-0.5"
           >
             {anchor}
             {children}
@@ -354,7 +354,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           <React.Fragment key={key}>
             {anchor}
             <pre
-              className="bg-[#F2F2F4] border border-[#E2E8F0] rounded-none p-2 my-1 text-[11px] font-mono text-[#212121] overflow-x-auto selection:bg-[#3264EB] selection:text-white leading-snug"
+              className="bg-canvas-subtle border border-canvas-border rounded-box p-2 my-1 text-[11px] font-mono text-ink overflow-x-auto selection:bg-accent selection:text-accent-fg leading-snug"
             >
               <code>{token.text}</code>
             </pre>
@@ -362,7 +362,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         );
 
       case 'hr':
-        return <hr key={key} className="border-t border-[#E2E8F0] my-1.5" />;
+        return <hr key={key} className="border-t border-canvas-border my-1.5" />;
 
       case 'paragraph': {
         const children = (token as any).tokens

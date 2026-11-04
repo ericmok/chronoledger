@@ -184,37 +184,33 @@ export const DayRow: React.FC<DayRowProps> = ({
       data-date-string={dateItem.dateString}
       className="flex flex-col flex-1 w-full group/row"
     >
-      {/* Month Milestone Ribbon on 1st of month (Console section break) */}
+      {/* Month Divider Banner */}
       {dateItem.isFirstDayOfMonth && seasonalColor && (
         <div
           data-month-ribbon="true"
-          className="w-full flex items-center pr-3 py-1 border-b border-[#CBD5E1] bg-[#F2F2F4] select-none font-mono text-xs transition-colors"
+          className="w-full flex items-center pr-3 py-1.5 border-b border-canvas-border bg-canvas-subtle select-none font-mono text-xs transition-colors"
           title={`${fullMonthName} ${dateItem.year}`}
         >
           {/* Section glyph marker */}
-          <div className="w-8 shrink-0 border-r border-[#CBD5E1] self-stretch flex items-center justify-center text-[10px] text-[#757575] font-bold">
+          <div className="w-8 shrink-0 border-r border-canvas-border self-stretch flex items-center justify-center text-[10px] text-ink-secondary font-bold">
             //
           </div>
 
-          {/* Month & Year in console typography */}
+          {/* Month & Year in typography */}
           <div className="flex items-center gap-2 pl-3 shrink-0">
-            <span className="font-bold text-xs tracking-wider uppercase text-[#3264EB]">
+            <span className="font-bold text-xs tracking-wider uppercase text-accent font-main">
               {fullMonthName}
             </span>
-            <span className="text-[11px] font-mono text-[#757575]">
+            <span className="text-[11px] font-mono text-ink-secondary">
               {dateItem.year}
             </span>
           </div>
 
-          {/* Console dashed rule */}
-          <div className="flex-1 border-t border-dashed border-[#CBD5E1] ml-3" />
-          <span className="text-[10px] font-mono text-[#757575] pl-2 uppercase tracking-widest opacity-70">
-            [buffer]
-          </span>
+          <div className="flex-1 border-t border-dashed border-canvas-border-strong ml-3" />
         </div>
       )}
 
-      {/* Main Day Content (Console buffer line) */}
+      {/* Main Day Content */}
       <div
         onDoubleClick={(e) => {
           const target = e.target as HTMLElement;
@@ -224,22 +220,22 @@ export const DayRow: React.FC<DayRowProps> = ({
         title={`${dateItem.monthName} ${dateItem.dayOfMonth}, ${dateItem.year} — double-click to write note`}
         className={`flex items-start flex-1 min-h-[44px] py-1 transition-colors w-full ${
           dateItem.isToday
-            ? 'border-l-[3px] border-l-[#3264EB] bg-[#EFF6FF] relative z-10'
-            : 'border-l-[3px] border-l-transparent hover:bg-[#F8FAFC]'
+            ? 'border-l-[3px] border-l-accent bg-today relative z-10'
+            : 'border-l-[3px] border-l-transparent hover:bg-canvas-subtle-hover'
         }`}
       >
         {/* Month Rail Guide */}
-        <div className="w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r border-[#E2E8F0]" />
+        <div className="w-8 shrink-0 flex flex-col items-center justify-start pt-2 select-none relative border-r border-canvas-border" />
 
-      {/* Date Gutter (Terminal Line Numbers Style) */}
+      {/* Date Gutter */}
       <div
         data-date-gutter="true"
         className="w-14 shrink-0 flex flex-col items-center justify-start pt-0.5 font-mono select-none"
       >
         {dateItem.isToday ? (
-          /* Fused Today Unit: Terminal Cursor Pill */
+          /* Today Unit: Compact Pill */
           <div
-            className="relative flex items-center justify-center bg-[#3264EB] text-white rounded-none px-1.5 py-0.5 shadow-xs min-w-[38px] cursor-pointer hover:bg-[#2552D0] transition-all font-mono leading-none gap-1"
+            className="relative flex items-center justify-center bg-accent text-accent-fg rounded-btn px-1.5 py-0.5 shadow-xs min-w-[38px] cursor-pointer hover:bg-accent-hover transition-all font-mono leading-none gap-1"
             title={
               isCircled
                 ? `Today (${circleColorName} - click to cycle color, double-click to remove)`
@@ -251,14 +247,14 @@ export const DayRow: React.FC<DayRowProps> = ({
             <span className="text-[13px] font-bold font-mono leading-none">
               {String(dateItem.dayOfMonth).padStart(2, '0')}
             </span>
-            <span className="text-[8.5px] font-mono uppercase font-semibold text-white/80 leading-none">
+            <span className="text-[8.5px] font-mono uppercase font-semibold text-accent-fg/80 leading-none">
               {dayOfWeekShort}
             </span>
 
             {/* Radar Filter Match Indicator */}
             {hasFilterMatch && (
               <span
-                className="absolute -top-1 -right-1 w-2 h-2 rounded-none bg-[#5E49B0] ring-1 ring-white animate-pulse"
+                className="absolute -top-1 -right-1 w-2 h-2 rounded-badge bg-accent ring-1 ring-white animate-pulse"
                 title="Date contains notes matching active radar filter"
               />
             )}
@@ -271,7 +267,7 @@ export const DayRow: React.FC<DayRowProps> = ({
               >
                 <RoughCircledRing
                   dateKey={dateItem.dateString}
-                  color={circleColor || '#3264EB'}
+                  color={circleColor || 'var(--accent-primary)'}
                   variant="today"
                 />
               </span>
@@ -279,7 +275,7 @@ export const DayRow: React.FC<DayRowProps> = ({
           </div>
         ) : (
           <div
-            className="flex items-center justify-center leading-none cursor-pointer group/date gap-1 py-0.5 px-1 hover:bg-[#E2E8F0] font-mono"
+            className="flex items-center justify-center leading-none cursor-pointer group/date gap-1 py-0.5 px-1 hover:bg-canvas-subtle rounded-btn font-mono"
             title={
               isCircled
                 ? `${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`
@@ -291,15 +287,15 @@ export const DayRow: React.FC<DayRowProps> = ({
             <span
               className={`relative inline-flex items-center justify-center text-[13px] font-mono font-bold transition-colors leading-none ${
                 hasFilterMatch
-                  ? 'ring-1 ring-[#3264EB] bg-[#EFF6FF] px-0.5 text-[#3264EB]'
-                  : 'text-[#212121]'
+                  ? 'ring-1 ring-accent bg-today px-0.5 text-accent rounded-badge'
+                  : 'text-ink'
               }`}
             >
               {String(dateItem.dayOfMonth).padStart(2, '0')}
 
               {hasFilterMatch && (
                 <span
-                  className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-none bg-[#3264EB] animate-pulse"
+                  className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-badge bg-accent animate-pulse"
                   title="Date contains notes matching active radar filter"
                 />
               )}
@@ -312,7 +308,7 @@ export const DayRow: React.FC<DayRowProps> = ({
                 >
                   <RoughCircledRing
                     dateKey={dateItem.dateString}
-                    color={circleColor || '#3264EB'}
+                    color={circleColor || 'var(--accent-primary)'}
                     variant="day"
                   />
                 </span>
@@ -321,8 +317,8 @@ export const DayRow: React.FC<DayRowProps> = ({
             <span
               className={`font-mono text-[9px] uppercase font-semibold leading-none ${
                 dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
-                  ? 'text-[#3264EB]'
-                  : 'text-[#757575]'
+                  ? 'text-accent font-bold'
+                  : 'text-ink-secondary'
               }`}
             >
               {dayOfWeekShort}

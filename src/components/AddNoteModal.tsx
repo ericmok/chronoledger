@@ -75,29 +75,29 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 font-mono">
-      <div className="w-full max-w-md bg-[#FAFAFA] border-2 border-[#3264EB] rounded-none shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-[#212121]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 font-ui">
+      <div className="w-full max-w-md bg-canvas border border-canvas-border-strong rounded-box shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-ink">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#E2E8F0] bg-[#F2F2F4]">
-          <h3 className="font-mono text-xs font-bold text-[#212121] uppercase tracking-wider flex items-center gap-1.5">
-            <span className="text-[#3264EB]">&gt;</span> :new_note
+        <div className="flex items-center justify-between px-4 py-3 border-b border-canvas-border bg-canvas-subtle">
+          <h3 className="font-ui text-xs font-semibold text-ink uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-accent">&gt;</span> New Note
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-none text-[#757575] hover:text-[#212121] hover:bg-[#E9ECEF]"
+            className="p-1 rounded-btn text-ink-secondary hover:text-ink hover:bg-canvas-subtle-hover transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4 font-mono text-xs">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 font-ui text-xs">
           {/* Note content */}
           <div>
-            <div className="flex items-center justify-between mb-1.5 font-mono">
-              <label className="block text-[11px] font-mono text-[#757575] uppercase tracking-wider">
-                // Note Buffer (Markdown)
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] font-ui text-ink-secondary uppercase tracking-wider">
+                Note Content
               </label>
-              <span className="text-[10px] font-mono text-[#9E9E9E]">⌘↵ save • ↵ newline</span>
+              <span className="text-[10px] text-ink-strike">⌘↵ save • ↵ newline</span>
             </div>
 
             <div className="relative">
@@ -135,7 +135,7 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
                   );
                 }}
                 placeholder="Write note... (e.g. Flight to Tokyo @4:00pm, - [ ] Checklist item, ## Section heading)"
-                className="w-full px-3 py-2 text-xs font-mono bg-white border border-[#CBD5E1] rounded-none focus:outline-hidden focus:border-[#3264EB] placeholder-[#9E9E9E] resize-none leading-relaxed text-[#212121]"
+                className="w-full px-3 py-2 text-xs font-ui bg-canvas-card border border-canvas-border-strong rounded-box focus:outline-hidden focus:border-accent placeholder:text-ink-strike resize-none leading-relaxed text-ink"
               />
 
               <AnnotationAutocomplete
@@ -150,36 +150,36 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
 
           {/* Span Type Selector */}
           <div>
-            <label className="block text-[11px] font-mono text-[#757575] uppercase tracking-wider mb-1.5">
-              // Target Attachment
+            <label className="block text-[11px] font-ui text-ink-secondary uppercase tracking-wider mb-1.5">
+              Attachment
             </label>
-            <div className="grid grid-cols-3 gap-1 p-0.5 bg-[#F2F2F4] border border-[#E2E8F0] rounded-none text-xs font-mono font-medium">
+            <div className="grid grid-cols-3 gap-1 p-0.5 bg-canvas-subtle border border-canvas-border rounded-box text-xs font-medium">
               <button
                 type="button"
                 onClick={() => setMode('single')}
-                className={`py-1 rounded-none transition-all cursor-pointer ${
-                  mode === 'single' ? 'bg-[#3264EB] text-white font-bold' : 'text-[#757575] hover:text-[#212121]'
+                className={`py-1 rounded-btn transition-all cursor-pointer ${
+                  mode === 'single' ? 'bg-accent text-accent-fg font-bold shadow-xs' : 'text-ink-secondary hover:text-ink'
                 }`}
               >
-                :single
+                Single
               </button>
               <button
                 type="button"
                 onClick={() => setMode('contiguous')}
-                className={`py-1 rounded-none transition-all cursor-pointer ${
-                  mode === 'contiguous' ? 'bg-[#3264EB] text-white font-bold' : 'text-[#757575] hover:text-[#212121]'
+                className={`py-1 rounded-btn transition-all cursor-pointer ${
+                  mode === 'contiguous' ? 'bg-accent text-accent-fg font-bold shadow-xs' : 'text-ink-secondary hover:text-ink'
                 }`}
               >
-                :span
+                Span
               </button>
               <button
                 type="button"
                 onClick={() => setMode('non-contiguous')}
-                className={`py-1 rounded-none transition-all cursor-pointer ${
-                  mode === 'non-contiguous' ? 'bg-[#3264EB] text-white font-bold' : 'text-[#757575] hover:text-[#212121]'
+                className={`py-1 rounded-btn transition-all cursor-pointer ${
+                  mode === 'non-contiguous' ? 'bg-accent text-accent-fg font-bold shadow-xs' : 'text-ink-secondary hover:text-ink'
                 }`}
               >
-                :multi
+                Multi
               </button>
             </div>
           </div>
@@ -191,7 +191,7 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs font-mono bg-white border border-[#DDD6C8] rounded-md text-[#2B2C30]"
+                className="w-full px-3 py-1.5 text-xs font-ui bg-canvas-card border border-canvas-border rounded-btn text-ink"
               />
             </div>
           )}
@@ -199,22 +199,22 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
           {mode === 'contiguous' && (
             <div className="flex items-center gap-2">
               <div className="flex-1">
-                <span className="block text-[10px] font-mono text-[#7E7F85] mb-0.5">Start</span>
+                <span className="block text-[10px] text-ink-secondary mb-0.5">Start</span>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs font-mono bg-white border border-[#DDD6C8] rounded-md text-[#2B2C30]"
+                  className="w-full px-2.5 py-1.5 text-xs font-ui bg-canvas-card border border-canvas-border rounded-btn text-ink"
                 />
               </div>
-              <span className="text-xs text-[#7E7F85] mt-4">→</span>
+              <span className="text-xs text-ink-secondary mt-4">→</span>
               <div className="flex-1">
-                <span className="block text-[10px] font-mono text-[#7E7F85] mb-0.5">End</span>
+                <span className="block text-[10px] text-ink-secondary mb-0.5">End</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs font-mono bg-white border border-[#DDD6C8] rounded-md text-[#2B2C30]"
+                  className="w-full px-2.5 py-1.5 text-xs font-ui bg-canvas-card border border-canvas-border rounded-btn text-ink"
                 />
               </div>
             </div>
@@ -222,18 +222,18 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
 
           {mode === 'non-contiguous' && (
             <div className="space-y-2">
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-white border border-[#DDD6C8] rounded-md">
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-canvas-card border border-canvas-border rounded-box">
                 {customDates.map((d) => (
                   <span
                     key={d}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono bg-[#F2EDE4] rounded text-[#2B2C30]"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-canvas-subtle rounded-badge text-ink"
                   >
                     {d}
                     {customDates.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveCustomDate(d)}
-                        className="text-[#7E7F85] hover:text-[#D23B38]"
+                        className="text-ink-secondary hover:text-accent cursor-pointer"
                       >
                         ×
                       </button>
@@ -246,12 +246,12 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
                   type="date"
                   value={newDateInput}
                   onChange={(e) => setNewDateInput(e.target.value)}
-                  className="flex-1 px-2.5 py-1 text-xs font-mono bg-white border border-[#DDD6C8] rounded-md text-[#2B2C30]"
+                  className="flex-1 px-2.5 py-1 text-xs font-ui bg-canvas-card border border-canvas-border rounded-btn text-ink"
                 />
                 <button
                   type="button"
                   onClick={handleAddCustomDate}
-                  className="px-2.5 py-1 text-xs bg-[#F2EDE4] hover:bg-[#EAE3D6] text-[#2B2C30] rounded-md border border-[#DDD6C8]"
+                  className="px-2.5 py-1 text-xs bg-canvas-subtle hover:bg-canvas-subtle-hover text-ink rounded-btn border border-canvas-border cursor-pointer transition-colors"
                 >
                   + Add Day
                 </button>
@@ -261,20 +261,19 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
 
           {/* Color tag */}
           <div>
-            <label className="block text-xs font-mono text-[#7E7F85] uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-ui text-ink-secondary uppercase tracking-wider mb-1.5">
               Accent Color
             </label>
             <div className="flex items-center gap-2">
-              {/* None / Default uncolored option */}
               <button
                 type="button"
                 onClick={() => setColorTag(undefined)}
-                className={`w-5 h-5 rounded-full border border-[#DDD6C8] flex items-center justify-center transition-all cursor-pointer ${
-                  !colorTag ? 'ring-2 ring-offset-2 ring-[#2B2C30] bg-[#EAE3D6]' : 'bg-[#FAF8F5] opacity-70 hover:opacity-100'
+                className={`w-5 h-5 rounded-full border border-canvas-border flex items-center justify-center transition-all cursor-pointer ${
+                  !colorTag ? 'ring-2 ring-offset-2 ring-ink bg-canvas-subtle' : 'bg-canvas-card opacity-70 hover:opacity-100'
                 }`}
                 title="No color (Default / Clear)"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#A19D94]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-ink-strike" />
               </button>
 
               {NOTE_ACCENT_COLORS.map((c) => (
@@ -282,8 +281,8 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
                   key={c}
                   type="button"
                   onClick={() => setColorTag(colorTag === c ? undefined : c)}
-                  className={`w-5 h-5 rounded-full transition-transform ${
-                    colorTag === c ? 'scale-125 ring-2 ring-offset-2 ring-[#2B2C30]' : 'opacity-70 hover:opacity-100'
+                  className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
+                    colorTag === c ? 'scale-125 ring-2 ring-offset-2 ring-ink' : 'opacity-70 hover:opacity-100'
                   }`}
                   style={{ backgroundColor: c }}
                 />
@@ -292,19 +291,19 @@ export const AddNoteModal: React.FC<AddNoteModalProps> = ({
           </div>
 
           {/* Footer buttons */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-canvas-border">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-mono font-medium text-[#757575] hover:text-[#212121] border border-[#CBD5E1] rounded-none hover:bg-[#F2F2F4] transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs font-ui font-medium text-ink-secondary hover:text-ink border border-canvas-border-strong rounded-btn hover:bg-canvas-subtle transition-colors cursor-pointer"
             >
-              [:cancel]
+              Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 text-xs font-mono font-medium bg-[#3264EB] hover:bg-[#2552D0] text-white rounded-none border border-[#2552D0] transition-colors cursor-pointer"
+              className="px-4 py-1.5 text-xs font-ui font-medium bg-accent hover:bg-accent-hover text-accent-fg rounded-btn border border-accent transition-colors cursor-pointer"
             >
-              [+ :save]
+              Save
             </button>
           </div>
         </form>

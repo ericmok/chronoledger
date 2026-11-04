@@ -62,7 +62,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
 
   return (
     <div
-      className="shrink-0 relative border-r border-[#E5DFD5]"
+      className="shrink-0 relative border-r border-canvas-border"
       style={{ width: `${gridWidth}px`, height: `${totalWeeksHeight}px` }}
     >
       {/* Continuous Grid Weeks */}
@@ -120,16 +120,16 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                 >
                   {/* Day Number */}
                   <span
-                    className={`inline-flex items-center justify-center w-5 h-5 rounded-none font-mono text-[11px] transition-all group-hover:scale-105 ${
+                    className={`inline-flex items-center justify-center w-5 h-5 rounded-none font-ui text-[11px] transition-all group-hover:scale-105 ${
                       cell.isToday
-                        ? 'bg-[#3264EB] text-white font-bold ring-1 ring-[#3264EB]'
+                        ? 'bg-accent text-accent-fg font-bold ring-1 ring-accent'
                         : selectedDateKey === cell.dateKey
-                        ? 'bg-[#212121] text-white font-bold'
+                        ? 'bg-ink text-canvas font-bold'
                         : isCurrentWeekRow
-                        ? 'text-[#212121] font-bold'
+                        ? 'text-ink font-bold'
                         : cell.isOutsideTargetRange
-                        ? 'text-[#9E9E9E] opacity-40'
-                        : 'text-[#212121]'
+                        ? 'text-ink-strike opacity-40'
+                        : 'text-ink'
                     }`}
                   >
                     {cell.dayNumber}
@@ -199,7 +199,7 @@ export const ContinuousRadarGrid: React.FC<ContinuousRadarGridProps> = ({
                               y1="5.2"
                               x2="5.2"
                               y2="0.8"
-                              stroke="#2B2C30"
+                              stroke="var(--ink-primary)"
                               strokeWidth="0.9"
                               strokeLinecap="round"
                             />
