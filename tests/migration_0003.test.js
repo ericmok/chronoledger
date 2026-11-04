@@ -373,6 +373,92 @@ test('Tag Definitions API: Custom prototype defaults update indexing', async () 
   const delRes = await dispatchRequest(db, 'DELETE', '/api/tags/definitions/todo');
   assert.equal(delRes.status, 200);
   assert.equal(delRes.data.definition.color, '#51C391');
+
+  // Verify that deleting the definition resets note_attributes with is_default = 1 back to factory color
+  const colorAttrReset = db.prepare("SELECT attr_value FROM note_attributes WHERE note_id = ? AND attr_key = 'color'").get(noteId);
+  assert.equal(colorAttrReset.attr_value, '#51C391');
+
+  // 5. Rejection of invalid tag names
+  const invalidRes = await dispatchRequest(db, 'PUT', '/api/tags/definitions/bad%20tag!@#', { color: '#000000' });
+  assert.equal(invalidRes.status, 400);
+});
+
+test('Tag Indexing Edge Cases: Duplicate positional values, escaped tags, and mixed-case attributes', () => {
+  const db = new DatabaseSync(':memory:');
+  runMigrations(db);
+
+  // 1. Note with duplicate positional values and identical tags in one note
+  saveCalendarDelta(
+    db,
+    {
+      notes: {
+        upsert: [
+          {
+            id: 'note_edge_1',
+            content: '@project[mars, mars] @todo Buy milk @todo Call mom',
+            scope: 'day',
+            targets: ['2026-11-04'],
+          },
+        ],
+      },
+    },
+    'usr_alice'
+  );
+
+  const marsVals = db.prepare("SELECT attr_value FROM note_attributes WHERE note_id = 'note_edge_1' AND attr_key = '__val__'").all();
+  assert.equal(marsVals.length, 2);
+  assert.equal(marsVals[0].attr_value, 'mars');
+  assert.equal(marsVals[1].attr_value, 'mars');
+
+  const todoTags = db.prepare("SELECT tag_instance_id FROM note_attributes WHERE note_id = 'note_edge_1' AND attr_key = '__tag__' AND tag_name = 'todo'").all();
+  assert.equal(todoTags.length, 2);
+
+  // 2. Note with escaped tag (\@todo) must NOT be indexed
+  saveCalendarDelta(
+    db,
+    {
+      notes: {
+        upsert: [
+          {
+            id: 'note_edge_2',
+            content: 'Contact support\\@example.com or use escaped \\@todo syntax',
+            scope: 'day',
+            targets: ['2026-11-04'],
+          },
+        ],
+      },
+    },
+    'usr_alice'
+  );
+
+  const escapedAttrs = db.prepare("SELECT * FROM note_attributes WHERE note_id = 'note_edge_2'").all();
+  assert.equal(escapedAttrs.length, 0);
+
+  // 3. Mixed-case attribute keys normalize cleanly
+  saveCalendarDelta(
+    db,
+    {
+      notes: {
+        upsert: [
+          {
+            id: 'note_edge_3',
+            content: '@todo[Status=wip, Priority=1, Blocker="API"]',
+            scope: 'day',
+            targets: ['2026-11-04'],
+          },
+        ],
+      },
+    },
+    'usr_alice'
+  );
+
+  const statusRow = db.prepare("SELECT attr_value, attr_key FROM note_attributes WHERE note_id = 'note_edge_3' AND attr_key = 'status'").get();
+  assert.equal(statusRow.attr_value, 'wip');
+  assert.equal(statusRow.attr_key, 'status');
+
+  const prioRow = db.prepare("SELECT attr_value, num_value FROM note_attributes WHERE note_id = 'note_edge_3' AND attr_key = 'priority'").get();
+  assert.equal(prioRow.attr_value, '1');
+  assert.equal(prioRow.num_value, 1);
 });
 
 test('Strikethrough Resolution: toggle-strike updates note_attributes status between open and done', async () => {

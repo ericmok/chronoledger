@@ -67,6 +67,7 @@ export function extractNoteAttributeRows(userId, noteId, content, isStruck, crea
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
+    if (token.isEscaped) continue;
     const instanceId = token.instanceId || `ti_${i}_${token.tag}`;
     const proto = (userPrototypes && userPrototypes.get(token.tag)) ||
       CORE_TAG_PROTOTYPES[token.tag] ||
@@ -88,10 +89,11 @@ export function extractNoteAttributeRows(userId, noteId, content, isStruck, crea
     });
 
     // 2. Positional multi-values (e.g. @project[buildings, portfolio])
-    for (const val of token.positionalValues || []) {
+    for (let vIdx = 0; vIdx < (token.positionalValues || []).length; vIdx++) {
+      const val = token.positionalValues[vIdx];
       const numVal = !isNaN(Number(val)) && val.trim() !== '' ? Number(val) : null;
       rows.push({
-        id: `${noteId}_${instanceId}_val_${val}`,
+        id: `${noteId}_${instanceId}_val_${vIdx}_${val}`,
         user_id: effectiveUserId,
         note_id: noteId,
         tag_instance_id: instanceId,
@@ -127,20 +129,21 @@ export function extractNoteAttributeRows(userId, noteId, content, isStruck, crea
     }
 
     for (const [key, value] of Object.entries(merged)) {
+      const cleanKey = key.toLowerCase();
       const isOverride = Object.prototype.hasOwnProperty.call(token.attributes, key);
-      const isRel = ['ref', 'target', 'by', 'blocker', 'link'].includes(key.toLowerCase());
+      const isRel = ['ref', 'target', 'by', 'blocker', 'link'].includes(cleanKey);
       const strVal = String(value);
       const numVal = typeof value === 'number'
         ? value
         : (!isNaN(Number(value)) && typeof value !== 'boolean' && strVal.trim() !== '' ? Number(value) : null);
 
       rows.push({
-        id: `${noteId}_${instanceId}_${key}`,
+        id: `${noteId}_${instanceId}_attr_${cleanKey}`,
         user_id: effectiveUserId,
         note_id: noteId,
         tag_instance_id: instanceId,
         tag_name: token.tag,
-        attr_key: key,
+        attr_key: cleanKey,
         attr_value: strVal,
         num_value: numVal,
         is_relation: isRel ? 1 : 0,
@@ -174,7 +177,7 @@ export function reindexNoteAttributes(db, userId, noteId, content, isStruck, cre
 
   // 3. Batch insert
   const insertStmt = db.prepare(`
-    INSERT INTO note_attributes (
+    INSERT OR REPLACE INTO note_attributes (
       id, user_id, note_id, tag_instance_id, tag_name, attr_key, attr_value, num_value, is_relation, is_default, created_at
     ) VALUES (
       @id, @user_id, @note_id, @tag_instance_id, @tag_name, @attr_key, @attr_value, @num_value, @is_relation, @is_default, @created_at

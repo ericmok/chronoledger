@@ -128,7 +128,7 @@ export function parseBracketAttributes(bracketContent: string): {
       }
     } else {
       // Key-Value pair
-      const key = item.slice(0, firstEq).trim();
+      const key = item.slice(0, firstEq).trim().toLowerCase();
       const rawVal = item.slice(firstEq + 1).trim();
       const valStr = unquote(rawVal);
 

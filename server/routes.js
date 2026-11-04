@@ -1090,6 +1090,11 @@ export function handleApiRequest(req, res, db = getDatabase()) {
     const tagMatch = pathname.match(/^\/api\/tags\/definitions\/([^/]+)$/);
     if (tagMatch && req.method === 'PUT') {
       const tagName = decodeURIComponent(tagMatch[1]).toLowerCase();
+      if (!/^[a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF-]+$/.test(tagName)) {
+        sendJsonResponse(req, res, 400, { error: 'Invalid tag name' });
+        return true;
+      }
+
       readRequestBody(req)
         .then((body) => {
           if (!body || typeof body !== 'object') {
@@ -1102,15 +1107,46 @@ export function handleApiRequest(req, res, db = getDatabase()) {
           const gutterPriority = typeof body.gutterPriority === 'number' ? body.gutterPriority : 5;
           const isCore = body.isCore === 1 || body.isCore === true ? 1 : 0;
 
-          db.prepare(`
-            INSERT INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, tag_name) DO UPDATE SET
-              color = excluded.color,
-              notable = excluded.notable,
-              gutter_priority = excluded.gutter_priority,
-              updated_at = excluded.updated_at
-          `).run(`${userId}_${tagName}`, userId, tagName, color, notable, gutterPriority, isCore, now, now);
+          db.exec('BEGIN TRANSACTION;');
+          try {
+            db.prepare(`
+              INSERT INTO user_tag_definitions (id, user_id, tag_name, color, notable, gutter_priority, is_core, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(user_id, tag_name) DO UPDATE SET
+                color = excluded.color,
+                notable = excluded.notable,
+                gutter_priority = excluded.gutter_priority,
+                updated_at = excluded.updated_at
+            `).run(`${userId}_${tagName}`, userId, tagName, color, notable, gutterPriority, isCore, now, now);
+
+            // Propagate modified defaults to all existing notes using defaults (is_default = 1)
+            if (body.color !== undefined) {
+              db.prepare(`
+                UPDATE note_attributes
+                SET attr_value = ?
+                WHERE user_id = ? AND tag_name = ? AND attr_key = 'color' AND is_default = 1
+              `).run(color, userId, tagName);
+            }
+            if (body.notable !== undefined) {
+              db.prepare(`
+                UPDATE note_attributes
+                SET attr_value = ?
+                WHERE user_id = ? AND tag_name = ? AND attr_key = 'notable' AND is_default = 1
+              `).run(notable ? 'true' : 'false', userId, tagName);
+            }
+            if (body.gutterPriority !== undefined) {
+              db.prepare(`
+                UPDATE note_attributes
+                SET attr_value = ?, num_value = ?
+                WHERE user_id = ? AND tag_name = ? AND attr_key = 'priority' AND is_default = 1
+              `).run(String(gutterPriority), gutterPriority, userId, tagName);
+            }
+
+            db.exec('COMMIT;');
+          } catch (err) {
+            db.exec('ROLLBACK;');
+            throw err;
+          }
 
           sendJsonResponse(req, res, 200, {
             tag: tagName,
@@ -1128,14 +1164,47 @@ export function handleApiRequest(req, res, db = getDatabase()) {
     // DELETE /api/tags/definitions/:tagName (reset to core or remove custom)
     if (tagMatch && req.method === 'DELETE') {
       const tagName = decodeURIComponent(tagMatch[1]).toLowerCase();
-      db.prepare(`
-        DELETE FROM user_tag_definitions
-        WHERE user_id = ? AND tag_name = ?
-      `).run(userId, tagName);
+      if (!/^[a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF-]+$/.test(tagName)) {
+        sendJsonResponse(req, res, 400, { error: 'Invalid tag name' });
+        return true;
+      }
 
-      const defs = getUserTagDefinitions(db, userId);
-      const restored = defs.get(tagName) || null;
-      sendJsonResponse(req, res, 200, { ok: true, tag: tagName, definition: restored });
+      db.exec('BEGIN TRANSACTION;');
+      try {
+        db.prepare(`
+          DELETE FROM user_tag_definitions
+          WHERE user_id = ? AND tag_name = ?
+        `).run(userId, tagName);
+
+        const defs = getUserTagDefinitions(db, userId);
+        const restored = defs.get(tagName) || null;
+
+        if (restored) {
+          db.prepare(`
+            UPDATE note_attributes
+            SET attr_value = ?
+            WHERE user_id = ? AND tag_name = ? AND attr_key = 'color' AND is_default = 1
+          `).run(restored.color, userId, tagName);
+
+          db.prepare(`
+            UPDATE note_attributes
+            SET attr_value = ?
+            WHERE user_id = ? AND tag_name = ? AND attr_key = 'notable' AND is_default = 1
+          `).run(restored.notable ? 'true' : 'false', userId, tagName);
+
+          db.prepare(`
+            UPDATE note_attributes
+            SET attr_value = ?, num_value = ?
+            WHERE user_id = ? AND tag_name = ? AND attr_key = 'priority' AND is_default = 1
+          `).run(String(restored.gutterPriority), restored.gutterPriority, userId, tagName);
+        }
+
+        db.exec('COMMIT;');
+        sendJsonResponse(req, res, 200, { ok: true, tag: tagName, definition: restored });
+      } catch (err) {
+        db.exec('ROLLBACK;');
+        sendJsonResponse(req, res, 500, { error: err.message });
+      }
       return true;
     }
   }
