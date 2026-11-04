@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, X, Tag as TagIcon, Sparkles, Filter, Calendar as CalendarIcon, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { Search, X, Tag as TagIcon, Sparkles, Filter, Calendar as CalendarIcon, ArrowRight, CornerDownLeft, RefreshCw } from 'lucide-react';
 import type { NoteItem } from '../../types/calendar';
-import { matchesSelector } from '../../utils/selectorMatcher';
+import { matchesSelector, parseClientSelector } from '../../utils/selectorMatcher.ts';
 import { CORE_TAG_PROTOTYPES } from '../../utils/tagPrototypes';
 
 interface CommandPaletteModalProps {
@@ -24,6 +24,8 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   onOpenFolio,
 }) => {
   const [query, setQuery] = useState(activeFilter || '');
+  const [serverResults, setServerResults] = useState<NoteItem[] | null>(null);
+  const [isSearchingServer, setIsSearchingServer] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync with activeFilter when opened
@@ -78,11 +80,68 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     return [];
   }, [query]);
 
-  // Matching notes evaluated in-memory (<1ms)
+  // Server-backed full SQLite search with 150ms debounce
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setServerResults(null);
+      return;
+    }
+
+    const { terms, plainText } = parseClientSelector(trimmed);
+    const tagTerms = terms.map((t) => {
+      let termStr = t.isNegated ? `!@${t.tag}` : `@${t.tag}`;
+      if (t.conditions && t.conditions.length > 0) {
+        const condStrs = t.conditions.map((c) => {
+          if (c.isPositional) return String(c.val);
+          if (c.isPresence) return `${c.key}=*`;
+          return `${c.key}${c.op}${c.val}`;
+        });
+        termStr += `[${condStrs.join(', ')}]`;
+      }
+      return termStr;
+    });
+
+    const selectorStr = tagTerms.join(' AND ');
+    const params = new URLSearchParams();
+    if (selectorStr) params.set('selector', selectorStr);
+    if (plainText) params.set('text', plainText);
+
+    const timer = setTimeout(async () => {
+      setIsSearchingServer(true);
+      try {
+        const res = await fetch(`/api/notes/search?${params.toString()}`, { credentials: 'same-origin' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.notes)) {
+            setServerResults(data.notes);
+          }
+        }
+      } catch {
+        // Fall back gracefully to local in-memory matches
+      } finally {
+        setIsSearchingServer(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Hybrid matching: instantaneous in-memory local results merged with full SQLite server results
   const matchedNotes = useMemo(() => {
     if (!query.trim()) return [];
-    return notes.filter((n) => matchesSelector(n.content, n.isStruck, query));
-  }, [notes, query]);
+    const local = notes.filter((n) => matchesSelector(n.content, n.isStruck, query));
+    if (!serverResults) return local;
+
+    const map = new Map<string, NoteItem>();
+    for (const n of local) map.set(n.id, n);
+    for (const n of serverResults) {
+      if (!map.has(n.id)) {
+        map.set(n.id, n);
+      }
+    }
+    return Array.from(map.values());
+  }, [notes, query, serverResults]);
 
   if (!isOpen) return null;
 
@@ -130,7 +189,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
       >
         {/* Search Input Bar */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#E5DFD5] bg-white/70">
-          <Search className="w-5 h-5 text-[#8C827A] shrink-0" />
+          {isSearchingServer ? (
+            <RefreshCw className="w-5 h-5 text-[#D97706] animate-spin shrink-0" />
+          ) : (
+            <Search className="w-5 h-5 text-[#8C827A] shrink-0" />
+          )}
           <input
             ref={inputRef}
             type="text"
