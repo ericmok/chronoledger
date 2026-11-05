@@ -14,42 +14,45 @@
   --canvas-subtle-hover: #EAE3D6;
   --canvas-border: #E5DFD5;
   --canvas-border-strong: #D5CDC0;
-  
+
   --day-divider: #D5CDC0;
   --day-divider-width: 1px;
-  
+
   --ink-primary: #2B2C30;
   --ink-secondary: #71727A;
   --ink-strike: #A19D94;
   --ink-accent: #D23B38;
-  
+
   --accent-primary: #D23B38;
   --accent-primary-hover: #B82C29;
   --accent-text: #FAF8F5;
-  
+
   --today-bg: #FAF3EA;
   --today-row-bg: #FAF3EA;
   --today-row-hover-bg: #F5ECE0;
   --today-border: #D23B38;
   --day-row-hover-bg: #F7F4EC;
-  --radar-current-week-bg: #FAF3EA;
-  
-  --radius-box: 0.5rem;   /* 8px */
-  --radius-btn: 0.375rem; /* 6px */
-  --radius-badge: 0.25rem;/* 4px */
-  
+  --radar-current-week-bg: #F5E8D4;
+
+  --radius-box: 0.5rem;
+  /* 8px */
+  --radius-btn: 0.375rem;
+  /* 6px */
+  --radius-badge: 0.25rem;
+  /* 4px */
+
   --font-serif: 'Newsreader', Georgia, serif;
   --font-hand: 'Caveat', cursive;
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  
+
   --font-main: var(--font-serif);
   --font-ui: var(--font-sans);
-  
+
   --scrollbar-thumb: #D5CDC0;
   --scrollbar-thumb-hover: #D23B38;
   --scrollbar-radius: 4px;
-  
+
   --selection-bg: #D23B38;
   --selection-text: #FAF8F5;
 }
@@ -62,42 +65,42 @@
   --canvas-subtle-hover: #E9ECEF;
   --canvas-border: #CBD5E1;
   --canvas-border-strong: #94A3B8;
-  
+
   --day-divider: #94A3B8;
   --day-divider-width: 2px;
-  
+
   --ink-primary: #212121;
   --ink-secondary: #757575;
   --ink-strike: #9E9E9E;
   --ink-accent: #3264EB;
-  
+
   --accent-primary: #3264EB;
   --accent-primary-hover: #2552D0;
   --accent-text: #FFFFFF;
-  
+
   --today-bg: #EFF6FF;
   --today-row-bg: #EFF6FF;
   --today-row-hover-bg: #E0EDFE;
   --today-border: #3264EB;
   --day-row-hover-bg: #F8FAFC;
-  --radar-current-week-bg: #EFF6FF;
-  
+  --radar-current-week-bg: #BFDBFE;
+
   --radius-box: 0px;
   --radius-btn: 0px;
   --radius-badge: 0px;
-  
+
   --font-serif: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   --font-hand: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   --font-sans: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  
+
   --font-main: var(--font-mono);
   --font-ui: var(--font-mono);
-  
+
   --scrollbar-thumb: #CBD5E1;
   --scrollbar-thumb-hover: #3264EB;
   --scrollbar-radius: 0px;
-  
+
   --selection-bg: #3264EB;
   --selection-text: #FFFFFF;
 }
@@ -119,22 +122,22 @@
   --font-hand: var(--font-hand);
   --font-main: var(--font-main);
   --font-ui: var(--font-ui);
-  
+
   --color-canvas: var(--canvas-bg);
   --color-canvas-card: var(--canvas-card);
   --color-canvas-subtle: var(--canvas-subtle);
   --color-canvas-subtle-hover: var(--canvas-subtle-hover);
   --color-canvas-border: var(--canvas-border);
   --color-canvas-border-strong: var(--canvas-border-strong);
-  
+
   --color-ink: var(--ink-primary);
   --color-ink-secondary: var(--ink-secondary);
   --color-ink-strike: var(--ink-strike);
-  
+
   --color-accent: var(--accent-primary);
   --color-accent-hover: var(--accent-primary-hover);
   --color-accent-fg: var(--accent-text);
-  
+
   --color-today: var(--today-bg);
   --color-today-border: var(--today-border);
 
@@ -143,7 +146,7 @@
   --radius-box: var(--radius-box);
   --radius-btn: var(--radius-btn);
   --radius-badge: var(--radius-badge);
-  
+
   /* Legacy alias support for existing components */
   --color-paper: var(--canvas-bg);
   --color-paper-card: var(--canvas-card);
@@ -154,7 +157,9 @@
   --color-ink-red: var(--accent-primary);
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -169,6 +174,7 @@ html, body, #root {
 .paper-texture {
   background-color: var(--canvas-bg);
 }
+
 :root[data-theme="lupine"] .paper-texture {
   background-image: none !important;
 }
@@ -178,13 +184,16 @@ html, body, #root {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--canvas-subtle);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: var(--scrollbar-radius);
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
@@ -196,8 +205,15 @@ html, body, #root {
 
 /* Terminal cursor blink animation */
 @keyframes console-cursor {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
 }
 
 .animate-console-cursor {
@@ -206,9 +222,12 @@ html, body, #root {
 
 /* Subtle harmonic bounce animation for active priority notes */
 @keyframes subtle-bounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-2px);
   }
@@ -222,6 +241,7 @@ html, body, #root {
   .animate-subtle-bounce {
     animation: none;
   }
+
   .animate-console-cursor {
     animation: none;
   }

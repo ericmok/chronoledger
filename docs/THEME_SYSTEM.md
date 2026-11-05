@@ -43,6 +43,7 @@ All tokens are defined in [`src/index.css`](../src/index.css) under `:root[data-
 | :--- | :--- | :--- | :--- | :--- |
 | `--today-bg` | `bg-today` | Background wash for today / active week | `#FAF3EA` (Warm Tint) | `#EFF6FF` (Ice Blue) |
 | `--today-border` | `border-today-border` | Highlight border for today indicators | `#D23B38` | `#3264EB` |
+| `--radar-current-week-bg` | — | Radar current week row highlight | `#F5E8D4` (Warm Amber) | `#BFDBFE` (Soft Cobalt Wash) |
 
 ### Radii & Geometry Tokens
 | Token Name | Tailwind Class | Role | Paper Value | Lupine Value |
