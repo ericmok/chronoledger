@@ -182,7 +182,7 @@ export const DayRow: React.FC<DayRowProps> = ({
     <div
       data-day-row="true"
       data-date-string={dateItem.dateString}
-      className="flex flex-col flex-1 w-full group/row"
+      className="flex flex-col flex-1 w-full group/row timeline-day-divider"
     >
       {/* Month Divider Banner */}
       {dateItem.isFirstDayOfMonth && seasonalColor && (

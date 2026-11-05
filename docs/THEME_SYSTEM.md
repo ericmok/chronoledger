@@ -24,8 +24,9 @@ All tokens are defined in [`src/index.css`](../src/index.css) under `:root[data-
 | `--canvas-card` | `bg-canvas-card` | Elevated cards, notes, popovers | `#FFFFFF` | `#FFFFFF` |
 | `--canvas-subtle` | `bg-canvas-subtle` | Headers, gutters, input backings | `#F2EDE4` (Warm Gray) | `#F2F2F4` (Cool Slate) |
 | `--canvas-subtle-hover` | `hover:bg-canvas-subtle-hover` | Hover state for subtle controls | `#EAE3D6` | `#E9ECEF` |
-| `--canvas-border` | `border-canvas-border` | Dividers, separators, cell borders | `#E5DFD5` | `#E2E8F0` |
-| `--canvas-border-strong` | `border-canvas-border-strong` | Active input borders, prominent dividers | `#D5CDC0` | `#CBD5E1` |
+| `--canvas-border` | `border-canvas-border` | Dividers, separators, cell borders | `#E5DFD5` | `#CBD5E1` (Cool Slate) |
+| `--canvas-border-strong` | `border-canvas-border-strong` | Active input borders, prominent dividers | `#D5CDC0` | `#94A3B8` (Medium Slate) |
+| `--day-divider` | `border-day-divider` / `.timeline-day-divider` | Prominent boundary lines separating days | `#D5CDC0` (1px) | `#94A3B8` (2px) |
 
 ### Typography & Ink Tokens
 | Token Name | Tailwind Class | Role | Paper Value | Lupine Value |

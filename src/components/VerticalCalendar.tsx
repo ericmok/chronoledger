@@ -438,7 +438,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                 }`}
               >
                 {/* TIER 1: Daily Timeline (7 Days) */}
-                <div className="flex-1 flex flex-col min-w-0 divide-y divide-canvas-border">
+                <div className="flex-1 flex flex-col min-w-0">
                   {weekBlock.days.map((dateItem, dayIdx) => (
                     <DayRow
                       key={dateItem.dateString}
@@ -472,7 +472,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                   ))}
                   {/* Mobile In-Stream Week Scratch Pad Bridge */}
                   {hideWeekPanel && onOpenWeekScratchPad && (
-                    <div className="px-3 py-1.5 flex items-center justify-between text-[11px] font-ui select-none border-t bg-canvas-subtle/90 border-canvas-border">
+                    <div className="px-3 py-1.5 flex items-center justify-between text-[11px] font-ui select-none bg-canvas-subtle/90 timeline-day-divider">
                       <div className="flex items-center gap-1.5">
                         <span className="font-semibold text-ink">Week {weekBlock.weekNumber}</span>
                         <span className="text-[10px] text-ink-secondary">
@@ -500,7 +500,7 @@ export const VerticalCalendar: React.FC<VerticalCalendarProps> = memo(({
                 {/* TIER 2: Week Notes Rail & Sticky Sled */}
                 {!hideWeekPanel && (
                   <div
-                    className={`w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 p-1.5 relative flex flex-col transition-colors border-l border-canvas-border ${
+                    className={`w-64 sm:w-72 lg:w-80 xl:w-96 shrink-0 p-1.5 relative flex flex-col transition-colors border-l border-canvas-border timeline-day-divider ${
                       weekBlock.containsToday ? 'bg-today/40' : 'bg-canvas-subtle/20'
                     }`}
                   >

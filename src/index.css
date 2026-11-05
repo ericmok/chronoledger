@@ -15,6 +15,9 @@
   --canvas-border: #E5DFD5;
   --canvas-border-strong: #D5CDC0;
   
+  --day-divider: #D5CDC0;
+  --day-divider-width: 1px;
+  
   --ink-primary: #2B2C30;
   --ink-secondary: #71727A;
   --ink-strike: #A19D94;
@@ -57,8 +60,11 @@
   --canvas-card: #FFFFFF;
   --canvas-subtle: #F2F2F4;
   --canvas-subtle-hover: #E9ECEF;
-  --canvas-border: #E2E8F0;
-  --canvas-border-strong: #CBD5E1;
+  --canvas-border: #CBD5E1;
+  --canvas-border-strong: #94A3B8;
+  
+  --day-divider: #94A3B8;
+  --day-divider-width: 2px;
   
   --ink-primary: #212121;
   --ink-secondary: #757575;
@@ -101,6 +107,11 @@
   border-radius: 0px !important;
 }
 
+/* Prominent timeline day boundary rule */
+.timeline-day-divider {
+  border-bottom: var(--day-divider-width, 1px) solid var(--day-divider);
+}
+
 @theme {
   --font-mono: var(--font-mono);
   --font-sans: var(--font-sans);
@@ -126,6 +137,8 @@
   
   --color-today: var(--today-bg);
   --color-today-border: var(--today-border);
+
+  --color-day-divider: var(--day-divider);
 
   --radius-box: var(--radius-box);
   --radius-btn: var(--radius-btn);
