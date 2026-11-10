@@ -230,12 +230,12 @@ export const DayRow: React.FC<DayRowProps> = ({
       {/* Date Gutter */}
       <div
         data-date-gutter="true"
-        className="w-14 shrink-0 flex flex-col items-center justify-start pt-0.5 font-mono select-none"
+        className="w-14 shrink-0 flex flex-col items-center justify-start pt-0.5 font-ui select-none"
       >
         {dateItem.isToday ? (
           /* Today Unit: Vertical Pill */
           <div
-            className="relative flex flex-col items-center justify-center bg-accent text-accent-fg rounded-btn px-2 py-1 shadow-xs min-w-[38px] cursor-pointer hover:bg-accent-hover transition-all font-mono leading-none"
+            className="relative flex flex-col items-center justify-center bg-accent text-accent-fg rounded-btn px-2 py-1 shadow-xs min-w-[38px] cursor-pointer hover:bg-accent-hover transition-all font-ui leading-none"
             title={
               isCircled
                 ? `Today (${circleColorName} - click to cycle color, double-click to remove)`
@@ -244,10 +244,10 @@ export const DayRow: React.FC<DayRowProps> = ({
             onDoubleClick={handleDateDoubleClick}
             onClick={handleDateClick}
           >
-            <span className="text-xl font-bold font-mono leading-none">
-              {String(dateItem.dayOfMonth).padStart(2, '0')}
+            <span className="text-2xl font-bold font-ui tracking-tight leading-none">
+              {dateItem.dayOfMonth}
             </span>
-            <span className="text-[9px] font-mono uppercase font-medium text-accent-fg/80 leading-none mt-1 tracking-wider">
+            <span className="text-[9px] font-ui uppercase font-semibold text-accent-fg/80 leading-none mt-1 tracking-wider">
               {dayOfWeekShort}
             </span>
 
@@ -275,7 +275,7 @@ export const DayRow: React.FC<DayRowProps> = ({
           </div>
         ) : (
           <div
-            className="flex flex-col items-center justify-center leading-none cursor-pointer group/date py-0.5 px-1.5 hover:bg-canvas-subtle rounded-btn font-mono"
+            className="flex flex-col items-center justify-center leading-none cursor-pointer group/date py-0.5 px-1.5 hover:bg-canvas-subtle rounded-btn font-ui"
             title={
               isCircled
                 ? `${dateItem.monthName} ${dateItem.dayOfMonth} (${circleColorName} - click to cycle color, double-click to remove)`
@@ -285,13 +285,13 @@ export const DayRow: React.FC<DayRowProps> = ({
             onClick={handleDateClick}
           >
             <span
-              className={`relative inline-flex items-center justify-center text-xl font-mono font-bold transition-colors leading-none ${
+              className={`relative inline-flex items-center justify-center min-w-[24px] text-2xl font-ui font-bold tracking-tight transition-colors leading-none ${
                 hasFilterMatch
-                  ? 'ring-1 ring-accent bg-today px-0.5 text-accent rounded-badge'
+                  ? 'ring-1 ring-accent bg-today px-1 text-accent rounded-badge'
                   : 'text-ink'
               }`}
             >
-              {String(dateItem.dayOfMonth).padStart(2, '0')}
+              {dateItem.dayOfMonth}
 
               {hasFilterMatch && (
                 <span
@@ -315,9 +315,9 @@ export const DayRow: React.FC<DayRowProps> = ({
               )}
             </span>
             <span
-              className={`font-mono text-[9px] uppercase font-medium leading-none mt-1 tracking-wider ${
+              className={`font-ui text-[9px] uppercase font-semibold leading-none mt-1 tracking-wider ${
                 dateItem.dayOfWeek === 0 || dateItem.dayOfWeek === 6
-                  ? 'text-accent font-medium'
+                  ? 'text-accent font-semibold'
                   : 'text-ink-secondary'
               }`}
             >
