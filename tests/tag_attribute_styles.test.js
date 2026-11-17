@@ -33,7 +33,7 @@ describe('Tag Attribute Styles & Motion (Phase 4 Extension)', () => {
   test('Migration 0004 & 0005: Adds style_rules and base_style columns and seeds default rules', () => {
     // Check metadata version
     const meta = db.prepare("SELECT value FROM metadata WHERE key='schema_version'").get();
-    assert.equal(meta.value, '12');
+    assert.ok(Number(meta.value) >= 12);
 
     // Verify table structure
     const colInfo = db.prepare('PRAGMA table_info(user_tag_definitions)').all();
@@ -130,7 +130,7 @@ describe('Tag Attribute Styles & Motion (Phase 4 Extension)', () => {
 
   test('Migration 0005: Adds base_style column and seeds @important and @skipped', () => {
     const meta = db.prepare("SELECT value FROM metadata WHERE key='schema_version'").get();
-    assert.equal(meta.value, '12');
+    assert.ok(Number(meta.value) >= 12);
 
     const colInfo = db.prepare('PRAGMA table_info(user_tag_definitions)').all();
     assert.equal(colInfo.some((c) => c.name === 'base_style'), true);

@@ -71,6 +71,7 @@ export type AnnotationCategory =
   | 'time'
   | 'failed'
   | 'skipped'
+  | 'link'
   | 'custom';
 
 export type BadgeTheme = 'solid' | 'wash';
@@ -452,6 +453,18 @@ export const ANNOTATION_CONFIGS: Record<AnnotationCategory, AnnotationConfig> = 
     dimsText: true,
     showInGutter: false,
     priority: 9,
+  },
+  link: {
+    type: 'link',
+    primaryTag: 'link',
+    aliases: ['url', 'href'],
+    label: 'Link',
+    description: 'Web bookmarks, file references, and external links',
+    colorName: 'hyperlinkBlue',
+    color: CANONICAL_COLORS.hyperlinkBlue.solid,
+    washColor: CANONICAL_COLORS.hyperlinkBlue.wash,
+    showInGutter: false,
+    priority: 10,
   },
   custom: {
     type: 'custom',
@@ -1016,5 +1029,12 @@ export const SUGGESTED_TAGS: QuickTagOption[] = [
     description: 'Postponed or skipped task (dimmed)',
     color: ANNOTATION_CONFIGS.skipped.color,
     type: 'skipped',
+  },
+  {
+    tag: 'link',
+    label: '@link',
+    description: 'Web bookmarks, articles, and external links',
+    color: ANNOTATION_CONFIGS.link.color,
+    type: 'link',
   },
 ];

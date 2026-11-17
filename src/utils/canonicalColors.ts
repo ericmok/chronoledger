@@ -21,6 +21,7 @@ export type CanonicalColorName =
   | 'green'
   | 'teal'
   | 'blue'
+  | 'hyperlinkBlue'
   | 'gray'
   | 'lightGray'
   | 'mutedRed';
@@ -83,6 +84,13 @@ export const CANONICAL_COLORS: Record<CanonicalColorName, CanonicalColorDefiniti
     wash: '#98C8F4',
     description: 'Thought / Reflection / Journal insight',
   },
+  hyperlinkBlue: {
+    id: 'hyperlinkBlue',
+    label: 'Hyperlink Blue',
+    solid: '#1D4ED8',
+    wash: '#DBEAFE',
+    description: 'Links / Web bookmarks / External references',
+  },
   gray: {
     id: 'gray',
     label: 'Gray',
@@ -116,6 +124,7 @@ export const CANONICAL_COLOR_LIST: CanonicalColorDefinition[] = [
   CANONICAL_COLORS.green,
   CANONICAL_COLORS.teal,
   CANONICAL_COLORS.blue,
+  CANONICAL_COLORS.hyperlinkBlue,
   CANONICAL_COLORS.purple,
   CANONICAL_COLORS.mutedRed,
   CANONICAL_COLORS.gray,

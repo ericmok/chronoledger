@@ -113,13 +113,13 @@ test('Migration 0003: Reversible up() and down() lifecycle and historical note b
   const vAfter = db.prepare("SELECT value FROM metadata WHERE key='schema_version'").get();
   assert.equal(vAfter.value, '10');
 
-  // 4. Verify user_tag_definitions was seeded for Alice, Bob, and Guest
+  // 4. Verify user_tag_definitions was seeded for Alice, Bob, and Guest (11 core prototypes)
   const aliceDefs = db.prepare("SELECT COUNT(*) as count FROM user_tag_definitions WHERE user_id = 'usr_alice'").get();
-  assert.equal(aliceDefs.count, 10);
+  assert.equal(aliceDefs.count, 11);
   const bobDefs = db.prepare("SELECT COUNT(*) as count FROM user_tag_definitions WHERE user_id = 'usr_bob'").get();
-  assert.equal(bobDefs.count, 10);
+  assert.equal(bobDefs.count, 11);
   const guestDefs = db.prepare("SELECT COUNT(*) as count FROM user_tag_definitions WHERE user_id = '__guest__'").get();
-  assert.equal(guestDefs.count, 10);
+  assert.equal(guestDefs.count, 11);
 
   // 5. Verify historical backfill into note_attributes
   // Alice Note 1

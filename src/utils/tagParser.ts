@@ -307,42 +307,49 @@ export function cycleTagStatus(content: string, rawTag: string): string {
 
   const tagName = match[1];
   const bracketBody = match[2];
-
-  if (bracketBody !== undefined) {
-    const { positionalValues, attributes } = parseBracketAttributes(bracketBody);
-    const currentStatus = String(attributes.status || '').toLowerCase();
-
-    let nextStatus: string;
-    if (!currentStatus || currentStatus === 'open') {
-      nextStatus = 'wip';
-    } else if (currentStatus === 'wip') {
-      nextStatus = 'done';
-    } else {
-      nextStatus = 'open';
-    }
-
-    // Reconstruct bracket attributes
-    const parts: string[] = [...positionalValues];
-
-    // Other attributes first
-    for (const [k, v] of Object.entries(attributes)) {
-      if (k === 'status' || k === 'resolved') continue;
-      if (v === true) parts.push(k);
-      else parts.push(`${k}=${typeof v === 'string' && v.includes(' ') ? `"${v}"` : v}`);
-    }
-
-    if (nextStatus !== 'open') {
-      parts.push(`status=${nextStatus}`);
-    }
-
-    const newTag = parts.length > 0 ? `@${tagName}[${parts.join(', ')}]` : `@${tagName}`;
-    return replaceUnescapedTag(content, rawTag, newTag);
-  }
-
-  // 3. Simple scalar tag without brackets: @todo, @important, etc.
   const lowerTag = tagName.toLowerCase();
   const isStatusTag = lowerTag === 'todo' || lowerTag === 'task' || lowerTag === 'wait' || lowerTag === 'habit';
 
+  if (bracketBody !== undefined) {
+    const { positionalValues, attributes } = parseBracketAttributes(bracketBody);
+    const hasExplicitStatus = attributes.status !== undefined;
+
+    // Only cycle status if it is a known status tag or already has an explicit status attribute
+    if (isStatusTag || hasExplicitStatus) {
+      const currentStatus = String(attributes.status || '').toLowerCase();
+
+      let nextStatus: string;
+      if (!currentStatus || currentStatus === 'open') {
+        nextStatus = 'wip';
+      } else if (currentStatus === 'wip') {
+        nextStatus = 'done';
+      } else {
+        nextStatus = 'open';
+      }
+
+      // Reconstruct bracket attributes
+      const parts: string[] = [...positionalValues];
+
+      // Other attributes first
+      for (const [k, v] of Object.entries(attributes)) {
+        if (k === 'status' || k === 'resolved' || positionalValues.includes(k)) continue;
+        if (v === true) parts.push(k);
+        else parts.push(`${k}=${typeof v === 'string' && v.includes(' ') ? `"${v}"` : v}`);
+      }
+
+      if (nextStatus !== 'open') {
+        parts.push(`status=${nextStatus}`);
+      }
+
+      const newTag = parts.length > 0 ? `@${tagName}[${parts.join(', ')}]` : `@${tagName}`;
+      return replaceUnescapedTag(content, rawTag, newTag);
+    }
+
+    // Non-status bracket tags (e.g. @link[web], @important[urgent]) toggle strikethrough
+    return replaceUnescapedTag(content, rawTag, `~~${rawTag}~~`);
+  }
+
+  // 3. Simple scalar tag without brackets: @todo, @important, etc.
   if (isStatusTag) {
     // open -> wip
     const newTag = `@${tagName}[status=wip]`;

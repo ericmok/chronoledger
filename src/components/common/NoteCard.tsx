@@ -432,7 +432,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             )}
           </svg>
         </span>
-        <span className="leading-none">{anchor.tag}</span>
+        <span className="leading-none">
+          {anchor.positionalValues && anchor.positionalValues.length > 0
+            ? `${anchor.tag}: ${anchor.positionalValues.join(', ')}`
+            : anchor.tag}
+        </span>
       </button>
     );
   };
@@ -537,7 +541,11 @@ export const NoteCard: React.FC<NoteCardProps> = ({
             )}
           </svg>
         </span>
-        <span className="leading-none">{badge.tag}</span>
+        <span className="leading-none">
+          {badge.positionalValues && badge.positionalValues.length > 0
+            ? `${badge.tag}: ${badge.positionalValues.join(', ')}`
+            : badge.tag}
+        </span>
       </button>
     );
   };

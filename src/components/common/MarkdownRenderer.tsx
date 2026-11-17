@@ -74,13 +74,18 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         const bgColor = isResolved ? seg.annotation.resolvedBgColor : seg.annotation.bgColor;
         const textColor = isResolved ? seg.annotation.resolvedTextColor : seg.annotation.textColor;
 
+        const posVals = seg.annotation.positionalValues;
+        const label = posVals && posVals.length > 0
+          ? `${seg.annotation.tag}: ${posVals.join(', ')}`
+          : seg.annotation.tag;
+
         return (
           <span
             key={key}
             className="inline-flex items-center gap-1 mx-0.5 px-1.5 py-[2px] rounded text-[11px] font-sans font-semibold align-baseline leading-none select-none"
             style={{ backgroundColor: bgColor, color: textColor }}
           >
-            {seg.annotation.tag}
+            {label}
           </span>
         );
       }

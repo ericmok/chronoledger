@@ -186,6 +186,17 @@ export const CORE_TAG_PROTOTYPES: Record<string, TagTypeDefinition> = {
       animatedStyle: 'none',
     },
   },
+  link: {
+    tag: 'link',
+    color: '#1D4ED8', // hyperlink blue
+    notable: false,
+    gutterPriority: 10,
+    isCore: true,
+    baseStyle: {
+      colorStyle: 'light_on_dark',
+      animatedStyle: 'none',
+    },
+  },
   custom: {
     tag: 'custom',
     color: '#6F7880', // gray
