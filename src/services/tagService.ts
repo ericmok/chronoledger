@@ -31,7 +31,7 @@ export async function getTagDefinitions(): Promise<Record<string, UserTagDefinit
   try {
     const res = await fetch('/api/tags/definitions', {
       method: 'GET',
-      headers: { credentials: 'same-origin' },
+      credentials: 'same-origin',
     });
     if (res.ok) {
       const data = await res.json();

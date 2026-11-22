@@ -84,6 +84,7 @@ export const NOTE_ACCENT_COLORS = [
   '#51C391', // Green
   '#81DACE', // Teal
   '#4FA3F2', // Blue
+  '#1D4ED8', // Hyperlink Blue (Link)
   '#D097F7', // Purple
   '#D86B6B', // Muted Red
   '#6F7880', // Gray

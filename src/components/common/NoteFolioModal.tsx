@@ -241,14 +241,14 @@ export const NoteFolioModal: React.FC<NoteFolioModalProps> = ({
             </div>
 
             {/* Quick Tag Insert Dropdown / Helper */}
-            <div className="flex items-center gap-1.5 flex-nowrap">
+            <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto">
               <span className="text-[10px] font-mono text-[#8E8F95] hidden md:inline">Tags:</span>
-              {SUGGESTED_TAGS.slice(0, 4).map((opt) => (
+              {SUGGESTED_TAGS.filter((opt) => opt.type !== 'time').map((opt) => (
                 <button
                   key={opt.tag}
                   type="button"
                   onClick={() => insertSyntax(`${opt.tag} `)}
-                  className="px-1.5 py-0.5 rounded text-[10px] font-mono border border-[#DDD6C8] bg-white hover:bg-[#FAF8F5] text-[#2B2C30] transition-colors cursor-pointer flex items-center gap-1"
+                  className="px-1.5 py-0.5 rounded text-[10px] font-mono border border-[#DDD6C8] bg-white hover:bg-[#FAF8F5] text-[#2B2C30] transition-colors cursor-pointer flex items-center gap-1 shrink-0"
                 >
                   <span
                     className="w-1.5 h-1.5 rounded-full shrink-0"
